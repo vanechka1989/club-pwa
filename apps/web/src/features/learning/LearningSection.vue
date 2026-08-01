@@ -3923,15 +3923,6 @@ watch(
               >
                 Удалить обложку
               </button>
-              <label class="admin-field">
-                <span>Содержимое урока</span>
-                <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
-              </label>
-
-              <label class="admin-switch-row learning-publish-switch">
-                <input v-model="lessonPublished" type="checkbox" aria-label="Опубликовать урок" />
-                <span>Опубликовать урок</span>
-              </label>
 
               <button
                 class="lesson-assessment-settings-link"
@@ -3946,6 +3937,26 @@ watch(
                 </span>
                 <span v-if="selectedLessonItem?.isPersisted" class="lesson-assessment-settings-link__action">Настроить <ChevronRight aria-hidden="true" /></span>
               </button>
+
+              <label class="admin-field">
+                <span>Содержимое урока</span>
+                <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
+              </label>
+
+              <label class="learning-publish-switch">
+                <span class="learning-publish-switch__copy">
+                  <strong>Опубликовать урок</strong>
+                  <small>{{ lessonPublished ? "Урок виден клиентам" : "Урок пока скрыт от клиентов" }}</small>
+                </span>
+                <input
+                  v-model="lessonPublished"
+                  class="learning-publish-switch__input"
+                  type="checkbox"
+                  role="switch"
+                  aria-label="Опубликовать урок"
+                />
+                <span class="learning-publish-switch__control" aria-hidden="true"></span>
+              </label>
 
               <section class="lesson-extra-materials">
                 <header>

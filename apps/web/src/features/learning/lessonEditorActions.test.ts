@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const componentSource = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
 const stylesSource = readFileSync(resolve(__dirname, "../../styles.css"), "utf8");
+const routeStylesSource = readFileSync(resolve(__dirname, "learningRoute.css"), "utf8");
 
 describe("lesson editor actions", () => {
   it("moves assessment configuration to a dedicated lesson page", () => {
@@ -14,6 +15,23 @@ describe("lesson editor actions", () => {
     expect(componentSource).toContain("openLearningTask(`/learning/lessons/${selectedLessonItem.value.id}/assessment`)");
     expect(componentSource).toContain("<LessonAssessmentSettingsPage");
     expect(componentSource).not.toContain("<LessonAssessmentEditor");
+  });
+
+  it("places knowledge-check settings directly after cover controls and before lesson content", () => {
+    const coverStart = componentSource.indexOf('class="lesson-cover-mode-buttons"');
+    const assessmentStart = componentSource.indexOf('class="lesson-assessment-settings-link"');
+    const contentStart = componentSource.indexOf('aria-label="Содержимое урока"', coverStart);
+
+    expect(coverStart).toBeGreaterThan(-1);
+    expect(assessmentStart).toBeGreaterThan(coverStart);
+    expect(assessmentStart).toBeLessThan(contentStart);
+  });
+
+  it("renders publication as a compact custom switch instead of a visible native checkbox", () => {
+    expect(componentSource).toContain('class="learning-publish-switch__input"');
+    expect(componentSource).toContain('class="learning-publish-switch__control"');
+    expect(routeStylesSource).toMatch(/\.learning-publish-switch__input\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?opacity:\s*0;/);
+    expect(routeStylesSource).toMatch(/\.learning-publish-switch__control\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*26px;/);
   });
 
   it("keeps saved assessment state separate from the editable draft", () => {

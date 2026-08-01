@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes separate assessment settings as version 5.89", () => {
-    expect(appVersion).toBe("5.89");
-    expect(releaseNotes[0]?.title).toBe("Проверка знаний отдельно");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/отдельн/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/настро/i);
+  it("publishes the polished lesson editor as version 5.90", () => {
+    expect(appVersion).toBe("5.90");
+    expect(releaseNotes[0]?.title).toBe("Удобная карточка урока");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/провер/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/переключ/i);
+
+    const separateAssessmentRelease = releaseNotes.find((note) => note.version === "5.89");
+    expect(separateAssessmentRelease?.title).toBe("Проверка знаний отдельно");
 
     const assessmentRelease = releaseNotes.find((note) => note.version === "5.88");
     expect(assessmentRelease?.title).toBe("Тесты и домашние задания");
@@ -255,7 +258,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Separate assessment settings");
+    expect(englishNotes[0]?.title).toBe("A cleaner lesson editor");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

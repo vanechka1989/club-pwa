@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Separate assessment settings",
+  title: "A cleaner lesson editor",
   items: [
-    "Quiz and homework settings now open on a dedicated page instead of crowding the lesson form.",
-    "The lesson card keeps a compact status row with a clear link to assessment settings.",
-    "Assessment changes save independently, and errors no longer hide the editor or discard entered data."
+    "Knowledge-check settings now sit directly below the cover controls, making them easier to find before lesson content.",
+    "The oversized native publication checkbox is replaced with a compact switch and a clear visibility status.",
+    "The mobile lesson card keeps consistent spacing and touch targets without inheriting oversized field styles."
   ]
 };
 

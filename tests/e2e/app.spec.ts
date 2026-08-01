@@ -4025,7 +4025,11 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
   test.skip(testInfo.project.name === "desktop-chrome");
 
   await page.getByRole("button", { name: "Модули" }).click();
-  await page.getByRole("button", { name: "Добавить урок в Модуль 1" }).click();
+  await page.getByRole("button", { name: "Редактировать модули" }).click();
+  const expandModule = page.getByRole("button", { name: "Развернуть Модуль 1" });
+  await expect(expandModule).toBeVisible();
+  await expandModule.click();
+  await page.getByRole("button", { name: "Добавить карточку в Модуль 1" }).click();
 
   const taskScreen = page.locator(".learning-task-screen .task-screen");
   const editor = page.locator(".learning-task-screen .lesson-preview-modal-edit");
@@ -4040,8 +4044,29 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
   expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((viewport?.width ?? 0) + 1);
 
+  const coverControls = page.locator(".lesson-cover-mode-buttons");
+  const assessmentSettings = page.locator(".lesson-assessment-settings-link");
+  const lessonContent = page.getByLabel("Содержимое урока");
+  const publishInput = page.getByLabel("Опубликовать урок");
+  const publishControl = page.locator(".learning-publish-switch__control");
+  const [coverBox, assessmentBox, contentBox, publishInputBox, publishControlBox] = await Promise.all([
+    coverControls.boundingBox(),
+    assessmentSettings.boundingBox(),
+    lessonContent.boundingBox(),
+    publishInput.boundingBox(),
+    publishControl.boundingBox()
+  ]);
+  expect(assessmentBox?.y ?? 0).toBeGreaterThan((coverBox?.y ?? 0) + (coverBox?.height ?? 0));
+  expect((assessmentBox?.y ?? 0) + (assessmentBox?.height ?? 0)).toBeLessThan(contentBox?.y ?? 0);
+  expect(publishInputBox?.width ?? 999).toBeLessThanOrEqual(1);
+  expect(publishInputBox?.height ?? 999).toBeLessThanOrEqual(1);
+  expect(publishControlBox?.width).toBe(44);
+  expect(publishControlBox?.height).toBe(26);
+
   if (testInfo.project.name === "pixel-7") {
     await page.screenshot({ path: testInfo.outputPath("lesson-editor-task.png"), fullPage: false });
+    await publishControl.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("lesson-editor-publication.png"), fullPage: false });
   }
 });
 

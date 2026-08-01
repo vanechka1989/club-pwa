@@ -2405,7 +2405,88 @@ body.club-mobile-device .module-card-head .admin-mockup-card-actions {
 }
 
 .learning-publish-switch {
-  min-height: 44px;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-soft) 84%, transparent);
+  cursor: pointer;
+  user-select: none;
+}
+
+.learning-publish-switch__copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.learning-publish-switch__copy strong {
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.learning-publish-switch__copy small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.learning-publish-switch__input {
+  position: absolute;
+  width: 1px;
+  min-width: 0;
+  max-width: 1px;
+  height: 1px;
+  min-height: 0;
+  max-height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.learning-publish-switch__control {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border: 1px solid color-mix(in srgb, var(--muted) 48%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 22%, var(--surface));
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.learning-publish-switch__control::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 24%);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.learning-publish-switch__input:checked + .learning-publish-switch__control {
+  border-color: color-mix(in srgb, var(--accent) 78%, white);
+  background: var(--accent);
+}
+
+.learning-publish-switch__input:checked + .learning-publish-switch__control::after {
+  background: white;
+  transform: translateX(18px);
+}
+
+.learning-publish-switch__input:focus-visible + .learning-publish-switch__control {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .deleted-module-card .deleted-lesson-preview {
