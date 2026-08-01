@@ -193,7 +193,7 @@ export async function uploadObjectStream({
   return { key: normalizedKey, url: null };
 }
 
-export async function createObjectUploadUrl({ key, contentType, expiresInSeconds = 600 }: { key: string; contentType: string; expiresInSeconds?: number }) {
+export async function createObjectUploadUrl({ key, contentType, sizeBytes, expiresInSeconds = 600 }: { key: string; contentType: string; sizeBytes?: number; expiresInSeconds?: number }) {
   const config = await requireS3Config();
   const normalizedKey = normalizeS3ObjectKey(key);
   const client = createS3Client(config);
@@ -202,7 +202,8 @@ export async function createObjectUploadUrl({ key, contentType, expiresInSeconds
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: normalizedKey,
-      ContentType: contentType
+      ContentType: contentType,
+      ...(sizeBytes ? { ContentLength: sizeBytes } : {})
     }),
     { expiresIn: expiresInSeconds }
   );

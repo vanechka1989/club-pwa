@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "The right lessons, always close at hand",
+  title: "Quizzes and homework",
   items: [
-    "Search and filters make it easy to find lessons, favorites, in-progress items, and completed materials.",
-    "Favorite lessons stay attached to the member account and sync across devices.",
-    "Each lesson now includes personal notes with clear save and retry states."
+    "Admins can add either a configurable quiz or reviewed homework to any lesson.",
+    "Automatic scoring handles choice questions while free-text answers and homework enter a review queue.",
+    "A lesson completes only after a passed quiz or accepted homework, with clear member notifications."
   ]
 };
 

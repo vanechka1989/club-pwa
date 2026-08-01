@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from "vue";
 import { Check, ChevronRight, ClipboardCheck, RotateCcw, X } from "lucide-vue-next";
-import { getAssessmentReviewQueue, getHomeworkReview, getQuizReview, reviewHomework, reviewQuiz, type AssessmentReviewQueue } from "@/api/client";
+import { getAssessmentReviewQueue, getHomeworkReview, getQuizReview, resetQuizAttempts, reviewHomework, reviewQuiz, type AssessmentReviewQueue } from "@/api/client";
 
 const queue = ref<AssessmentReviewQueue>({ total: 0, homework: [], quizzes: [] });
 const loading = ref(true);
@@ -12,6 +12,8 @@ const homework = ref<Awaited<ReturnType<typeof getHomeworkReview>> | null>(null)
 const quiz = ref<Awaited<ReturnType<typeof getQuizReview>> | null>(null);
 const comment = ref("");
 const points = reactive<Record<string, number>>({});
+const reviewIdempotencyKey = ref(crypto.randomUUID());
+const reviewedQuizResult = ref<{ status: string; percent: number | null } | null>(null);
 const entries = computed(() => [
   ...queue.value.homework.map((entry) => ({ ...entry, kind: "homework" as const, title: entry.lesson?.title ?? "Домашнее задание", subtitle: `${entry.user?.displayName ?? "Клиент"} · версия ${entry.version}` })),
   ...queue.value.quizzes.map((entry) => ({ ...entry, kind: "quiz" as const, title: entry.lesson?.title ?? "Тест", subtitle: `${entry.user?.displayName ?? "Клиент"} · попытка ${entry.attemptNumber}` }))
@@ -26,7 +28,8 @@ async function loadQueue() {
 
 async function openEntry(entry: (typeof entries.value)[number]) {
   active.value = { kind: entry.kind, id: entry.id, title: entry.title };
-  homework.value = null; quiz.value = null; comment.value = "";
+  homework.value = null; quiz.value = null; comment.value = ""; reviewedQuizResult.value = null;
+  reviewIdempotencyKey.value = crypto.randomUUID();
   try {
     if (entry.kind === "homework") homework.value = await getHomeworkReview(entry.id);
     else {
@@ -39,7 +42,7 @@ async function openEntry(entry: (typeof entries.value)[number]) {
 async function submitHomeworkReview(decision: "accepted" | "needs_revision") {
   if (!active.value || (decision === "needs_revision" && !comment.value.trim())) return;
   busy.value = true;
-  try { await reviewHomework(active.value.id, { decision, comment: comment.value.trim() || null, idempotencyKey: crypto.randomUUID() }); active.value = null; await loadQueue(); }
+  try { await reviewHomework(active.value.id, { decision, comment: comment.value.trim() || null, idempotencyKey: reviewIdempotencyKey.value }); active.value = null; await loadQueue(); }
   catch { error.value = "Не удалось сохранить проверку."; }
   finally { busy.value = false; }
 }
@@ -47,8 +50,21 @@ async function submitHomeworkReview(decision: "accepted" | "needs_revision") {
 async function submitQuizReview() {
   if (!active.value || !quiz.value) return;
   busy.value = true;
-  try { await reviewQuiz(active.value.id, { questionPoints: { ...points }, comment: comment.value.trim() || null, idempotencyKey: crypto.randomUUID() }); active.value = null; await loadQueue(); }
+  try {
+    const response = await reviewQuiz(active.value.id, { questionPoints: { ...points }, comment: comment.value.trim() || null, idempotencyKey: reviewIdempotencyKey.value });
+    reviewedQuizResult.value = response.result;
+    await loadQueue();
+    if (response.result.status === "passed") active.value = null;
+  }
   catch { error.value = "Не удалось сохранить проверку."; }
+  finally { busy.value = false; }
+}
+
+async function grantMoreQuizAttempts() {
+  if (!active.value) return;
+  busy.value = true;
+  try { await resetQuizAttempts(active.value.id, comment.value.trim() || null); active.value = null; await loadQueue(); }
+  catch { error.value = "Не удалось разрешить новые попытки."; }
   finally { busy.value = false; }
 }
 
@@ -76,6 +92,10 @@ defineExpose({ loadQueue });
         </template>
         <label class="review-sheet__comment"><span>Комментарий клиенту</span><textarea v-model="comment" class="text-input" rows="3" placeholder="Необязательно при принятии"></textarea></label>
         <div v-if="active.kind === 'homework'" class="review-sheet__actions"><button type="button" class="review-sheet__revision" :disabled="busy || !comment.trim()" @click="submitHomeworkReview('needs_revision')"><RotateCcw aria-hidden="true" />На доработку</button><button type="button" class="review-sheet__accept" :disabled="busy" @click="submitHomeworkReview('accepted')"><Check aria-hidden="true" />Принять</button></div>
+        <template v-else-if="reviewedQuizResult?.status === 'failed'">
+          <p class="review-sheet__answer">Тест не пройден · {{ reviewedQuizResult.percent }}%. Можно разрешить клиенту новый набор попыток.</p>
+          <div class="review-sheet__actions"><button type="button" class="review-sheet__revision" :disabled="busy" @click="active = null"><X aria-hidden="true" />Закрыть</button><button type="button" class="review-sheet__accept" :disabled="busy" @click="grantMoreQuizAttempts"><RotateCcw aria-hidden="true" />Дать попытки</button></div>
+        </template>
         <button v-else class="review-sheet__accept review-sheet__accept--wide" type="button" :disabled="busy || !quiz" @click="submitQuizReview"><Check aria-hidden="true" />Сохранить проверку</button>
       </div>
     </div>

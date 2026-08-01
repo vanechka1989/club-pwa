@@ -74,6 +74,7 @@ import {
   subscriptions,
   quizAnswers,
   quizAttemptQuestions,
+  quizAttemptResets,
   quizAttempts,
   supportTicketAttachments,
   userRecurrentSubscriptions,
@@ -276,6 +277,26 @@ const quizReviewPayloadSchema = z.object({
   comment: z.string().trim().max(4000).nullable().default(null),
   idempotencyKey: z.string().uuid()
 });
+
+const quizAttemptResetPayloadSchema = z.object({
+  reason: z.string().trim().max(1000).nullable().default(null)
+});
+
+async function ensureAssessmentReviewNotification(input: { reviewId: string; userId: string; contentItemId: string; title: string; body: string }) {
+  const existing = await db.query.appNotifications.findFirst({
+    where: and(eq(appNotifications.userId, input.userId), eq(appNotifications.source, "lesson_assessment"), eq(appNotifications.sourceId, input.reviewId))
+  });
+  if (existing) return existing;
+  const created = await createAppNotification({
+    userId: input.userId,
+    title: input.title,
+    body: input.body,
+    source: "lesson_assessment",
+    sourceId: input.reviewId,
+    pushUrl: `/learning/lessons/${input.contentItemId}`
+  });
+  return created.notification;
+}
 
 const s3StoragePayloadSchema = z.object({
   endpoint: z.string().trim().url(),
@@ -2719,10 +2740,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/learning/assessments/homework/:id/review", async (c) => {
     const parsed = homeworkReviewPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Invalid homework review", details: parsed.error.flatten() }, 400);
-    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
-    if (existingReview) return c.json({ ok: true, review: existingReview });
     const submission = await db.query.homeworkSubmissions.findFirst({ where: eq(homeworkSubmissions.id, c.req.param("id")) });
     if (!submission) return c.json({ error: "Homework submission not found" }, 404);
+    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
+    if (existingReview) {
+      if (existingReview.homeworkSubmissionId !== submission.id) return c.json({ error: "Review key is already used" }, 409);
+      await ensureAssessmentReviewNotification({ reviewId: existingReview.id, userId: submission.userId, contentItemId: submission.contentItemId, title: existingReview.decision === "accepted" ? "Домашнее задание принято" : "Домашнее задание нужно доработать", body: existingReview.comment || (existingReview.decision === "accepted" ? "Урок успешно завершён." : "Откройте урок и отправьте новую версию.") });
+      return c.json({ ok: true, review: existingReview });
+    }
     if (submission.status !== "pending_review") return c.json({ error: "Homework is not pending review" }, 409);
     const now = new Date();
     const review = await db.transaction(async (tx) => {
@@ -2746,13 +2771,21 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
       return created;
     });
-    await createAppNotification({
+    if (!review) throw new Error("Unable to create homework review");
+    await ensureAssessmentReviewNotification({
+      reviewId: review.id,
       userId: submission.userId,
       title: parsed.data.decision === "accepted" ? "Домашнее задание принято" : "Домашнее задание нужно доработать",
       body: parsed.data.comment || (parsed.data.decision === "accepted" ? "Урок успешно завершён." : "Откройте урок и отправьте новую версию."),
-      source: "lesson_assessment",
-      sourceId: submission.contentItemId,
-      pushUrl: `/modules/lesson/${submission.contentItemId}`
+      contentItemId: submission.contentItemId
+    });
+    await recordAdminAction(c, {
+      action: "learning.homework.reviewed",
+      entityType: "homework_submission",
+      entityId: submission.id,
+      targetUserId: submission.userId,
+      summary: parsed.data.decision === "accepted" ? "Принял домашнее задание" : "Вернул домашнее задание на доработку",
+      metadata: { contentItemId: submission.contentItemId, decision: parsed.data.decision }
     });
     return c.json({ ok: true, review });
   })
@@ -2774,10 +2807,14 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .post("/learning/assessments/quiz/:id/review", async (c) => {
     const parsed = quizReviewPayloadSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json({ error: "Invalid quiz review", details: parsed.error.flatten() }, 400);
-    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
-    if (existingReview) return c.json({ ok: true, review: existingReview });
     const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
     if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    const existingReview = await db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.idempotencyKey, parsed.data.idempotencyKey) });
+    if (existingReview) {
+      if (existingReview.quizAttemptId !== attempt.id) return c.json({ error: "Review key is already used" }, 409);
+      await ensureAssessmentReviewNotification({ reviewId: existingReview.id, userId: attempt.userId, contentItemId: attempt.contentItemId, title: attempt.status === "passed" ? "Тест пройден" : "Тест проверен", body: existingReview.comment || `Результат: ${attempt.percent ?? 0}%` });
+      return c.json({ ok: true, review: existingReview, result: { status: attempt.status, earnedPoints: attempt.earnedPoints, maxPoints: attempt.maxPoints, percent: attempt.percent } });
+    }
     if (attempt.status !== "pending_review") return c.json({ error: "Quiz is not pending review" }, 409);
     const [revision, questions, answers] = await Promise.all([
       db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, attempt.revisionId) }),
@@ -2812,8 +2849,47 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       }
       return created;
     });
-    await createAppNotification({ userId: attempt.userId, title: score.status === "passed" ? "Тест пройден" : "Тест проверен", body: parsed.data.comment || `Результат: ${score.percent}%`, source: "lesson_assessment", sourceId: attempt.contentItemId, pushUrl: `/modules/lesson/${attempt.contentItemId}` });
+    if (!review) throw new Error("Unable to create quiz review");
+    await ensureAssessmentReviewNotification({ reviewId: review.id, userId: attempt.userId, contentItemId: attempt.contentItemId, title: score.status === "passed" ? "Тест пройден" : "Тест проверен", body: parsed.data.comment || `Результат: ${score.percent}%` });
+    await recordAdminAction(c, {
+      action: "learning.quiz.reviewed",
+      entityType: "quiz_attempt",
+      entityId: attempt.id,
+      targetUserId: attempt.userId,
+      summary: score.status === "passed" ? "Подтвердил прохождение теста" : "Проверил тест: попытка не пройдена",
+      metadata: { contentItemId: attempt.contentItemId, status: score.status, percent: score.percent }
+    });
     return c.json({ ok: true, review, result: score });
+  })
+  .post("/learning/assessments/quiz/:id/reset-attempts", async (c) => {
+    const parsed = quizAttemptResetPayloadSchema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: "Invalid reset payload", details: parsed.error.flatten() }, 400);
+    const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
+    if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    if (attempt.status !== "failed") return c.json({ error: "Only failed quiz attempts can be reset" }, 409);
+    const [reset] = await db.insert(quizAttemptResets).values({
+      userId: attempt.userId,
+      contentItemId: attempt.contentItemId,
+      resetByUserId: c.get("userId"),
+      reason: parsed.data.reason
+    }).returning();
+    await createAppNotification({
+      userId: attempt.userId,
+      title: "Доступны новые попытки теста",
+      body: parsed.data.reason || "Администратор разрешил пройти тест ещё раз.",
+      source: "lesson_assessment",
+      sourceId: reset!.id,
+      pushUrl: `/learning/lessons/${attempt.contentItemId}`
+    });
+    await recordAdminAction(c, {
+      action: "learning.quiz.attempts_reset",
+      entityType: "quiz_attempt",
+      entityId: attempt.id,
+      targetUserId: attempt.userId,
+      summary: "Разрешил клиенту новые попытки теста",
+      metadata: { contentItemId: attempt.contentItemId, reason: parsed.data.reason }
+    });
+    return c.json({ ok: true, reset });
   })
   .get("/learning/materials/:id/assessment", async (c) => {
     const material = await db.query.contentItems.findFirst({ where: eq(contentItems.id, c.req.param("id")) });

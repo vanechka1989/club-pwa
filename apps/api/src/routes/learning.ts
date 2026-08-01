@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { learningEngagementSnapshotSchema, lessonAssessmentDraftSchema, type LessonAssessmentConfig } from "@club/shared";
-import { contentCategories, contentItems, homeworkAttachments, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
+import { assessmentReviews, contentCategories, contentItems, homeworkAttachments, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttemptResets, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
 import { db } from "../db/client";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
@@ -16,6 +16,7 @@ import { mergeEngagementCounters } from "../learning/engagement";
 import { serializeLearningProgressRows } from "../learning/learningProgress";
 import { toPublicAssessment } from "../learning/assessmentConfig";
 import { scoreQuizAttempt } from "../learning/assessmentScoring";
+import { getQuizAttemptAllowance } from "../learning/assessmentAttemptPolicy";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
 import { buildHomeworkObjectKey, classifyHomeworkContentType, ownsHomeworkObject } from "../learning/homeworkUpload";
 
@@ -36,6 +37,8 @@ const quizSubmissionSchema = z.object({
     text: z.string().trim().max(8000).nullable().default(null)
   })).max(100)
 });
+
+const quizAnswerDraftSchema = quizSubmissionSchema.pick({ answers: true });
 
 const homeworkUploadIntentSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
@@ -451,6 +454,14 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
           orderBy: [desc(homeworkSubmissions.version)]
         })
       : [];
+    const reviews = attempts.length || submissions.length
+      ? await db.query.assessmentReviews.findMany({
+          where: or(
+            attempts.length ? inArray(assessmentReviews.quizAttemptId, attempts.map((attempt) => attempt.id)) : undefined,
+            submissions.length ? inArray(assessmentReviews.homeworkSubmissionId, submissions.map((submission) => submission.id)) : undefined
+          )
+        })
+      : [];
     return c.json({
       mode: item.assessmentMode,
       attempts: attempts.map((attempt) => ({
@@ -460,14 +471,16 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         earnedPoints: attempt.earnedPoints,
         maxPoints: attempt.maxPoints,
         percent: attempt.percent,
-        submittedAt: attempt.submittedAt?.toISOString() ?? null
+        submittedAt: attempt.submittedAt?.toISOString() ?? null,
+        reviewComment: reviews.find((review) => review.quizAttemptId === attempt.id)?.comment ?? null
       })),
       submissions: submissions.map((submission) => ({
         id: submission.id,
         version: submission.version,
         status: submission.status,
         submittedAt: submission.submittedAt?.toISOString() ?? null,
-        reviewedAt: submission.reviewedAt?.toISOString() ?? null
+        reviewedAt: submission.reviewedAt?.toISOString() ?? null,
+        reviewComment: reviews.find((review) => review.homeworkSubmissionId === submission.id)?.comment ?? null
       }))
     });
   })
@@ -486,7 +499,7 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     }
     const token = randomUUID();
     const objectKey = buildHomeworkObjectKey({ userId, token, fileName: parsed.data.fileName });
-    const upload = await createObjectUploadUrl({ key: objectKey, contentType: parsed.data.contentType });
+    const upload = await createObjectUploadUrl({ key: objectKey, contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes });
     return c.json({ ...upload, objectKey: upload.key, fileName: parsed.data.fileName, contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes });
   })
   .post("/items/:id/homework/submit", requireActiveMember, async (c) => {
@@ -509,10 +522,12 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         (!parsed.data.text && parsed.data.attachments.length === 0)) {
       return c.json({ error: "Homework answer does not match lesson settings" }, 400);
     }
-    const pending = await db.query.homeworkSubmissions.findFirst({
-      where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id), eq(homeworkSubmissions.status, "pending_review"))
+    const latestSubmission = await db.query.homeworkSubmissions.findFirst({
+      where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id)),
+      orderBy: [desc(homeworkSubmissions.version)]
     });
-    if (pending) return c.json({ error: "Previous homework is still pending review" }, 409);
+    if (latestSubmission?.status === "pending_review") return c.json({ error: "Previous homework is still pending review" }, 409);
+    if (latestSubmission?.status === "accepted") return c.json({ error: "Accepted homework cannot be submitted again" }, 409);
 
     for (const attachment of parsed.data.attachments) {
       const kind = classifyHomeworkContentType(attachment.contentType);
@@ -528,17 +543,13 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       if (!verification.ok) return c.json({ error: "Unable to verify homework file" }, 400);
     }
 
-    const previous = await db.query.homeworkSubmissions.findFirst({
-      where: and(eq(homeworkSubmissions.userId, userId), eq(homeworkSubmissions.contentItemId, item.id)),
-      orderBy: [desc(homeworkSubmissions.version)]
-    });
     const now = new Date();
     const submission = await db.transaction(async (tx) => {
       const [created] = await tx.insert(homeworkSubmissions).values({
         userId,
         contentItemId: item.id,
         revisionId: revision.id,
-        version: (previous?.version ?? 0) + 1,
+        version: (latestSubmission?.version ?? 0) + 1,
         status: "pending_review",
         text: parsed.data.text,
         submissionKey: parsed.data.submissionKey,
@@ -582,7 +593,10 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         orderBy: [desc(quizAttempts.attemptNumber)]
       });
       const attemptNumber = (previous?.attemptNumber ?? 0) + 1;
-      if (attemptNumber > revision.maxAttempts) return c.json({ error: "Quiz attempt limit reached" }, 409);
+      const [resetTotal] = await db.select({ value: count() }).from(quizAttemptResets)
+        .where(and(eq(quizAttemptResets.userId, userId), eq(quizAttemptResets.contentItemId, item.id)));
+      const allowedAttempts = getQuizAttemptAllowance(revision.maxAttempts, Number(resetTotal?.value ?? 0));
+      if (attemptNumber > allowedAttempts) return c.json({ error: "Quiz attempt limit reached" }, 409);
 
       attempt = await db.transaction(async (tx) => {
         const [created] = await tx.insert(quizAttempts).values({
@@ -618,15 +632,48 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
 
     const questions = await db.select().from(quizAttemptQuestions)
       .where(eq(quizAttemptQuestions.attemptId, attempt.id)).orderBy(asc(quizAttemptQuestions.sortOrder));
+    const savedAnswers = await db.query.quizAnswers.findMany({ where: eq(quizAnswers.attemptId, attempt.id) });
     return c.json({
       attempt: {
         id: attempt.id,
         attemptNumber: attempt.attemptNumber,
         maxAttempts: revision.maxAttempts,
         status: attempt.status,
-        questions: questions.map(({ correctOptionIds: _correctOptionIds, sourceQuestionId: _sourceQuestionId, ...question }) => question)
+        questions: questions.map(({ correctOptionIds: _correctOptionIds, sourceQuestionId: _sourceQuestionId, ...question }) => question),
+        answers: savedAnswers.map((answer) => ({ questionId: answer.questionSnapshotId, selectedOptionIds: answer.selectedOptionIds, text: answer.text }))
       }
     });
+  })
+  .put("/items/:id/quiz/:attemptId/answers", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const parsed = quizAnswerDraftSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Invalid quiz draft", details: parsed.error.flatten() }, 400);
+    const attempt = await db.query.quizAttempts.findFirst({
+      where: and(eq(quizAttempts.id, c.req.param("attemptId")), eq(quizAttempts.userId, userId), eq(quizAttempts.contentItemId, c.req.param("id")))
+    });
+    if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
+    if (attempt.status !== "in_progress") return c.json({ error: "Quiz attempt is already submitted" }, 409);
+    const questions = await db.query.quizAttemptQuestions.findMany({ where: eq(quizAttemptQuestions.attemptId, attempt.id) });
+    const questionsById = new Map(questions.map((question) => [question.id, question]));
+    if (new Set(parsed.data.answers.map((answer) => answer.questionId)).size !== parsed.data.answers.length || parsed.data.answers.some((answer) => !questionsById.has(answer.questionId))) {
+      return c.json({ error: "Quiz answer does not belong to this attempt" }, 400);
+    }
+    const now = new Date();
+    for (const answer of parsed.data.answers) {
+      const question = questionsById.get(answer.questionId)!;
+      const validOptionIds = new Set(question.optionsSnapshot.map((option) => option.id));
+      if (answer.selectedOptionIds.some((optionId) => !validOptionIds.has(optionId)) || (question.type === "single_choice" && answer.selectedOptionIds.length > 1) || (question.type === "free_text" && answer.selectedOptionIds.length)) {
+        return c.json({ error: "Invalid quiz draft answer" }, 400);
+      }
+      await db.insert(quizAnswers).values({
+        attemptId: attempt.id, questionSnapshotId: answer.questionId, selectedOptionIds: answer.selectedOptionIds,
+        text: answer.text, savedAt: now, createdAt: now, updatedAt: now
+      }).onConflictDoUpdate({
+        target: [quizAnswers.attemptId, quizAnswers.questionSnapshotId],
+        set: { selectedOptionIds: answer.selectedOptionIds, text: answer.text, savedAt: now, updatedAt: now }
+      });
+    }
+    return c.json({ ok: true });
   })
   .post("/items/:id/quiz/:attemptId/submit", requireActiveMember, async (c) => {
     const userId = c.get("userId");
@@ -664,19 +711,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       questions: questions.map((question) => ({ id: question.id, type: question.type as "single_choice" | "multiple_choice" | "free_text", points: question.points, correctOptionIds: question.correctOptionIds }))
     }, parsed.data.answers);
     const now = new Date();
-    await db.transaction(async (tx) => {
-      if (parsed.data.answers.length) {
-        await tx.insert(quizAnswers).values(parsed.data.answers.map((answer) => ({
-          attemptId: attempt.id,
-          questionSnapshotId: answer.questionId,
-          selectedOptionIds: answer.selectedOptionIds,
-          text: answer.text,
-          savedAt: now,
-          createdAt: now,
-          updatedAt: now
-        })));
-      }
-      await tx.update(quizAttempts).set({
+    const claimed = await db.transaction(async (tx) => {
+      const [claimedAttempt] = await tx.update(quizAttempts).set({
         status: score.status,
         earnedPoints: score.earnedPoints,
         maxPoints: score.maxPoints,
@@ -684,12 +720,32 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         submissionKey: parsed.data.submissionKey,
         submittedAt: now,
         updatedAt: now
-      }).where(and(eq(quizAttempts.id, attempt.id), eq(quizAttempts.status, "in_progress")));
+      }).where(and(eq(quizAttempts.id, attempt.id), eq(quizAttempts.status, "in_progress"))).returning({ id: quizAttempts.id });
+      if (!claimedAttempt) return false;
+      if (parsed.data.answers.length) {
+        for (const answer of parsed.data.answers) {
+          await tx.insert(quizAnswers).values({
+            attemptId: attempt.id, questionSnapshotId: answer.questionId, selectedOptionIds: answer.selectedOptionIds,
+            text: answer.text, savedAt: now, createdAt: now, updatedAt: now
+          }).onConflictDoUpdate({
+            target: [quizAnswers.attemptId, quizAnswers.questionSnapshotId],
+            set: { selectedOptionIds: answer.selectedOptionIds, text: answer.text, savedAt: now, updatedAt: now }
+          });
+        }
+      }
       if (score.status === "passed") {
         await tx.insert(userContentProgress).values({ userId, contentItemId: attempt.contentItemId, lastOpenedAt: now, completedAt: now, updatedAt: now })
           .onConflictDoUpdate({ target: [userContentProgress.userId, userContentProgress.contentItemId], set: { completedAt: now, updatedAt: now } });
       }
+      return true;
     });
+    if (!claimed) {
+      const submitted = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, attempt.id) });
+      if (submitted?.submissionKey === parsed.data.submissionKey) {
+        return c.json({ ok: true, result: { status: submitted.status, earnedPoints: submitted.earnedPoints, maxPoints: submitted.maxPoints, percent: submitted.percent } });
+      }
+      return c.json({ error: "Quiz attempt is already submitted" }, 409);
+    }
     return c.json({ ok: true, result: score });
   })
   .post("/items/:id/complete", requireActiveMember, async (c) => {

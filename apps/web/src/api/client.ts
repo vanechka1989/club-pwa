@@ -1093,17 +1093,21 @@ export function reviewHomework(id: string, payload: { decision: "accepted" | "ne
 }
 
 export function getQuizReview(id: string) {
-  return api<{ attempt: { id: string }; questions: Array<{ id: string; type: string; prompt: string; points: number; optionsSnapshot: Array<{ id: string; text: string }>; answer: { text: string | null; selectedOptionIds: string[] } | null }> }>(`/admin/learning/assessments/quiz/${id}`);
+  return api<{ attempt: { id: string; userId: string; contentItemId: string; status: string }; questions: Array<{ id: string; type: string; prompt: string; points: number; optionsSnapshot: Array<{ id: string; text: string }>; answer: { text: string | null; selectedOptionIds: string[] } | null }> }>(`/admin/learning/assessments/quiz/${id}`);
 }
 
 export function reviewQuiz(id: string, payload: { questionPoints: Record<string, number>; comment: string | null; idempotencyKey: string }) {
-  return api<{ ok: true }>(`/admin/learning/assessments/quiz/${id}/review`, { method: "POST", body: payload });
+  return api<{ ok: true; result: { status: string; percent: number | null } }>(`/admin/learning/assessments/quiz/${id}/review`, { method: "POST", body: payload });
+}
+
+export function resetQuizAttempts(id: string, reason: string | null = null) {
+  return api<{ ok: true }>(`/admin/learning/assessments/quiz/${id}/reset-attempts`, { method: "POST", body: { reason } });
 }
 
 export type LessonAssessmentStatus = {
   mode: "none" | "quiz" | "homework";
-  attempts: Array<{ id: string; attemptNumber: number; status: string; earnedPoints: number | null; maxPoints: number | null; percent: number | null; submittedAt: string | null }>;
-  submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null }>;
+  attempts: Array<{ id: string; attemptNumber: number; status: string; earnedPoints: number | null; maxPoints: number | null; percent: number | null; submittedAt: string | null; reviewComment: string | null }>;
+  submissions: Array<{ id: string; version: number; status: string; submittedAt: string | null; reviewedAt: string | null; reviewComment: string | null }>;
 };
 
 export type LessonQuizAttemptResponse = {
@@ -1119,6 +1123,7 @@ export type LessonQuizAttemptResponse = {
       points: number;
       optionsSnapshot: Array<{ id: string; text: string }>;
     }>;
+    answers: Array<{ questionId: string; selectedOptionIds: string[]; text: string | null }>;
   };
 };
 
@@ -1128,6 +1133,10 @@ export function getLessonAssessmentStatus(id: string) {
 
 export function startLessonQuiz(id: string) {
   return api<LessonQuizAttemptResponse>(`/learning/items/${id}/quiz/start`, { method: "POST", body: {} });
+}
+
+export function saveLessonQuizDraft(id: string, attemptId: string, answers: Array<{ questionId: string; selectedOptionIds: string[]; text: string | null }>) {
+  return api<{ ok: true }>(`/learning/items/${id}/quiz/${attemptId}/answers`, { method: "PUT", body: { answers } });
 }
 
 export function submitLessonQuiz(id: string, attemptId: string, payload: { submissionKey: string; answers: Array<{ questionId: string; selectedOptionIds: string[]; text: string | null }> }) {

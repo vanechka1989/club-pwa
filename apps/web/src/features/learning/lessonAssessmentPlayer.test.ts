@@ -5,6 +5,7 @@ import LessonAssessmentPlayer from "./LessonAssessmentPlayer.vue";
 const api = vi.hoisted(() => ({
   getLessonAssessmentStatus: vi.fn(),
   startLessonQuiz: vi.fn(),
+  saveLessonQuizDraft: vi.fn(),
   submitLessonQuiz: vi.fn(),
   createHomeworkUpload: vi.fn(),
   submitLessonHomework: vi.fn()
@@ -15,7 +16,8 @@ describe("LessonAssessmentPlayer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     api.getLessonAssessmentStatus.mockResolvedValue({ mode: "quiz", attempts: [], submissions: [] });
-    api.startLessonQuiz.mockResolvedValue({ attempt: { id: "attempt-1", attemptNumber: 1, maxAttempts: 3, status: "in_progress", questions: [{ id: "question-1", type: "single_choice", prompt: "2 + 2?", points: 1, optionsSnapshot: [{ id: "four", text: "4" }, { id: "five", text: "5" }] }] } });
+    api.startLessonQuiz.mockResolvedValue({ attempt: { id: "attempt-1", attemptNumber: 1, maxAttempts: 3, status: "in_progress", questions: [{ id: "question-1", type: "single_choice", prompt: "2 + 2?", points: 1, optionsSnapshot: [{ id: "four", text: "4" }, { id: "five", text: "5" }] }], answers: [{ questionId: "question-1", selectedOptionIds: ["four"], text: null }] } });
+    api.saveLessonQuizDraft.mockResolvedValue({ ok: true });
   });
 
   it("starts a quiz and renders learner-safe answer options", async () => {
@@ -24,5 +26,6 @@ describe("LessonAssessmentPlayer", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Начать тест" }));
     expect(await screen.findByText("2 + 2?")).toBeTruthy();
     expect(screen.getByLabelText("4")).toBeTruthy();
+    expect((screen.getByLabelText("4") as HTMLInputElement).checked).toBe(true);
   });
 });

@@ -2533,13 +2533,13 @@ async function saveLesson() {
         ? await updateAdminLearningMaterialDirect(selectedLessonItem.value.id, payload)
         : await createAdminLearningMaterialDirect(payload);
 
-      await saveLessonAssessment(response.material.id, assessmentValidation.data);
-
       if (selectedLessonItem.value?.isPersisted) {
         replaceMaterialInModule(response.material);
       } else {
         addMaterialToModule(response.material);
+        if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
       }
+      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       if (existingLessonId) {
         showLessonViewer(existingLessonId);
       } else {
@@ -2550,15 +2550,17 @@ async function saveLesson() {
 
     if (selectedLessonItem.value?.isPersisted) {
       const response = await updateAdminLearningMaterial(selectedLessonItem.value.id, buildLessonForm());
-      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       replaceMaterialInModule(response.material);
+      if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
+      await saveLessonAssessment(response.material.id, assessmentValidation.data);
       showLessonViewer(existingLessonId);
       return;
     }
 
     const response = await createAdminLearningMaterial(buildLessonForm());
-    await saveLessonAssessment(response.material.id, assessmentValidation.data);
     addMaterialToModule(response.material);
+    if (selectedLessonItem.value) Object.assign(selectedLessonItem.value, materialToLesson(response.material));
+    await saveLessonAssessment(response.material.id, assessmentValidation.data);
     closeLessonModal();
   } catch {
     showLessonError("Не удалось сохранить урок. Проверьте файл и настройки S3.");

@@ -190,3 +190,4 @@ CREATE INDEX "homework_submissions_review_queue_idx" ON "homework_submissions" (
 CREATE INDEX "homework_attachments_submission_idx" ON "homework_attachments" ("submission_id");
 CREATE INDEX "homework_attachments_unconfirmed_idx" ON "homework_attachments" ("confirmed_at", "created_at");
 CREATE INDEX "quiz_attempt_resets_user_lesson_created_idx" ON "quiz_attempt_resets" ("user_id", "content_item_id", "created_at");
+CREATE UNIQUE INDEX "app_notifications_lesson_assessment_review_unique" ON "app_notifications" ("user_id", "source", "source_id") WHERE "source" = 'lesson_assessment';
