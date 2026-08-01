@@ -456,6 +456,13 @@
       "when": 1785553200000,
       "tag": "0064_learning_favorites",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1785556800000,
+      "tag": "0065_lesson_assessments",
+      "breakpoints": true
     }
   ]
 }

@@ -765,6 +765,8 @@ export const contentItems = pgTable(
     thumbnailSizeBytes: integer("thumbnail_size_bytes"),
     mediaContentType: varchar("media_content_type", { length: 160 }),
     mediaSizeBytes: integer("media_size_bytes"),
+    assessmentMode: varchar("assessment_mode", { length: 16 }).notNull().default("none"),
+    publishedAssessmentRevisionId: uuid("published_assessment_revision_id"),
     sortOrder: integer("sort_order").notNull().default(0),
     isPublished: boolean("is_published").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -800,6 +802,220 @@ export const lessonMaterials = pgTable(
   },
   (table) => ({
     itemSortIdx: index("lesson_materials_item_sort_idx").on(table.contentItemId, table.sortOrder)
+  })
+);
+
+export const lessonAssessmentRevisions = pgTable(
+  "lesson_assessment_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    mode: varchar("mode", { length: 16 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull().default("draft"),
+    title: varchar("title", { length: 180 }).notNull(),
+    instructions: text("instructions"),
+    passingPercent: integer("passing_percent"),
+    maxAttempts: integer("max_attempts"),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    allowText: boolean("allow_text"),
+    allowAttachments: boolean("allow_attachments"),
+    allowedFileKinds: jsonb("allowed_file_kinds").$type<Array<"image" | "document" | "video">>(),
+    maxAttachments: integer("max_attachments"),
+    createdByUserId: uuid("created_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    lessonRevisionIdx: uniqueIndex("lesson_assessment_revisions_lesson_revision_unique").on(table.contentItemId, table.revision),
+    lessonStatusIdx: index("lesson_assessment_revisions_lesson_status_idx").on(table.contentItemId, table.status),
+    modeCheck: check("lesson_assessment_revisions_mode_check", sql`${table.mode} in ('quiz', 'homework')`),
+    statusCheck: check("lesson_assessment_revisions_status_check", sql`${table.status} in ('draft', 'published', 'superseded')`)
+  })
+);
+
+export const lessonAssessmentQuestions = pgTable(
+  "lesson_assessment_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    revisionId: uuid("revision_id").notNull().references(() => lessonAssessmentRevisions.id, { onDelete: "cascade" }),
+    stableKey: varchar("stable_key", { length: 96 }).notNull(),
+    type: varchar("type", { length: 24 }).notNull(),
+    prompt: text("prompt").notNull(),
+    points: integer("points").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    revisionKeyIdx: uniqueIndex("lesson_assessment_questions_revision_key_unique").on(table.revisionId, table.stableKey),
+    revisionSortIdx: index("lesson_assessment_questions_revision_sort_idx").on(table.revisionId, table.sortOrder),
+    typeCheck: check("lesson_assessment_questions_type_check", sql`${table.type} in ('single_choice', 'multiple_choice', 'free_text')`),
+    pointsCheck: check("lesson_assessment_questions_points_check", sql`${table.points} > 0`)
+  })
+);
+
+export const lessonAssessmentOptions = pgTable(
+  "lesson_assessment_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    questionId: uuid("question_id").notNull().references(() => lessonAssessmentQuestions.id, { onDelete: "cascade" }),
+    stableKey: varchar("stable_key", { length: 96 }).notNull(),
+    text: text("text").notNull(),
+    isCorrect: boolean("is_correct").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    questionKeyIdx: uniqueIndex("lesson_assessment_options_question_key_unique").on(table.questionId, table.stableKey),
+    questionSortIdx: index("lesson_assessment_options_question_sort_idx").on(table.questionId, table.sortOrder)
+  })
+);
+
+export const quizAttempts = pgTable(
+  "quiz_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    revisionId: uuid("revision_id").notNull().references(() => lessonAssessmentRevisions.id, { onDelete: "restrict" }),
+    attemptNumber: integer("attempt_number").notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("in_progress"),
+    earnedPoints: integer("earned_points"),
+    maxPoints: integer("max_points"),
+    percent: integer("percent"),
+    submissionKey: varchar("submission_key", { length: 128 }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userLessonAttemptIdx: uniqueIndex("quiz_attempts_user_lesson_number_unique").on(table.userId, table.contentItemId, table.attemptNumber),
+    userLessonOpenIdx: uniqueIndex("quiz_attempts_user_lesson_open_unique").on(table.userId, table.contentItemId).where(sql`${table.status} = 'in_progress'`),
+    submissionKeyIdx: uniqueIndex("quiz_attempts_submission_key_unique").on(table.submissionKey),
+    reviewQueueIdx: index("quiz_attempts_review_queue_idx").on(table.status, table.submittedAt),
+    statusCheck: check("quiz_attempts_status_check", sql`${table.status} in ('in_progress', 'pending_review', 'passed', 'failed')`)
+  })
+);
+
+export const quizAttemptQuestions = pgTable(
+  "quiz_attempt_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id").notNull().references(() => quizAttempts.id, { onDelete: "cascade" }),
+    sourceQuestionId: uuid("source_question_id").references(() => lessonAssessmentQuestions.id, { onDelete: "set null" }),
+    questionKey: varchar("question_key", { length: 96 }).notNull(),
+    type: varchar("type", { length: 24 }).notNull(),
+    prompt: text("prompt").notNull(),
+    points: integer("points").notNull(),
+    optionsSnapshot: jsonb("options_snapshot").$type<Array<{ id: string; text: string }>>().notNull().default([]),
+    correctOptionIds: jsonb("correct_option_ids").$type<string[]>().notNull().default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    attemptKeyIdx: uniqueIndex("quiz_attempt_questions_attempt_key_unique").on(table.attemptId, table.questionKey),
+    attemptSortIdx: index("quiz_attempt_questions_attempt_sort_idx").on(table.attemptId, table.sortOrder)
+  })
+);
+
+export const quizAnswers = pgTable(
+  "quiz_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id").notNull().references(() => quizAttempts.id, { onDelete: "cascade" }),
+    questionSnapshotId: uuid("question_snapshot_id").notNull().references(() => quizAttemptQuestions.id, { onDelete: "cascade" }),
+    selectedOptionIds: jsonb("selected_option_ids").$type<string[]>().notNull().default([]),
+    text: text("text"),
+    reviewedPoints: integer("reviewed_points"),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    attemptQuestionIdx: uniqueIndex("quiz_answers_attempt_question_unique").on(table.attemptId, table.questionSnapshotId)
+  })
+);
+
+export const homeworkSubmissions = pgTable(
+  "homework_submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    revisionId: uuid("revision_id").notNull().references(() => lessonAssessmentRevisions.id, { onDelete: "restrict" }),
+    version: integer("version").notNull(),
+    status: varchar("status", { length: 24 }).notNull().default("draft"),
+    text: text("text"),
+    submissionKey: varchar("submission_key", { length: 128 }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userLessonVersionIdx: uniqueIndex("homework_submissions_user_lesson_version_unique").on(table.userId, table.contentItemId, table.version),
+    submissionKeyIdx: uniqueIndex("homework_submissions_submission_key_unique").on(table.submissionKey),
+    reviewQueueIdx: index("homework_submissions_review_queue_idx").on(table.status, table.submittedAt),
+    statusCheck: check("homework_submissions_status_check", sql`${table.status} in ('draft', 'pending_review', 'needs_revision', 'accepted')`)
+  })
+);
+
+export const homeworkAttachments = pgTable(
+  "homework_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    submissionId: uuid("submission_id").notNull().references(() => homeworkSubmissions.id, { onDelete: "cascade" }),
+    objectKey: text("object_key").notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    contentType: varchar("content_type", { length: 160 }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    objectKeyIdx: uniqueIndex("homework_attachments_object_key_unique").on(table.objectKey),
+    submissionIdx: index("homework_attachments_submission_idx").on(table.submissionId),
+    unconfirmedIdx: index("homework_attachments_unconfirmed_idx").on(table.confirmedAt, table.createdAt)
+  })
+);
+
+export const assessmentReviews = pgTable(
+  "assessment_reviews",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    quizAttemptId: uuid("quiz_attempt_id").references(() => quizAttempts.id, { onDelete: "cascade" }),
+    homeworkSubmissionId: uuid("homework_submission_id").references(() => homeworkSubmissions.id, { onDelete: "cascade" }),
+    reviewedByUserId: uuid("reviewed_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    decision: varchar("decision", { length: 24 }).notNull(),
+    comment: text("comment"),
+    questionPoints: jsonb("question_points").$type<Record<string, number>>(),
+    idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    idempotencyIdx: uniqueIndex("assessment_reviews_idempotency_key_unique").on(table.idempotencyKey),
+    quizAttemptIdx: uniqueIndex("assessment_reviews_quiz_attempt_unique").on(table.quizAttemptId),
+    homeworkSubmissionIdx: uniqueIndex("assessment_reviews_homework_submission_unique").on(table.homeworkSubmissionId),
+    oneTargetCheck: check("assessment_reviews_one_target_check", sql`num_nonnulls(${table.quizAttemptId}, ${table.homeworkSubmissionId}) = 1`)
+  })
+);
+
+export const quizAttemptResets = pgTable(
+  "quiz_attempt_resets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+    resetByUserId: uuid("reset_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userLessonCreatedIdx: index("quiz_attempt_resets_user_lesson_created_idx").on(table.userId, table.contentItemId, table.createdAt)
   })
 );
 
