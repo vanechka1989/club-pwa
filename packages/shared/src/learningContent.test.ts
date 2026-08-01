@@ -1,7 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema } from "./index";
+import { adminLearningResponseSchema, learningCategorySchema, learningContentSchema, learningFavoriteMutationResponseSchema, learningHomeResponseSchema, learningProgressSummarySchema, lessonAssessmentConfigSchema } from "./index";
 
 describe("learningContentSchema", () => {
+  it("accepts safe quiz, homework and empty assessment configurations", () => {
+    const quiz = lessonAssessmentConfigSchema.parse({
+      mode: "quiz",
+      title: "Проверка",
+      instructions: null,
+      passingPercent: 70,
+      maxAttempts: 3,
+      questions: [{
+        id: "q1",
+        type: "single_choice",
+        prompt: "2 + 2?",
+        points: 1,
+        options: [{ id: "o1", text: "4" }, { id: "o2", text: "5" }]
+      }]
+    });
+    const homework = lessonAssessmentConfigSchema.parse({
+      mode: "homework",
+      title: "Практика",
+      instructions: "Отправьте результат",
+      dueAt: null,
+      allowText: true,
+      allowAttachments: true,
+      allowedFileKinds: ["image", "document", "video"],
+      maxAttachments: 5
+    });
+
+    expect(quiz.mode).toBe("quiz");
+    expect(homework.mode).toBe("homework");
+    expect(lessonAssessmentConfigSchema.parse({ mode: "none" })).toEqual({ mode: "none" });
+    expect(JSON.stringify(quiz)).not.toContain("isCorrect");
+    expect(JSON.stringify(quiz)).not.toContain("correctOptionIds");
+  });
+
+  it("keeps assessments optional on existing lessons", () => {
+    const parsed = learningContentSchema.parse({
+      id: "item-assessment",
+      categoryId: "category-1",
+      kind: "text",
+      title: "Урок",
+      summary: null,
+      body: null,
+      mediaUrl: null,
+      thumbnailUrl: null,
+      cardLayout: "vertical",
+      mediaContentType: null,
+      mediaSizeBytes: null,
+      publishedAt: null,
+      assessment: null
+    });
+
+    expect(parsed.assessment).toBeNull();
+  });
+
   it("accepts all lesson cover modes while keeping old content compatible", () => {
     const base = {
       id: "item-cover",

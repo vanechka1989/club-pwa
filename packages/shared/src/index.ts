@@ -364,6 +364,74 @@ export const learningCategorySchema = z.object({
 });
 export type LearningCategory = z.infer<typeof learningCategorySchema>;
 
+export const lessonAssessmentModeSchema = z.enum(["none", "quiz", "homework"]);
+export type LessonAssessmentMode = z.infer<typeof lessonAssessmentModeSchema>;
+
+export const quizQuestionTypeSchema = z.enum(["single_choice", "multiple_choice", "free_text"]);
+export type QuizQuestionType = z.infer<typeof quizQuestionTypeSchema>;
+
+export const quizOptionSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(500)
+});
+export type QuizOption = z.infer<typeof quizOptionSchema>;
+
+const quizQuestionBaseSchema = z.object({
+  id: z.string().min(1),
+  prompt: z.string().min(1).max(2000),
+  points: z.number().int().min(1).max(1000)
+});
+
+export const quizQuestionSchema = z.discriminatedUnion("type", [
+  quizQuestionBaseSchema.extend({
+    type: z.literal("single_choice"),
+    options: z.array(quizOptionSchema).min(2).max(20)
+  }),
+  quizQuestionBaseSchema.extend({
+    type: z.literal("multiple_choice"),
+    options: z.array(quizOptionSchema).min(2).max(20)
+  }),
+  quizQuestionBaseSchema.extend({
+    type: z.literal("free_text"),
+    options: z.array(quizOptionSchema).max(0).default([])
+  })
+]);
+export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
+
+export const homeworkFileKindSchema = z.enum(["image", "document", "video"]);
+export type HomeworkFileKind = z.infer<typeof homeworkFileKindSchema>;
+
+export const lessonAssessmentConfigSchema = z.union([
+  z.object({ mode: z.literal("none") }),
+  z.object({
+    mode: z.literal("quiz"),
+    title: z.string().min(1).max(180),
+    instructions: z.string().max(4000).nullable(),
+    passingPercent: z.number().int().min(1).max(100),
+    maxAttempts: z.number().int().min(1).max(100),
+    questions: z.array(quizQuestionSchema).min(1).max(100)
+  }),
+  z.object({
+    mode: z.literal("homework"),
+    title: z.string().min(1).max(180),
+    instructions: z.string().min(1).max(8000),
+    dueAt: z.string().datetime().nullable(),
+    allowText: z.boolean(),
+    allowAttachments: z.boolean(),
+    allowedFileKinds: z.array(homeworkFileKindSchema).max(3),
+    maxAttachments: z.number().int().min(1).max(10)
+  })
+]).superRefine((value, context) => {
+  if (value.mode !== "homework") return;
+  if (!value.allowText && !value.allowAttachments) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowText"], message: "Выберите текстовый ответ или вложения" });
+  }
+  if (value.allowAttachments && value.allowedFileKinds.length === 0) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["allowedFileKinds"], message: "Выберите допустимые типы файлов" });
+  }
+});
+export type LessonAssessmentConfig = z.infer<typeof lessonAssessmentConfigSchema>;
+
 export const learningContentSchema = z.object({
   id: z.string(),
   categoryId: z.string(),
@@ -380,6 +448,7 @@ export const learningContentSchema = z.object({
   mediaContentType: z.string().nullable(),
   mediaSizeBytes: z.number().int().nonnegative().nullable(),
   materials: z.array(lessonMaterialSchema).optional(),
+  assessment: lessonAssessmentConfigSchema.nullable().optional(),
   publishedAt: z.string().datetime().nullable()
 });
 export type LearningContent = z.infer<typeof learningContentSchema>;
