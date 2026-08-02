@@ -68,7 +68,7 @@ function openAssessment(item: Assessment) {
 <template>
   <section class="admin-client-learning admin-client-detail-surface" aria-label="Обучение">
     <div class="admin-client-learning__body">
-      <div class="admin-client-learning__summary" aria-label="Сводка обучения">
+      <div class="admin-client-learning__summary" :class="{ 'has-pending': pendingReviews }" aria-label="Сводка обучения">
         <article><BookOpen aria-hidden="true" /><span>Уроки<strong>{{ plural(engagement.length, 'урок', 'урока', 'уроков') }}</strong></span></article>
         <article><Clock3 aria-hidden="true" /><span>Время<strong>{{ formatDuration(totalSeconds) }}</strong></span></article>
         <article><CheckCircle2 aria-hidden="true" /><span>Результаты<strong>{{ plural(assessments.length, 'результат', 'результата', 'результатов') }}</strong></span></article>
@@ -101,6 +101,7 @@ function openAssessment(item: Assessment) {
 .admin-client-learning { min-width: 0; }
 .admin-client-learning__body { display: grid; gap: 8px; }
 .admin-client-learning__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-client-learning__summary.has-pending { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .admin-client-learning__summary article { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 2px 7px; min-width: 0; min-height: 52px; padding: 7px 9px; border-left: 1px solid var(--border); }
 .admin-client-learning__summary article:first-child { border-left: 0; }
 .admin-client-learning__summary svg { grid-row: 1 / 3; width: 16px; flex: 0 0 auto; color: var(--accent); }
@@ -124,6 +125,7 @@ button.admin-client-learning__event:disabled { cursor: not-allowed; opacity: .62
 .admin-client-learning__icon svg { width: 16px; }
 @media (max-width: 359px) {
   .admin-client-learning__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-client-learning__summary.has-pending { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-client-learning__summary article:nth-child(odd) { border-left: 0; }
   .admin-client-learning__summary article:nth-child(n + 3) { border-top: 1px solid var(--border); }
   .admin-client-learning__filters button { font-size: 10px; }

@@ -48,6 +48,12 @@ describe("admin client learning section", () => {
     expect(source).toMatch(/\.admin-client-learning__icon svg\s*\{[^}]*width:\s*16px/s);
   });
 
+  it("keeps the pending review indicator in the compact summary grid", () => {
+    expect(source).toContain(':class="{ \'has-pending\': pendingReviews }"');
+    expect(source).toMatch(/\.admin-client-learning__summary\.has-pending\s*\{[^}]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/s);
+    expect(source).toMatch(/@media \(max-width:\s*359px\)[\s\S]*\.admin-client-learning__summary\.has-pending\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  });
+
   it("combines lesson activity and assessments with compact filters", async () => {
     const { emitted } = render(AdminClientLearningSection, {
       props: {
