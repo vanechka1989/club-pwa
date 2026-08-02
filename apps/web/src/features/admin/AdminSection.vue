@@ -116,6 +116,7 @@ import {
 import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from "@/features/admin/adminPanels";
 import { resolveAdminPollStats } from "@/features/admin/adminStatsFallback";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
+import { paymentSuccessPercent } from "@/features/admin/adminAnalyticsOverview";
 import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -651,6 +652,19 @@ const adminStatistics = computed(() =>
       communityMessages: communityMessages.value
     },
     statisticsOptions.value
+  )
+);
+const paymentOutcomeCount = computed(
+  () =>
+    adminStatistics.value.payments.paidOrders +
+    adminStatistics.value.payments.pendingOrders +
+    adminStatistics.value.payments.failedOrders
+);
+const successfulPaymentPercent = computed(() =>
+  paymentSuccessPercent(
+    adminStatistics.value.payments.paidOrders,
+    adminStatistics.value.payments.pendingOrders,
+    adminStatistics.value.payments.failedOrders
   )
 );
 const statisticsDetailMeta = computed(() => {
@@ -2920,8 +2934,42 @@ onUnmounted(() => {
       </div>
 
       <div class="admin-stat-period-summary ui-card">
-        <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
-        <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
+        <div class="admin-stat-summary-kpis">
+          <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
+          <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
+        </div>
+        <div class="admin-stat-visual-grid">
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-clients"
+            type="button"
+            :aria-label="`Активные клиенты: ${adminStatistics.clients.activePercent}%`"
+            @click="openStatisticsDetail('clients')"
+          >
+            <span class="admin-stat-ring" :style="`--chart-value: ${adminStatistics.clients.activePercent}%`" aria-hidden="true"><b>{{ adminStatistics.clients.activePercent }}%</b></span>
+            <strong>Активные</strong>
+            <small>{{ adminStatistics.clients.active }} из {{ adminStatistics.clients.total }} клиентов</small>
+          </button>
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-finance"
+            type="button"
+            :aria-label="`Успешные оплаты: ${successfulPaymentPercent}%`"
+            @click="openStatisticsDetail('finance')"
+          >
+            <span class="admin-stat-ring" :style="`--chart-value: ${successfulPaymentPercent}%`" aria-hidden="true"><b>{{ successfulPaymentPercent }}%</b></span>
+            <strong>Оплаты</strong>
+            <small>{{ adminStatistics.payments.paidOrders }} из {{ paymentOutcomeCount }} операций</small>
+          </button>
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-learning"
+            type="button"
+            :aria-label="`Средний прогресс обучения: ${adminStatistics.learning.averageProgressPercent}%`"
+            @click="openStatisticsDetail('learning')"
+          >
+            <span class="admin-stat-ring" :style="`--chart-value: ${adminStatistics.learning.averageProgressPercent}%`" aria-hidden="true"><b>{{ adminStatistics.learning.averageProgressPercent }}%</b></span>
+            <strong>Прогресс</strong>
+            <small>{{ adminStatistics.learning.completedItems }} из {{ adminStatistics.learning.totalItems }} шагов</small>
+          </button>
+        </div>
       </div>
 
       <div

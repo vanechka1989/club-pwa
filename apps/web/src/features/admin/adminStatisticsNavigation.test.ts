@@ -17,6 +17,18 @@ describe("admin statistics navigation", () => {
     }
   });
 
+  it("turns the period summary into three accessible visual drilldowns", () => {
+    expect(section).toContain('class="admin-stat-visual-grid"');
+    expect(section.match(/class="admin-stat-visual-action ui-button/g)).toHaveLength(3);
+    expect(section).toContain("Активные клиенты:");
+    expect(section).toContain("Успешные оплаты:");
+    expect(section).toContain("Средний прогресс обучения:");
+    expect(section).toContain("--chart-value");
+    for (const key of ["clients", "finance", "learning"]) {
+      expect(section).toMatch(new RegExp(`admin-stat-visual-action[\\s\\S]*?openStatisticsDetail\\(['\"]${key}['\"]\\)`));
+    }
+  });
+
   it("keeps the overview compact and moves acquisition into its task screen", () => {
     const overviewStart = section.indexOf(`activePanel === 'statistics'`);
     const usersStart = section.indexOf(`activePanel === 'users'`);
