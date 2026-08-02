@@ -63,11 +63,11 @@ onMounted(load);
 
 <template>
   <TaskScreen class="admin-task-screen admin-assessment-result-task" :title="title" :subtitle="clientName" portal @back="emit('back')">
-    <div class="admin-assessment-result">
-      <section v-if="loading" class="admin-assessment-state ui-card">Загружаю полный результат…</section>
-      <section v-else-if="error" class="admin-assessment-state admin-assessment-state--error ui-card"><CircleAlert aria-hidden="true" /><p>{{ error }}</p><button class="secondary-button ui-button" type="button" @click="load">Повторить</button></section>
+    <div class="admin-assessment-result admin-client-detail-surface">
+      <section v-if="loading" class="admin-assessment-state">Загружаю полный результат…</section>
+      <section v-else-if="error" class="admin-assessment-state admin-assessment-state--error"><CircleAlert aria-hidden="true" /><p>{{ error }}</p><button class="secondary-button ui-button" type="button" @click="load">Повторить</button></section>
       <template v-else-if="result">
-        <header class="admin-assessment-hero ui-card">
+        <header class="admin-assessment-hero">
           <div><span>{{ result.categoryTitle }} · {{ result.mode === 'quiz' ? 'Тест' : 'Домашнее задание' }}</span><h3>{{ result.title }}</h3><p>{{ statusLabel(result.status) }}</p></div>
           <strong v-if="result.mode === 'quiz'">{{ result.percent ?? 0 }}%</strong>
           <FileText v-else aria-hidden="true" />
@@ -86,10 +86,10 @@ onMounted(load);
           <article v-if="result.reviewedAt"><span>Проверено</span><strong>{{ formatDate(result.reviewedAt) }}</strong></article>
         </section>
 
-        <section v-if="result.reviewComment" class="admin-assessment-comment ui-card"><strong>Комментарий проверяющего</strong><p>{{ result.reviewComment }}</p></section>
+        <section v-if="result.reviewComment" class="admin-assessment-comment"><strong>Комментарий проверяющего</strong><p>{{ result.reviewComment }}</p></section>
 
         <section v-if="result.mode === 'quiz'" class="admin-assessment-questions">
-          <article v-for="(question, index) in result.questions" :key="question.id" class="admin-assessment-question ui-card">
+          <article v-for="(question, index) in result.questions" :key="question.id" class="admin-assessment-question">
             <header><span>Вопрос {{ index + 1 }}</span><em :class="question.isCorrect === null ? 'reviewed' : question.isCorrect ? 'correct' : 'incorrect'">{{ question.isCorrect === null ? 'Проверено администратором · ' : '' }}{{ question.earnedPoints ?? 0 }} / {{ question.points }} баллов</em></header>
             <h4>{{ question.prompt }}</h4>
             <div v-if="question.type !== 'free_text'" class="admin-assessment-options">
@@ -105,12 +105,12 @@ onMounted(load);
         </section>
 
         <template v-else>
-          <section v-if="result.prompt" class="admin-assessment-text ui-card"><span>Задание</span><p>{{ result.prompt }}</p></section>
-          <section class="admin-assessment-text ui-card"><span>Ответ клиента · версия {{ result.version }}</span><p>{{ result.text || 'Текстовый ответ не указан' }}</p></section>
-          <section v-if="result.attachments.length" class="admin-assessment-files ui-card"><strong>Файлы клиента</strong><a v-for="file in result.attachments" :key="file.id" :href="file.url" target="_blank" rel="noopener noreferrer"><Paperclip aria-hidden="true" /><span>{{ file.fileName }}<small>{{ Math.max(1, Math.round(file.sizeBytes / 1024)) }} КБ</small></span></a></section>
+          <section v-if="result.prompt" class="admin-assessment-text"><span>Задание</span><p>{{ result.prompt }}</p></section>
+          <section class="admin-assessment-text"><span>Ответ клиента · версия {{ result.version }}</span><p>{{ result.text || 'Текстовый ответ не указан' }}</p></section>
+          <section v-if="result.attachments.length" class="admin-assessment-files"><strong>Файлы клиента</strong><a v-for="file in result.attachments" :key="file.id" :href="file.url" target="_blank" rel="noopener noreferrer"><Paperclip aria-hidden="true" /><span>{{ file.fileName }}<small>{{ Math.max(1, Math.round(file.sizeBytes / 1024)) }} КБ</small></span></a></section>
         </template>
 
-        <section v-if="result.resetAt" class="admin-assessment-reset-history ui-card"><RotateCcw aria-hidden="true" /><div><strong>Прохождение было сброшено</strong><p>{{ formatDate(result.resetAt) }}<template v-if="result.resetReason"> · {{ result.resetReason }}</template></p></div></section>
+        <section v-if="result.resetAt" class="admin-assessment-reset-history"><RotateCcw aria-hidden="true" /><div><strong>Прохождение было сброшено</strong><p>{{ formatDate(result.resetAt) }}<template v-if="result.resetReason"> · {{ result.resetReason }}</template></p></div></section>
         <button v-if="resetAvailable" class="admin-assessment-reset-button secondary-button ui-button" type="button" @click="emit('reset', { mode: result.mode, recordId: result.id })"><RotateCcw aria-hidden="true" />Сбросить результат</button>
       </template>
     </div>
@@ -118,45 +118,61 @@ onMounted(load);
 </template>
 
 <style scoped>
-.admin-assessment-result { display: grid; gap: 12px; padding-bottom: 24px; }
-.admin-assessment-state { display: grid; min-height: 160px; place-items: center; padding: 22px; color: var(--text-muted); text-align: center; }
-.admin-assessment-state--error svg { width: 30px; color: var(--danger); }
-.admin-assessment-hero { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--surface)), var(--surface)); }
-.admin-assessment-hero div { display: grid; gap: 4px; min-width: 0; }
-.admin-assessment-hero span { color: var(--text-muted); font-size: 12px; }
-.admin-assessment-hero h3, .admin-assessment-hero p { margin: 0; }
-.admin-assessment-hero p { color: var(--accent); font-weight: 700; }
-.admin-assessment-hero > strong { font-size: 34px; color: var(--accent); }
-.admin-assessment-hero > svg { width: 38px; color: var(--accent); }
-.admin-assessment-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.admin-assessment-summary article { display: grid; gap: 4px; padding: 13px; border: 1px solid var(--border); border-radius: 15px; background: var(--panel-soft); }
-.admin-assessment-summary span, .admin-assessment-text span { color: var(--text-muted); font-size: 11px; }
-.admin-assessment-summary strong { font-size: 13px; }
-.admin-assessment-comment, .admin-assessment-text, .admin-assessment-files, .admin-assessment-reset-history { padding: 16px; }
-.admin-assessment-comment p, .admin-assessment-text p, .admin-assessment-reset-history p { margin: 7px 0 0; white-space: pre-wrap; }
-.admin-assessment-questions { display: grid; gap: 10px; }
-.admin-assessment-question { display: grid; gap: 12px; padding: 16px; }
-.admin-assessment-question header { display: flex; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: 12px; }
+.admin-assessment-result { display: grid; gap: 8px; min-width: 0; padding-bottom: 24px; }
+.admin-assessment-state, .admin-assessment-hero, .admin-assessment-comment, .admin-assessment-text, .admin-assessment-files, .admin-assessment-reset-history, .admin-assessment-question { min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-assessment-state { display: grid; min-height: 120px; place-items: center; padding: 16px; color: var(--text-muted); text-align: center; }
+.admin-assessment-state--error svg { width: 24px; color: var(--danger); }
+.admin-assessment-hero { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, var(--surface)), var(--surface)); }
+.admin-assessment-hero div { display: grid; gap: 2px; min-width: 0; }
+.admin-assessment-hero span { color: var(--text-muted); font-size: 10px; line-height: 1.2; }
+.admin-assessment-hero h3, .admin-assessment-hero p { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.admin-assessment-hero h3 { font-size: 14px; line-height: 1.25; }
+.admin-assessment-hero p { color: var(--accent); font-size: 11px; font-weight: 700; line-height: 1.25; }
+.admin-assessment-hero > strong { flex: 0 0 auto; color: var(--accent); font-size: 24px; line-height: 1; }
+.admin-assessment-hero > svg { width: 24px; flex: 0 0 auto; color: var(--accent); }
+.admin-assessment-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-assessment-summary article { display: grid; align-content: center; gap: 2px; min-width: 0; min-height: 52px; padding: 7px 9px; border-left: 1px solid var(--border); }
+.admin-assessment-summary article:first-child { border-left: 0; }
+.admin-assessment-summary span, .admin-assessment-text span { color: var(--text-muted); font-size: 10px; line-height: 1.15; }
+.admin-assessment-summary strong { min-width: 0; color: var(--text); font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+.admin-assessment-comment, .admin-assessment-text, .admin-assessment-files, .admin-assessment-reset-history { padding: 10px 12px; }
+.admin-assessment-comment > strong, .admin-assessment-files > strong, .admin-assessment-reset-history strong { font-size: 12px; }
+.admin-assessment-comment p, .admin-assessment-text p, .admin-assessment-reset-history p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; white-space: pre-wrap; }
+.admin-assessment-questions { display: grid; gap: 8px; }
+.admin-assessment-question { display: grid; gap: 8px; padding: 10px 12px; }
+.admin-assessment-question header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 8px; color: var(--text-muted); font-size: 10px; line-height: 1.2; }
 .admin-assessment-question header em { font-style: normal; font-weight: 700; }
 .admin-assessment-question header em.correct { color: var(--accent); }
 .admin-assessment-question header em.incorrect { color: var(--danger); }
 .admin-assessment-question header em.reviewed { color: var(--text-muted); }
-.admin-assessment-question h4 { min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.admin-assessment-options { display: grid; gap: 7px; }
-.admin-assessment-options > div { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 3px 9px; align-items: center; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 13px; }
+.admin-assessment-question h4 { min-width: 0; margin: 0; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
+.admin-assessment-options { display: grid; gap: 6px; }
+.admin-assessment-options > div { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; gap: 2px 8px; min-width: 0; min-height: 44px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-soft); }
 .admin-assessment-options strong, .admin-assessment-options small, .admin-assessment-free-text p, .admin-assessment-text p, .admin-assessment-files span { min-width: 0; overflow-wrap: anywhere; }
-.admin-assessment-options > div > span { display: grid; grid-row: 1 / span 3; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: var(--surface); }
-.admin-assessment-options svg { width: 15px; }
-.admin-assessment-options small { color: var(--text-muted); }
-.admin-assessment-options .correct { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
-.admin-assessment-options .incorrect { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 9%, transparent); }
-.admin-assessment-free-text { padding: 12px; border-radius: 13px; background: var(--panel-soft); }
-.admin-assessment-files { display: grid; gap: 9px; }
-.admin-assessment-files a { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 11px; border: 1px solid var(--border); border-radius: 13px; color: inherit; text-decoration: none; }
-.admin-assessment-files a > span { display: grid; }
-.admin-assessment-files small { color: var(--text-muted); }
-.admin-assessment-reset-history { display: flex; align-items: center; gap: 12px; color: var(--text-muted); }
-.admin-assessment-reset-history svg { width: 22px; flex: 0 0 auto; }
+.admin-assessment-options strong { font-size: 12px; line-height: 1.25; }
+.admin-assessment-options > div > span { display: grid; grid-row: 1 / span 3; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--surface); }
+.admin-assessment-options svg { width: 13px; }
+.admin-assessment-options small { color: var(--text-muted); font-size: 9px; line-height: 1.15; }
+.admin-assessment-options .correct { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 9%, var(--panel-soft)); }
+.admin-assessment-options .incorrect { border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 9%, var(--panel-soft)); }
+.admin-assessment-free-text { padding: 9px 10px; border-radius: 10px; background: var(--panel-soft); }
+.admin-assessment-free-text span { color: var(--text-muted); font-size: 10px; }
+.admin-assessment-free-text p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; white-space: pre-wrap; }
+.admin-assessment-files { display: grid; gap: 7px; }
+.admin-assessment-files a { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 10px; color: inherit; text-decoration: none; background: var(--panel-soft); }
+.admin-assessment-files a > svg { width: 16px; flex: 0 0 auto; color: var(--accent); }
+.admin-assessment-files a > span { display: grid; font-size: 12px; line-height: 1.25; }
+.admin-assessment-files small { color: var(--text-muted); font-size: 9px; }
+.admin-assessment-reset-history { display: flex; align-items: center; gap: 9px; color: var(--text-muted); }
+.admin-assessment-reset-history svg { width: 18px; flex: 0 0 auto; }
 .admin-assessment-reset-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; }
-@media (max-width: 360px) { .admin-assessment-summary { grid-template-columns: 1fr; } }
+.admin-assessment-reset-button svg { width: 17px; }
+@media (max-width: 359px) {
+  .admin-assessment-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-assessment-summary article:nth-child(odd) { border-left: 0; }
+  .admin-assessment-summary article:nth-child(n + 3) { border-top: 1px solid var(--border); }
+}
+@media (min-width: 720px) {
+  .admin-assessment-hero, .admin-assessment-question, .admin-assessment-comment, .admin-assessment-text, .admin-assessment-files, .admin-assessment-reset-history { padding-inline: 14px; }
+}
 </style>

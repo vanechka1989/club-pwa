@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact client detail pages",
+  title: "Unified client page styling",
   items: [
-    "Client learning now uses a compact summary, filters, lessons, quizzes, and homework rows.",
-    "Decorative icons are smaller while comfortable tap targets and full result navigation stay intact.",
-    "The other client detail pages now share the same spacing, compact rows, and visual rhythm."
+    "Full quiz and homework results now match the compact client detail pages.",
+    "Scores, attempts, answers, and correct choices use dense, readable rows without oversized nested cards.",
+    "All client detail routes were checked across mobile and wide layouts for consistent spacing and tap targets."
   ]
 };
 

@@ -788,6 +788,32 @@ async function mockApi(page: Page, sessionUser = currentUser) {
       return;
     }
 
+    if (path === "/admin/users/593677751/learning/homework/submission-demo") {
+      await route.fulfill(json({
+        result: {
+          mode: "homework",
+          id: "submission-demo",
+          contentItemId: "lesson-admin-1",
+          title: "Практическое задание",
+          categoryTitle: "Модуль 1",
+          prompt: "Опишите результат работы и приложите файл.",
+          status: "accepted",
+          version: 2,
+          text: "Задание выполнено, основные выводы перечислены в отчёте.",
+          submittedAt: now,
+          reviewedAt: now,
+          acceptedAt: now,
+          reviewDecision: "accepted",
+          reviewComment: "Работа принята без замечаний.",
+          reviewCreatedAt: now,
+          resetAt: null,
+          resetReason: null,
+          attachments: [{ id: "file-demo", fileName: "отчёт.pdf", contentType: "application/pdf", sizeBytes: 4096, url: "/mock-report.pdf" }]
+        }
+      }));
+      return;
+    }
+
     if (path === "/admin/login-ips/593677751") {
       await route.fulfill(json({ loginIps: [] }));
       return;
@@ -2919,6 +2945,43 @@ test("keeps client learning and detail pages compact at target widths", async ({
     await expect(page.locator(".admin-client-detail-task .task-screen")).toBeVisible();
     await expectTaskFits(".admin-client-detail-task .task-screen");
     await expect(page.locator(".admin-client-detail-page.ui-card")).toHaveCount(0);
+
+    for (const section of ["activity", "subscriptions", "payments", "referrals", "moderation", "devices", "login-ips"]) {
+      await page.goto(`/admin/clients/593677751/${section}`);
+      await expect(page.locator(".admin-client-detail-task .task-screen"), `${viewport.name} ${section}`).toBeVisible();
+      await expectTaskFits(".admin-client-detail-task .task-screen");
+    }
+
+    for (const resultPath of [
+      "/admin/clients/593677751/learning/quiz/attempt-demo",
+      "/admin/clients/593677751/learning/homework/submission-demo"
+    ]) {
+      await page.goto(resultPath);
+      const resultTask = page.locator(".admin-assessment-result-task .task-screen");
+      await expect(resultTask, `${viewport.name} ${resultPath}`).toBeVisible();
+      await expectTaskFits(".admin-assessment-result-task .task-screen");
+      const resultMetrics = await page.evaluate(() => {
+        const box = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
+        const percent = document.querySelector<HTMLElement>(".admin-assessment-hero > strong");
+        const options = [...document.querySelectorAll<HTMLElement>(".admin-assessment-options > div")];
+        return {
+          heroHeight: Math.round(box(".admin-assessment-hero")?.height ?? 0),
+          summaryHeight: Math.round(box(".admin-assessment-summary")?.height ?? 0),
+          percentSize: percent ? Number.parseFloat(getComputedStyle(percent).fontSize) : 0,
+          optionHeights: options.map((option) => Math.round(option.getBoundingClientRect().height))
+        };
+      });
+      expect(resultMetrics.heroHeight).toBeLessThanOrEqual(76);
+      expect(resultMetrics.summaryHeight).toBeLessThanOrEqual(viewport.width < 360 ? 108 : 60);
+      expect(resultMetrics.percentSize).toBeLessThanOrEqual(24);
+      expect(resultMetrics.optionHeights.every((height) => height >= 44)).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`admin-client-${resultPath.includes("homework") ? "homework" : "quiz"}-compact-${viewport.name}.png`),
+        fullPage: true,
+        animations: "disabled",
+        caret: "hide"
+      });
+    }
   }
 });
 

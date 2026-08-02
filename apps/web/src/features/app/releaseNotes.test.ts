@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes compact client detail pages as version 5.96", () => {
-    expect(appVersion).toBe("5.96");
-    expect(releaseNotes[0]?.title).toBe("Компактные страницы клиента");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/компакт/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/обучен/i);
+  it("publishes unified client pages as version 5.97", () => {
+    expect(appVersion).toBe("5.97");
+    expect(releaseNotes[0]?.title).toBe("Единый стиль страниц клиента");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/результат/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/еди/i);
+
+    const compactClientPagesRelease = releaseNotes.find((note) => note.version === "5.96");
+    expect(compactClientPagesRelease?.title).toBe("Компактные страницы клиента");
 
     const repeatableAssessmentsRelease = releaseNotes.find((note) => note.version === "5.95");
     expect(repeatableAssessmentsRelease?.title).toBe("Разделы клиента и повторное прохождение");
@@ -270,7 +273,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact client detail pages");
+    expect(englishNotes[0]?.title).toBe("Unified client page styling");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -1,7 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAdminAssessmentResult, type AdminAssessmentResult } from "@/api/client";
 import AdminAssessmentResultTask from "./AdminAssessmentResultTask.vue";
+
+const source = readFileSync(resolve("src/features/admin/AdminAssessmentResultTask.vue"), "utf8");
 
 vi.mock("@/api/client", () => ({ getAdminAssessmentResult: vi.fn() }));
 vi.mock("@/features/app/TaskScreen.vue", () => ({ default: { template: '<section><h1>{{ title }}</h1><slot /></section>', props: ["title"] } }));
@@ -25,6 +29,24 @@ async function renderResult(result: AdminAssessmentResult, canReset = true) {
 }
 
 describe("admin assessment result task", () => {
+  it("uses the same flat compact surface as the other client detail pages", () => {
+    expect(source).toContain('class="admin-assessment-result admin-client-detail-surface"');
+    expect(source).not.toContain('class="admin-assessment-hero ui-card"');
+    expect(source).not.toContain('class="admin-assessment-question ui-card"');
+    expect(source).not.toContain('class="admin-assessment-text ui-card"');
+    expect(source).toMatch(/\.admin-assessment-result\s*\{[^}]*gap:\s*8px/s);
+    expect(source).toMatch(/\.admin-assessment-hero\s*\{[^}]*padding:\s*10px 12px/s);
+    expect(source).toMatch(/\.admin-assessment-hero\s*>\s*strong\s*\{[^}]*font-size:\s*24px/s);
+  });
+
+  it("keeps summary and answer rows compact without shrinking tap targets", () => {
+    expect(source).toMatch(/\.admin-assessment-summary\s*\{[^}]*grid-template-columns:\s*repeat\(4,/s);
+    expect(source).toMatch(/\.admin-assessment-summary article\s*\{[^}]*min-height:\s*52px/s);
+    expect(source).toMatch(/\.admin-assessment-options\s*>\s*div\s*\{[^}]*min-height:\s*44px/s);
+    expect(source).toMatch(/\.admin-assessment-options\s*>\s*div\s*>\s*span\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px/s);
+    expect(source).toMatch(/@media \(max-width:\s*359px\)[\s\S]*\.admin-assessment-summary\s*\{[^}]*repeat\(2,/s);
+  });
+
   it("shows every quiz option with the client and correct answers", async () => {
     vi.mocked(getAdminAssessmentResult).mockResolvedValue({ result: {
       mode: "quiz", id: "attempt-1", contentItemId: "lesson-1", title: "Итоговый тест", categoryTitle: "Старт", status: "failed",
