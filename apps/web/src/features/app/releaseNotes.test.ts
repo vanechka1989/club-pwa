@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes visible homework decisions as version 6.11", () => {
-    expect(appVersion).toBe("6.11");
-    expect(releaseNotes[0]?.title).toBe("Результат проверки ДЗ на виду");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/комментари/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/модул/i);
+  it("publishes the homework result inbox as version 6.12", () => {
+    expect(appVersion).toBe("6.12");
+    expect(releaseNotes[0]?.title).toBe("Отдельный экран результатов ДЗ");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Проверки ДЗ/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/закры/i);
+
+    const visibleHomeworkDecisions = releaseNotes.find((note) => note.version === "6.11");
+    expect(visibleHomeworkDecisions?.title).toBe("Результат проверки ДЗ на виду");
 
     const unobstructedHomeworkReview = releaseNotes.find((note) => note.version === "6.10");
     expect(unobstructedHomeworkReview?.title).toBe("Проверка ДЗ без перекрытия");
@@ -315,7 +318,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Organized learning analytics");
+    expect(englishNotes[0]?.title).toBe("Homework review results inbox");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

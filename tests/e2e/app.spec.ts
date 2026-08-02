@@ -1821,6 +1821,11 @@ test("shows a clear learning path with progress and lesson navigation", async ({
     { ...adminLearningMaterial, id: "lesson-path-2", title: "Второй урок", categoryId: "module-path", kind: "text", mediaUrl: null, mediaSource: null, cardLayout: "vertical" }
   ];
   await page.route("**/api/me", (route) => route.fulfill(json({ user: member })));
+  let dismissedHomeworkReview = "";
+  await page.route("**/api/learning/homework-reviews/*/dismiss", async (route) => {
+    dismissedHomeworkReview = new URL(route.request().url()).pathname.split("/").at(-2) ?? "";
+    await route.fulfill(json({ ok: true }));
+  });
   await page.route("**/api/learning", (route) => route.fulfill(json({
     categories: [{ ...adminLearningCategory, id: "module-path", title: "Маршрут", itemsCount: 2 }],
     featured: lessons,
@@ -1834,12 +1839,19 @@ test("shows a clear learning path with progress and lesson navigation", async ({
       lastOpenedMaterialId: null,
       lastOpenedAt: now,
       lastOpenedPlaybackPositionSeconds: 0,
-      latestHomeworkReview: {
+      homeworkReviewNotices: [{
+        submissionId: "submission-path-revision",
         contentItemId: "lesson-path-2",
         status: "needs_revision",
         reviewComment: "Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.",
         reviewedAt: now
-      }
+      }, {
+        submissionId: "submission-path-accepted",
+        contentItemId: "lesson-path-1",
+        status: "accepted",
+        reviewComment: "Отличная работа, домашнее задание принято.",
+        reviewedAt: now
+      }]
     }
   })));
   await page.route("**/api/learning/items/**", async (route) => {
@@ -1872,12 +1884,23 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await expect(page.getByRole("progressbar", { name: "Общий прогресс обучения" })).toHaveAttribute("aria-valuenow", "50");
   await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
   await expect(page.locator(".learning-progress-hero")).toHaveCount(1);
-  await expect(page.getByText("Нужна доработка")).toBeVisible();
-  await expect(page.getByText("Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Исправить ДЗ: Второй урок" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Открыть результаты проверок ДЗ: 2" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Продолжить: Первый урок" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("learning-progress.png"), fullPage: false });
+  await page.getByRole("button", { name: "Открыть результаты проверок ДЗ: 2" }).click();
+  await expect(page.getByRole("heading", { name: "Результаты ДЗ" })).toBeVisible();
+  await expect(page.getByText("Домашнее задание не принято")).toBeVisible();
+  await expect(page.getByText("Комментарий модератора").first()).toBeVisible();
+  await expect(page.getByText("Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.")).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("homework-review-results.png"), fullPage: false });
+  await page.getByRole("button", { name: "Закрыть результат ДЗ Второй урок" }).click();
+  await expect.poll(() => dismissedHomeworkReview).toBe("submission-path-revision");
+  await expect(page.getByText("Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.")).toHaveCount(0);
+  await expect(page.getByText("Отличная работа, домашнее задание принято.")).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+  await expect(page.getByRole("button", { name: "Открыть результаты проверок ДЗ: 1" })).toBeVisible();
   await page.getByRole("button", { name: "Открыть поиск и фильтры" }).click();
   await page.getByRole("searchbox", { name: "Найти модуль или урок" }).fill("Первый");
   await expect(page.getByRole("button", { name: "Открыть урок Первый урок" })).toBeVisible();

@@ -2169,7 +2169,7 @@ body.club-mobile-device .module-name-modal {
 .homework-review-result { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface); box-shadow: var(--shadow-sm); }
 .homework-review-result--needs_revision { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
 .homework-review-result--accepted { border-color: color-mix(in srgb, #55d9a8 38%, var(--border)); }
-.homework-review-result__head { display: grid; grid-template-columns: 42px minmax(0, 1fr) 44px; align-items: start; gap: 10px; }
+.homework-review-result__head { display: grid; grid-template-columns: 42px minmax(0, 1fr) var(--icon-button-size); align-items: start; gap: 10px; }
 .homework-review-result__status-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; }
 .homework-review-result--needs_revision .homework-review-result__status-icon { color: var(--danger-text); background: color-mix(in srgb, var(--danger) 15%, transparent); }
 .homework-review-result--accepted .homework-review-result__status-icon { color: #55d9a8; background: color-mix(in srgb, #55d9a8 15%, transparent); }
@@ -2180,7 +2180,7 @@ body.club-mobile-device .module-name-modal {
 .homework-review-result--accepted .homework-review-result__head small { color: #55d9a8; }
 .homework-review-result__head strong { overflow-wrap: anywhere; font-size: .95rem; }
 .homework-review-result__head time { color: var(--text-muted); font-size: .67rem; }
-.homework-review-result__dismiss { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--border); border-radius: 12px; color: var(--text-muted); background: var(--panel-soft); }
+.homework-review-result__dismiss { display: grid; width: var(--icon-button-size); height: var(--icon-button-size); place-items: center; border: 1px solid var(--border); border-radius: 12px; color: var(--text-muted); background: var(--panel-soft); }
 .homework-review-result__dismiss svg { width: 20px; }
 .homework-review-result__comment { display: grid; gap: 5px; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--panel-soft) 88%, transparent); }
 .homework-review-result__comment small { color: var(--accent); font-size: .7rem; font-weight: 850; }

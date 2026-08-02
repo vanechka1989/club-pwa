@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Organized learning analytics",
+  title: "Homework review results inbox",
   items: [
-    "Learning metrics now live in one overview, while tests and homework have their own balanced summary block.",
-    "Materials share one consistent structure with compact outcome labels and a visual quick-exit indicator.",
-    "The new composition keeps readable spacing across phones, tablets, and wide screens."
+    "A compact Homework Reviews action now shows how many moderator decisions are waiting.",
+    "Accepted and rejected homework results open on a dedicated screen with lesson details and moderator comments.",
+    "Each result can be dismissed separately and stays dismissed across sessions and devices."
   ]
 };
 
