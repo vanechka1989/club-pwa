@@ -13,6 +13,7 @@ import {
   type AdminMailingPreviewResponse,
   type AdminLearningMaterial,
   type AdminLoginIp,
+  type AdminFinanceAnalyticsResponse,
   type AdminStatsUser,
   type AdminStatsResponse,
   type AdminUser,
@@ -67,6 +68,7 @@ import {
   getAdminMailings,
   getAdminMailingAnalytics,
   getAdminMailingAnalyticsRecipients,
+  getAdminFinanceAnalytics,
   getAdminPaymentHistory,
   getAdminS3Objects,
   getAdminS3ObjectUrl,
@@ -310,6 +312,10 @@ const selectedUserLoginIpsLoading = ref(false);
 const selectedUserLoginIpsError = ref(false);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
 const paymentDrilldownParent = ref<AnalyticsDetail | null>(null);
+const financeAnalytics = ref<AdminFinanceAnalyticsResponse | null>(null);
+const financeAnalyticsLoading = ref(false);
+const financeAnalyticsError = ref(false);
+let financeAnalyticsRequestId = 0;
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const activeStatisticsDetail = ref<AnalyticsDetail | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
@@ -661,6 +667,7 @@ const statisticsAcquisitionRange = computed(() => {
   from.setDate(from.getDate() - (statisticsPeriod.value === "7d" ? 6 : 29));
   return { from: formatDateInput(from), to: formatDateInput(to) };
 });
+const statisticsFinanceRange = computed(() => statisticsPeriod.value === "all" ? {} : statisticsEngagementRange.value);
 const statisticsOptions = computed(() =>
   statisticsDateRange.value
     ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
@@ -1720,8 +1727,23 @@ function selectStatisticsPeriod(period: AdminStatisticsPeriod) {
   statisticsCustomTo.value ||= formatDateInput(to);
 }
 
+async function loadFinanceAnalytics() {
+  const requestId = ++financeAnalyticsRequestId;
+  financeAnalyticsLoading.value = true;
+  financeAnalyticsError.value = false;
+  try {
+    const response = await getAdminFinanceAnalytics(statisticsFinanceRange.value);
+    if (requestId === financeAnalyticsRequestId) financeAnalytics.value = response;
+  } catch {
+    if (requestId === financeAnalyticsRequestId) financeAnalyticsError.value = true;
+  } finally {
+    if (requestId === financeAnalyticsRequestId) financeAnalyticsLoading.value = false;
+  }
+}
+
 function openStatisticsDetail(detail: AnalyticsDetail) {
   activeStatisticsDetail.value = detail;
+  if (detail === "finance") void loadFinanceAnalytics();
 }
 
 function closeStatisticsDetail() {
@@ -2778,6 +2800,13 @@ watch(
 );
 
 watch(
+  [statisticsPeriod, statisticsCustomFrom, statisticsCustomTo],
+  () => {
+    if (activeStatisticsDetail.value === "finance") void loadFinanceAnalytics();
+  }
+);
+
+watch(
   panels,
   (availablePanels) => {
     const firstPanel = availablePanels[0];
@@ -3215,7 +3244,19 @@ onUnmounted(() => {
           :to="statisticsEngagementRange.to"
           @client="openAcquisitionClient"
         />
-        <AdminStatisticsDetail v-else :detail="activeStatisticsDetail" :stats="adminStatistics" :poll-stats="pollStats" @access="openUserAccessDrilldown" @tariff="openUserTariffDrilldown" @payment="openPaymentDrilldown" />
+        <AdminStatisticsDetail
+          v-else
+          :detail="activeStatisticsDetail"
+          :stats="adminStatistics"
+          :poll-stats="pollStats"
+          :finance-analytics="financeAnalytics"
+          :finance-analytics-loading="financeAnalyticsLoading"
+          :finance-analytics-error="financeAnalyticsError"
+          @access="openUserAccessDrilldown"
+          @tariff="openUserTariffDrilldown"
+          @payment="openPaymentDrilldown"
+          @retry-finance="loadFinanceAnalytics"
+        />
       </TaskScreen>
     </section>
 

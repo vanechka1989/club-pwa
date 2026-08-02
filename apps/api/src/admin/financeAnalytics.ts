@@ -50,7 +50,7 @@ export function parseAdminFinanceRange(fromValue?: string, toValue?: string) {
 }
 
 function percent(value: number, total: number) {
-  return total ? Math.round((value / total) * 100) : 0;
+  return total ? Math.round((value / total) * 1_000) / 10 : 0;
 }
 
 function orderDate(order: AdminFinanceOrder) {

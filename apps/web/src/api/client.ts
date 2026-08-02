@@ -44,6 +44,7 @@ import type {
   AdminErrorTrackerListResponse,
   AdminErrorTrackerDetailResponse,
   AdminErrorTrackerSettings,
+  AdminFinanceAnalyticsResponse,
   ErrorTrackerSeverity,
   ErrorTrackerSource,
   ErrorTrackerStatus,
@@ -808,6 +809,13 @@ export function transferClubOwner(telegramId: string) {
 
 export function getAdminStats() {
   return api<AdminStatsResponse>("/admin/stats");
+}
+
+export function getAdminFinanceAnalytics(options: { from?: string; to?: string } = {}) {
+  const query = new URLSearchParams();
+  if (options.from) query.set("from", options.from);
+  if (options.to) query.set("to", options.to);
+  return api<AdminFinanceAnalyticsResponse>(`/admin/analytics/finance${query.size ? `?${query}` : ""}`);
 }
 
 export function getAdminLearningEngagement(options: { from?: string; to?: string } = {}) {

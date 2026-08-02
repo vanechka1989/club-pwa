@@ -56,11 +56,11 @@ describe("buildAdminFinanceAnalytics", () => {
 
     expect(result.overview).toEqual({
       revenueRub: 2_000, paidOrders: 14, totalAttempts: 15, uniqueCustomers: 6,
-      averagePaidOrderRub: 143, successPercent: 93
+      averagePaidOrderRub: 143, successPercent: 93.3
     });
     expect(result.providers).toEqual([
       { provider: "prodamus", title: "Prodamus", attempts: 6, paidOrders: 6, uniqueCustomers: 3, revenueRub: 1_200, averagePaidOrderRub: 200, revenuePercent: 60, successPercent: 100 },
-      { provider: "lava", title: "Lava", attempts: 9, paidOrders: 8, uniqueCustomers: 3, revenueRub: 800, averagePaidOrderRub: 100, revenuePercent: 40, successPercent: 89 }
+      { provider: "lava", title: "Lava", attempts: 9, paidOrders: 8, uniqueCustomers: 3, revenueRub: 800, averagePaidOrderRub: 100, revenuePercent: 40, successPercent: 88.9 }
     ]);
     expect(result.products.map((row) => [row.productId, row.revenueRub, row.uniqueCustomers])).toEqual([
       ["pB", 1_200, 3],
@@ -69,22 +69,22 @@ describe("buildAdminFinanceAnalytics", () => {
     expect(result.retention).toMatchObject({
       totalPayingCustomers: 6,
       activeCustomers: 2,
-      activePercent: 33,
+      activePercent: 33.3,
       churnedCustomers: 4,
-      churnedPercent: 67,
+      churnedPercent: 66.7,
       onePurchaseChurned: 1,
       onePurchaseChurnedPercent: 25,
       repeatPurchaseChurned: 3,
       repeatPurchaseChurnedPercent: 75
     });
     expect(result.retention.exitStages).toEqual([
-      { renewals: 1, label: "После 1 продления", customers: 1, percentOfRepeatChurned: 33 },
-      { renewals: 2, label: "После 2 продлений", customers: 1, percentOfRepeatChurned: 33 },
-      { renewals: 4, label: "После 4+ продлений", customers: 1, percentOfRepeatChurned: 33 }
+      { renewals: 1, label: "После 1 продления", customers: 1, percentOfRepeatChurned: 33.3 },
+      { renewals: 2, label: "После 2 продлений", customers: 1, percentOfRepeatChurned: 33.3 },
+      { renewals: 4, label: "После 4+ продлений", customers: 1, percentOfRepeatChurned: 33.3 }
     ]);
     expect(result.retention.byProviders).toEqual([
-      { key: "lava", title: "Lava", totalCustomers: 3, activeCustomers: 1, churnedCustomers: 2, churnedPercent: 67 },
-      { key: "prodamus", title: "Prodamus", totalCustomers: 3, activeCustomers: 1, churnedCustomers: 2, churnedPercent: 67 }
+      { key: "lava", title: "Lava", totalCustomers: 3, activeCustomers: 1, churnedCustomers: 2, churnedPercent: 66.7 },
+      { key: "prodamus", title: "Prodamus", totalCustomers: 3, activeCustomers: 1, churnedCustomers: 2, churnedPercent: 66.7 }
     ]);
   });
 

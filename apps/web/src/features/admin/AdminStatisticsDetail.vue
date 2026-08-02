@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { AdminStatsResponse } from "@club/shared";
+import type { AdminFinanceAnalyticsResponse, AdminStatsResponse } from "@club/shared";
 import type { AdminStatistics } from "./adminStatistics";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 import type { AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import { ChevronRight } from "lucide-vue-next";
 import AdminPollStatistics from "./AdminPollStatistics.vue";
+import AdminFinanceAnalytics from "./AdminFinanceAnalytics.vue";
 
 export type StatisticsDetail = "clients" | "finance" | "learning" | "community" | "polls";
 
@@ -12,12 +13,16 @@ defineProps<{
   detail: StatisticsDetail;
   stats: AdminStatistics;
   pollStats: AdminStatsResponse["pollStats"];
+  financeAnalytics?: AdminFinanceAnalyticsResponse | null;
+  financeAnalyticsLoading?: boolean;
+  financeAnalyticsError?: boolean;
 }>();
 
 defineEmits<{
   access: [item: AdminAccessBreakdownItem];
   tariff: [item: { tariff: string; label: string; value: number }];
   payment: [item: AdminPaymentBreakdownItem];
+  retryFinance: [];
 }>();
 
 function shortDate(value: string) {
@@ -88,6 +93,12 @@ function barWidth(value: number, values: number[]) {
         </div>
         <p v-else class="admin-empty">Успешных оплат за период не было.</p>
       </section>
+      <AdminFinanceAnalytics
+        :data="financeAnalytics ?? null"
+        :loading="financeAnalyticsLoading ?? false"
+        :error="financeAnalyticsError ?? false"
+        @retry="$emit('retryFinance')"
+      />
     </template>
 
     <template v-if="detail === 'learning'">
