@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import AdminClientLearningSection from "./AdminClientLearningSection.vue";
+
+const source = readFileSync(resolve("src/features/admin/AdminClientLearningSection.vue"), "utf8");
 
 afterEach(cleanup);
 
@@ -35,6 +39,15 @@ const assessments = [{
 }];
 
 describe("admin client learning section", () => {
+  it("uses the compact flat layout of client detail pages", () => {
+    expect(source).toContain('class="admin-client-learning admin-client-detail-surface"');
+    expect(source).not.toContain('admin-client-section admin-detail ui-card');
+    expect(source).toMatch(/\.admin-client-learning__summary\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
+    expect(source).toMatch(/\.admin-client-learning__event\s*\{[^}]*min-height:\s*56px/s);
+    expect(source).toMatch(/\.admin-client-learning__icon\s*\{[^}]*width:\s*32px;[^}]*height:\s*32px/s);
+    expect(source).toMatch(/\.admin-client-learning__icon svg\s*\{[^}]*width:\s*16px/s);
+  });
+
   it("combines lesson activity and assessments with compact filters", async () => {
     const { emitted } = render(AdminClientLearningSection, {
       props: {

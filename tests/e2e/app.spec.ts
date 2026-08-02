@@ -2853,6 +2853,75 @@ test("keeps routed PWA screens responsive across exact desktop audit sizes", asy
   }
 });
 
+test("keeps client learning and detail pages compact at target widths", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chrome");
+  test.setTimeout(120_000);
+
+  const expectTaskFits = async (selector: string) => {
+    const metrics = await page.locator(selector).evaluate((task) => {
+      const taskBox = task.getBoundingClientRect();
+      const offenders = Array.from(task.querySelectorAll<HTMLElement>("*"))
+        .filter((element) => {
+          const box = element.getBoundingClientRect();
+          return box.width > 0 && (box.left < taskBox.left - 2 || box.right > taskBox.right + 2);
+        })
+        .map((element) => ({ className: element.className, text: element.innerText.slice(0, 60) }));
+      return { clientWidth: task.clientWidth, scrollWidth: task.scrollWidth, offenders };
+    });
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 2);
+    expect(metrics.offenders).toEqual([]);
+  };
+
+  await page.goto("/profile");
+  await page.evaluate(() => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+  });
+
+  for (const viewport of [
+    { name: "320", width: 320, height: 720 },
+    { name: "390", width: 390, height: 844 },
+    { name: "768", width: 768, height: 1024 },
+    { name: "1024", width: 1024, height: 768 },
+    { name: "1440", width: 1440, height: 900 }
+  ]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/admin/clients/593677751/learning");
+    await expect(page.locator(".admin-client-learning-task .task-screen")).toBeVisible();
+    await expectTaskFits(".admin-client-learning-task .task-screen");
+
+    const compactMetrics = await page.evaluate(() => {
+      const summary = document.querySelector<HTMLElement>(".admin-client-learning__summary");
+      const event = document.querySelector<HTMLElement>(".admin-client-learning__event");
+      const icon = document.querySelector<HTMLElement>(".admin-client-learning__icon");
+      const box = (element: HTMLElement | null) => element?.getBoundingClientRect();
+      return {
+        summaryHeight: Math.round(box(summary)?.height ?? 0),
+        eventHeight: Math.round(box(event)?.height ?? 0),
+        iconWidth: Math.round(box(icon)?.width ?? 0),
+        iconHeight: Math.round(box(icon)?.height ?? 0)
+      };
+    });
+
+    expect(compactMetrics.summaryHeight).toBeLessThanOrEqual(viewport.width < 360 ? 108 : 56);
+    expect(compactMetrics.eventHeight).toBeGreaterThanOrEqual(56);
+    expect(compactMetrics.iconWidth).toBe(32);
+    expect(compactMetrics.iconHeight).toBe(32);
+    await page.screenshot({
+      path: testInfo.outputPath(`admin-client-learning-compact-${viewport.name}.png`),
+      fullPage: true,
+      animations: "disabled",
+      caret: "hide"
+    });
+
+    await page.goto("/admin/clients/593677751/devices");
+    await expect(page.locator(".admin-client-detail-task .task-screen")).toBeVisible();
+    await expectTaskFits(".admin-client-detail-task .task-screen");
+    await expect(page.locator(".admin-client-detail-page.ui-card")).toHaveCount(0);
+  }
+});
+
 test("keeps the desktop fallback aligned with the mobile-only product mode", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chrome");
 

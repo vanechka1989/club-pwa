@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client details and repeatable assessments",
+  title: "Compact client detail pages",
   items: [
-    "Every client detail section now opens on its own focused screen.",
-    "Admins can reset a completed quiz or accepted homework result so the client can try again.",
-    "Resetting a passed quiz clears lesson completion while preserving the audit trail."
+    "Client learning now uses a compact summary, filters, lessons, quizzes, and homework rows.",
+    "Decorative icons are smaller while comfortable tap targets and full result navigation stay intact.",
+    "The other client detail pages now share the same spacing, compact rows, and visual rhythm."
   ]
 };
 

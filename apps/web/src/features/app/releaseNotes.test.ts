@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes separate client detail screens and repeatable assessments as version 5.95", () => {
-    expect(appVersion).toBe("5.95");
-    expect(releaseNotes[0]?.title).toBe("Разделы клиента и повторное прохождение");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/самостоятельн/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сброс/i);
+  it("publishes compact client detail pages as version 5.96", () => {
+    expect(appVersion).toBe("5.96");
+    expect(releaseNotes[0]?.title).toBe("Компактные страницы клиента");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/компакт/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/обучен/i);
+
+    const repeatableAssessmentsRelease = releaseNotes.find((note) => note.version === "5.95");
+    expect(repeatableAssessmentsRelease?.title).toBe("Разделы клиента и повторное прохождение");
 
     const completeResultsRelease = releaseNotes.find((note) => note.version === "5.93");
     expect(completeResultsRelease?.title).toBe("Единое обучение и полные результаты");
@@ -267,7 +270,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client details and repeatable assessments");
+    expect(englishNotes[0]?.title).toBe("Compact client detail pages");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

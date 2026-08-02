@@ -28,7 +28,7 @@ const title = computed(() => titles[props.section]);
 
 <template>
   <TaskScreen class="admin-task-screen admin-client-detail-task" :title="title" :subtitle="clientName" portal @back="emit('back')">
-    <section class="admin-client-detail-page ui-card">
+    <section class="admin-client-detail-page admin-client-detail-surface">
       <div v-if="section === 'activity'" class="admin-client-timeline">
         <article v-if="user.lastOpenedItemTitle"><span class="admin-client-dot admin-client-dot-green" /><strong>Открыл урок &quot;{{ user.lastOpenedItemTitle }}&quot;</strong><time>{{ user.lastOpenedAt ? formatCompactDate(user.lastOpenedAt) : 'время не сохранено' }}</time></article>
         <article v-if="lastPayment"><span class="admin-client-dot admin-client-dot-blue" /><strong>Оплата: {{ formatAdminPaymentMoney(lastPayment) }}</strong><time>{{ paymentOrderDate(lastPayment) }}</time></article>
@@ -72,8 +72,11 @@ const title = computed(() => titles[props.section]);
 
 <style scoped>
 .admin-client-detail-task :deep(.task-screen-body) { padding-bottom: 24px; }
-.admin-client-detail-page { min-width: 0; padding: 16px; }
-.admin-client-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; color: var(--text-muted); }
-.admin-client-copy-button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; color: var(--accent); background: var(--panel-soft); }
+.admin-client-detail-page { display: grid; min-width: 0; padding: 0; }
+.admin-client-detail-page :is(.admin-accordion-body, .admin-client-device-list, .admin-login-ip-list) { gap: 8px; }
+.admin-client-detail-page :is(.admin-payment-card-compact, .admin-client-device-card, .admin-login-ip-row, .admin-log-item, .admin-client-timeline article) { border-radius: 12px; }
+.admin-client-detail-page :is(.admin-payment-card-compact, .admin-client-device-card, .admin-login-ip-row) { padding: 10px 12px; }
+.admin-client-section-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+.admin-client-copy-button { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--accent); background: var(--panel-soft); }
 .admin-client-copy-button svg { width: 16px; }
 </style>

@@ -1,7 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/vue";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { afterEach } from "vitest";
 import AdminClientDetailTask from "./AdminClientDetailTask.vue";
+
+const source = readFileSync(resolve("src/features/admin/AdminClientDetailTask.vue"), "utf8");
 
 const baseProps = {
   section: "activity" as const,
@@ -17,6 +21,12 @@ const baseProps = {
 
 describe("AdminClientDetailTask", () => {
   afterEach(cleanup);
+  it("renders section content on a flat compact surface", () => {
+    expect(source).toContain('class="admin-client-detail-page admin-client-detail-surface"');
+    expect(source).not.toContain('class="admin-client-detail-page ui-card"');
+    expect(source).toMatch(/\.admin-client-detail-page\s*\{[^}]*padding:\s*0/s);
+  });
+
   it.each([
     ["activity", "Активность"], ["subscriptions", "Подписки"], ["payments", "Оплаты клиента"],
     ["referrals", "Рефералы"], ["moderation", "Ограничения и удаления"], ["devices", "Устройства"], ["login-ips", "IP входов"]

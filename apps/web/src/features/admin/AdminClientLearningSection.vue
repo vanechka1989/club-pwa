@@ -66,9 +66,9 @@ function openAssessment(item: Assessment) {
 </script>
 
 <template>
-  <section class="admin-client-learning admin-client-section admin-detail ui-card" aria-label="Обучение">
+  <section class="admin-client-learning admin-client-detail-surface" aria-label="Обучение">
     <div class="admin-client-learning__body">
-      <div class="admin-client-learning__kpis" aria-label="Сводка обучения">
+      <div class="admin-client-learning__summary" aria-label="Сводка обучения">
         <article><BookOpen aria-hidden="true" /><span>Уроки<strong>{{ plural(engagement.length, 'урок', 'урока', 'уроков') }}</strong></span></article>
         <article><Clock3 aria-hidden="true" /><span>Время<strong>{{ formatDuration(totalSeconds) }}</strong></span></article>
         <article><CheckCircle2 aria-hidden="true" /><span>Результаты<strong>{{ plural(assessments.length, 'результат', 'результата', 'результатов') }}</strong></span></article>
@@ -98,27 +98,38 @@ function openAssessment(item: Assessment) {
 </template>
 
 <style scoped>
-.admin-client-learning { overflow: hidden; }
-.admin-client-learning__body { display: grid; gap: 14px; padding: 14px; }
-.admin-client-learning__kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.admin-client-learning__kpis article { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 11px; border: 1px solid var(--border); border-radius: 15px; background: var(--panel-soft); }
-.admin-client-learning__kpis svg { width: 18px; flex: 0 0 auto; color: var(--accent); }
-.admin-client-learning__kpis span { display: grid; min-width: 0; color: var(--text-muted); font-size: 11px; }
-.admin-client-learning__kpis strong { overflow: hidden; color: var(--text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.admin-client-learning__filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 5px; border: 1px solid var(--border); border-radius: 15px; background: var(--panel-soft); }
-.admin-client-learning__filters button { min-height: 44px; padding: 0 8px; border: 0; border-radius: 11px; color: var(--text-muted); background: transparent; font: inherit; font-size: 12px; font-weight: 700; }
-.admin-client-learning__filters button[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); box-shadow: 0 7px 18px color-mix(in srgb, var(--accent) 22%, transparent); }
+.admin-client-learning { min-width: 0; }
+.admin-client-learning__body { display: grid; gap: 8px; }
+.admin-client-learning__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.admin-client-learning__summary article { display: grid; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 2px 7px; min-width: 0; min-height: 52px; padding: 7px 9px; border-left: 1px solid var(--border); }
+.admin-client-learning__summary article:first-child { border-left: 0; }
+.admin-client-learning__summary svg { grid-row: 1 / 3; width: 16px; flex: 0 0 auto; color: var(--accent); }
+.admin-client-learning__summary span { display: grid; min-width: 0; color: var(--text-muted); font-size: 10px; line-height: 1.15; }
+.admin-client-learning__summary strong { overflow: hidden; color: var(--text); font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-learning__filters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-soft); }
+.admin-client-learning__filters button { min-height: 44px; padding: 0 6px; border: 0; border-radius: 9px; color: var(--text-muted); background: transparent; font: inherit; font-size: 11px; font-weight: 700; }
+.admin-client-learning__filters button[aria-pressed="true"] { color: var(--accent-text); background: var(--accent); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 18%, transparent); }
 .admin-client-learning__events { display: grid; gap: 8px; }
-.admin-client-learning__event { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 16px; color: inherit; text-align: left; background: var(--panel-soft); }
+.admin-client-learning__event { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 56px; width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 12px; color: inherit; text-align: left; background: var(--surface); }
 button.admin-client-learning__event { cursor: pointer; font: inherit; }
 button.admin-client-learning__event:disabled { cursor: not-allowed; opacity: .62; }
-.admin-client-learning__event > div { display: grid; gap: 3px; min-width: 0; }
+.admin-client-learning__event > div { display: grid; gap: 2px; min-width: 0; }
 .admin-client-learning__event strong, .admin-client-learning__event small, .admin-client-learning__event em { min-width: 0; overflow-wrap: anywhere; }
-.admin-client-learning__event small { color: var(--text-muted); }
-.admin-client-learning__event p { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: 4px 0 0; color: var(--text-muted); font-size: 11px; }
-.admin-client-learning__event em { width: max-content; margin-top: 4px; color: var(--accent); font-size: 12px; font-style: normal; font-weight: 700; }
-.admin-client-learning__event > svg { width: 18px; color: var(--accent); }
-.admin-client-learning__icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
-.admin-client-learning__icon svg { width: 19px; }
-@media (max-width: 420px) { .admin-client-learning__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-client-learning__filters button { font-size: 11px; } }
+.admin-client-learning__event strong { font-size: 13px; line-height: 1.2; }
+.admin-client-learning__event small { color: var(--text-muted); font-size: 10px; line-height: 1.25; }
+.admin-client-learning__event p { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 10px; margin: 2px 0 0; color: var(--text-muted); font-size: 10px; line-height: 1.25; }
+.admin-client-learning__event em { width: max-content; margin-top: 2px; color: var(--accent); font-size: 11px; font-style: normal; font-weight: 700; line-height: 1.25; }
+.admin-client-learning__event > svg { width: 16px; color: var(--accent); }
+.admin-client-learning__icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.admin-client-learning__icon svg { width: 16px; }
+@media (max-width: 359px) {
+  .admin-client-learning__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-client-learning__summary article:nth-child(odd) { border-left: 0; }
+  .admin-client-learning__summary article:nth-child(n + 3) { border-top: 1px solid var(--border); }
+  .admin-client-learning__filters button { font-size: 10px; }
+}
+@media (min-width: 720px) {
+  .admin-client-learning__body { gap: 10px; }
+  .admin-client-learning__event { padding-inline: 12px; }
+}
 </style>
