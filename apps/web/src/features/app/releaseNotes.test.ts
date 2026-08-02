@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes reliable homework uploads as version 6.08", () => {
-    expect(appVersion).toBe("6.08");
-    expect(releaseNotes[0]?.title).toBe("Надёжная отправка домашних заданий");
+  it("publishes S3-compatible homework uploads as version 6.09", () => {
+    expect(appVersion).toBe("6.09");
+    expect(releaseNotes[0]?.title).toBe("Домашние задания доходят до проверки");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/файл/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/загруз/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/хранилищ/i);
+
+    const reliableHomeworkUploads = releaseNotes.find((note) => note.version === "6.08");
+    expect(reliableHomeworkUploads?.title).toBe("Надёжная отправка домашних заданий");
 
     const dailyAnalytics = releaseNotes.find((note) => note.version === "6.07");
     expect(dailyAnalytics?.title).toBe("Непрерывные графики по дням");

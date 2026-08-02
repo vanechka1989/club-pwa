@@ -19,6 +19,7 @@ import { clubSettings } from "../db/schema";
 import { env } from "../env";
 import { logger } from "../logger";
 import { getS3ConfigFromEnv, getS3ConfigFromSetting, storageSettingKey, type StoredS3Config } from "./s3Config";
+import { buildS3ClientOptions } from "./s3ClientOptions";
 import { normalizeS3ObjectKey, normalizeS3ObjectPrefix } from "./s3Object";
 import { createRuntimeResourceCache } from "./runtimeResourceCache";
 
@@ -79,15 +80,7 @@ function createS3Client(config: StoredS3Config) {
     return cachedClient;
   }
 
-  const client = new S3Client({
-    endpoint: config.endpoint,
-    region: config.region,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey
-    }
-  });
+  const client = new S3Client(buildS3ClientOptions(config));
   s3Clients.set(cacheKey, client);
   return client;
 }
