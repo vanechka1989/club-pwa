@@ -9,17 +9,22 @@ const styles = ["../../styles.css", "adminRoute.css", "adminShell.css"]
   .join("\n");
 
 describe("admin statistics navigation", () => {
-  it("shows a two-metric period summary and six navigation rows", () => {
+  it("shows a unified period summary and six navigation rows", () => {
     expect(section).toContain('class="admin-stat-period-summary ui-card"');
+    expect(section).not.toContain('class="admin-stat-summary-kpis"');
     expect(section.match(/class="admin-stat-nav-row/g)).toHaveLength(6);
     for (const key of ["acquisition", "clients", "finance", "learning", "community", "polls"]) {
       expect(section).toMatch(new RegExp(`openStatisticsDetail\\(['\"]${key}['\"]\\)`));
     }
   });
 
-  it("turns the period summary into three accessible visual drilldowns", () => {
+  it("turns every primary metric into an accessible visual drilldown", () => {
     expect(section).toContain('class="admin-stat-visual-grid"');
-    expect(section.match(/class="admin-stat-visual-action ui-button/g)).toHaveLength(3);
+    expect(section.match(/class="admin-stat-visual-action ui-button/g)).toHaveLength(6);
+    expect(section.match(/admin-stat-ring-value/g)).toHaveLength(3);
+    expect(section).toContain("Выручка:");
+    expect(section).toContain("Новые клиенты:");
+    expect(section).toContain("Сообщения за период:");
     expect(section).toContain("Активные клиенты:");
     expect(section).toContain("Успешные оплаты:");
     expect(section).toContain("Средний прогресс обучения:");
@@ -67,6 +72,7 @@ describe("admin statistics navigation", () => {
   it("renders responsive rings with focus and reduced-motion support", () => {
     expect(styles).toContain(".admin-stat-visual-grid");
     expect(styles).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(styles).toContain(".admin-stat-ring-value");
     expect(styles).toContain("conic-gradient");
     expect(styles).toContain(".admin-stat-visual-action:focus-visible");
     expect(styles).toContain("@media (max-width: 359px)");

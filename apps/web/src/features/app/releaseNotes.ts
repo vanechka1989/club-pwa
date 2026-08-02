@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Visual club analytics",
+  title: "One visual system for every metric",
   items: [
-    "The analytics overview now includes ring charts for active clients, successful payments, and average learning progress.",
-    "Every percentage is paired with exact totals, so the club status remains clear without relying on color alone.",
-    "Each chart opens its detailed section and adapts cleanly across mobile, desktop, and every theme."
+    "Revenue and new clients now use the same circular visual treatment as activity, payments, and learning progress.",
+    "All six primary metrics, including period messages, sit in one balanced block with two equal rows of three.",
+    "Every circular metric opens its detailed section while preserving the real meaning of values without invented percentages."
   ]
 };
 

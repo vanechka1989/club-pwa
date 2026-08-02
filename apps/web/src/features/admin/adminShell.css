@@ -28,28 +28,9 @@
   overflow: hidden;
 }
 
-.admin-stat-summary-kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.admin-stat-period-summary article {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 14px 16px;
-}
-
-.admin-stat-period-summary article + article { border-left: 1px solid var(--border); }
-.admin-stat-period-summary span,
-.admin-stat-period-summary small { color: var(--muted); }
-.admin-stat-period-summary strong { font-size: 1.3rem; line-height: 1.15; }
-.admin-stat-period-summary small { font-size: .76rem; }
-
 .admin-stat-visual-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
 }
 
 .admin-stat-visual-action {
@@ -71,7 +52,11 @@
   transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.admin-stat-visual-action + .admin-stat-visual-action { border-left: 1px solid var(--border); }
+.admin-stat-visual-action:nth-child(2),
+.admin-stat-visual-action:nth-child(3),
+.admin-stat-visual-action:nth-child(5),
+.admin-stat-visual-action:nth-child(6) { border-left: 1px solid var(--border); }
+.admin-stat-visual-action:nth-child(n + 4) { border-top: 1px solid var(--border); }
 .admin-stat-visual-action:hover { background: color-mix(in srgb, var(--chart-color) 7%, transparent); }
 .admin-stat-visual-action:active { transform: scale(.98); }
 .admin-stat-visual-action:focus-visible {
@@ -81,7 +66,10 @@
   outline-offset: -3px;
 }
 
+.admin-stat-visual-revenue { --chart-color: var(--accent); }
+.admin-stat-visual-new-clients,
 .admin-stat-visual-clients { --chart-color: var(--success); }
+.admin-stat-visual-messages { --chart-color: color-mix(in srgb, var(--accent) 56%, var(--success)); }
 .admin-stat-visual-finance { --chart-color: var(--accent); }
 .admin-stat-visual-learning { --chart-color: var(--gold); }
 
@@ -117,6 +105,21 @@
   font-size: clamp(.82rem, 3.3vw, 1.05rem);
   font-weight: 900;
   line-height: 1;
+}
+
+.admin-stat-ring-value {
+  background: conic-gradient(
+    from -35deg,
+    color-mix(in srgb, var(--chart-color) 58%, var(--surface)) 0 8%,
+    var(--chart-color) 8% 92%,
+    color-mix(in srgb, var(--chart-color) 58%, var(--surface)) 92% 100%
+  );
+}
+
+.admin-stat-ring-value b {
+  max-width: calc(100% - 18px);
+  font-size: clamp(.7rem, 3vw, .94rem);
+  overflow-wrap: anywhere;
 }
 
 .admin-stat-visual-action > strong {

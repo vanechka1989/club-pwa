@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the separate revenue and new-client KPI strip with two additional circular, interactive metrics in the same visual system as the existing three rings.
+**Goal:** Replace the separate revenue and new-client KPI strip with a symmetrical six-item circular analytics grid that also surfaces messages for the selected period.
 
 **Architecture:** Keep the change within the existing `AdminSection` analytics overview and its colocated stylesheet. Extend the existing visual grid rather than adding a new chart dependency, while distinguishing decorative value rings from true proportional rings.
 
@@ -29,7 +29,7 @@
 
 - [ ] **Step 1: Write failing structural assertions**
 
-Require five `admin-stat-visual-action` buttons, value-ring classes for revenue and new clients, and removal of `admin-stat-summary-kpis`.
+Require six `admin-stat-visual-action` buttons, value-ring classes for revenue, new clients, and messages, and removal of `admin-stat-summary-kpis`.
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
@@ -53,11 +53,11 @@ Require five visible rings and clicks from revenue to Finance and new clients to
 
 - [ ] **Step 1: Replace the KPI articles with circular buttons**
 
-Add revenue and new-client buttons before the existing proportional metrics. Use formatted values inside `.admin-stat-ring.admin-stat-ring-value` and real-value accessible labels.
+Add revenue, new-client, and message buttons before the existing proportional metrics. Use formatted values inside `.admin-stat-ring.admin-stat-ring-value` and real-value accessible labels.
 
-- [ ] **Step 2: Balance the five-item mobile grid**
+- [ ] **Step 2: Balance the six-item mobile grid**
 
-Use a six-column grid: the first two actions span three columns each and the remaining three span two columns each. Use consistent dividers and responsive sizing.
+Use a three-column grid with two equal rows. Use consistent dividers and responsive sizing.
 
 - [ ] **Step 3: Run focused tests and verify GREEN**
 
@@ -91,4 +91,3 @@ Expected: all commands exit 0.
 - [ ] **Step 4: Commit, push, deploy, and verify production**
 
 Deploy only the exact checked commit to `/opt/club-pwa`, then verify GitHub Actions, public health/readiness, release assets, service-worker cache, server HEAD, deployed marker, and container health.
-

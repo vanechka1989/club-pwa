@@ -2934,11 +2934,37 @@ onUnmounted(() => {
       </div>
 
       <div class="admin-stat-period-summary ui-card">
-        <div class="admin-stat-summary-kpis">
-          <article><span>Выручка</span><strong>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</strong><small>{{ adminStatistics.payments.paidOrders }} оплат за выбранный период</small></article>
-          <article><span>Новые клиенты</span><strong>+{{ adminStatistics.clients.newInPeriod }}</strong><small>за выбранный период</small></article>
-        </div>
         <div class="admin-stat-visual-grid">
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-revenue"
+            type="button"
+            :aria-label="`Выручка: ${adminStatistics.payments.revenueRub.toLocaleString('ru-RU')} рублей, ${adminStatistics.payments.paidOrders} оплат за выбранный период`"
+            @click="openStatisticsDetail('finance')"
+          >
+            <span class="admin-stat-ring admin-stat-ring-value" aria-hidden="true"><b>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</b></span>
+            <strong>Выручка</strong>
+            <small>{{ adminStatistics.payments.paidOrders }} оплат за период</small>
+          </button>
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-new-clients"
+            type="button"
+            :aria-label="`Новые клиенты: ${adminStatistics.clients.newInPeriod} за выбранный период`"
+            @click="openStatisticsDetail('clients')"
+          >
+            <span class="admin-stat-ring admin-stat-ring-value" aria-hidden="true"><b>+{{ adminStatistics.clients.newInPeriod }}</b></span>
+            <strong>Новые клиенты</strong>
+            <small>за выбранный период</small>
+          </button>
+          <button
+            class="admin-stat-visual-action ui-button admin-stat-visual-messages"
+            type="button"
+            :aria-label="`Сообщения за период: ${adminStatistics.communication.messagesInPeriod}`"
+            @click="openStatisticsDetail('community')"
+          >
+            <span class="admin-stat-ring admin-stat-ring-value" aria-hidden="true"><b>{{ adminStatistics.communication.messagesInPeriod }}</b></span>
+            <strong>Сообщения</strong>
+            <small>за выбранный период</small>
+          </button>
           <button
             class="admin-stat-visual-action ui-button admin-stat-visual-clients"
             type="button"

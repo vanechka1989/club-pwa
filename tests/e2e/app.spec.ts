@@ -2708,7 +2708,10 @@ test("renders visual admin analytics overview without viewport overflow", async 
     const overview = page.locator(".admin-stat-period-summary");
     const visualActions = overview.locator(".admin-stat-visual-action");
     await expect(overview).toBeVisible();
-    await expect(visualActions).toHaveCount(3);
+    await expect(visualActions).toHaveCount(6);
+    await expect(page.getByRole("button", { name: /Выручка: .* рублей/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Новые клиенты: \d+ за выбранный период/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Сообщения за период: \d+/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Активные клиенты: \d+%/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Успешные оплаты: \d+%/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Средний прогресс обучения: \d+%/ })).toBeVisible();
@@ -2741,9 +2744,21 @@ test("renders visual admin analytics overview without viewport overflow", async 
     animations: "disabled"
   });
 
-  await page.getByRole("button", { name: /Успешные оплаты: \d+%/ }).click();
+  await page.getByRole("button", { name: /Выручка: .* рублей/ }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Финансы", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+  await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
+
+  await page.getByRole("button", { name: /Новые клиенты: \d+ за выбранный период/ }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Клиенты", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+  await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
+
+  await page.getByRole("button", { name: /Сообщения за период: \d+/ }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Общение", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Назад" }).click();
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
 });

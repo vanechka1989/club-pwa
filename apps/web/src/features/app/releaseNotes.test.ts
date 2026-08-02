@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes visual admin analytics as version 5.98", () => {
-    expect(appVersion).toBe("5.98");
-    expect(releaseNotes[0]?.title).toBe("Наглядная аналитика клуба");
+  it("publishes unified analytics rings as version 5.99", () => {
+    expect(appVersion).toBe("5.99");
+    expect(releaseNotes[0]?.title).toBe("Все показатели в едином стиле");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/кольцев/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/клиент/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/выручк/i);
+
+    const visualAnalyticsRelease = releaseNotes.find((note) => note.version === "5.98");
+    expect(visualAnalyticsRelease?.title).toBe("Наглядная аналитика клуба");
 
     const unifiedClientPagesRelease = releaseNotes.find((note) => note.version === "5.97");
     expect(unifiedClientPagesRelease?.title).toBe("Единый стиль страниц клиента");
@@ -276,7 +279,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Visual club analytics");
+    expect(englishNotes[0]?.title).toBe("One visual system for every metric");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
