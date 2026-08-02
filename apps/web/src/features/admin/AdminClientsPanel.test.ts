@@ -229,6 +229,7 @@ describe("AdminClientsPanel", () => {
     });
 
     const sections = [
+      ["Источник клиента", "acquisition"],
       ["Активность", "activity"],
       ["Обучение", "learning"],
       ["Подписки", "subscriptions"],
@@ -239,7 +240,7 @@ describe("AdminClientsPanel", () => {
       ["IP входов", "login-ips"]
     ] as const;
 
-    expect(document.querySelectorAll(".admin-client-section-icon")).toHaveLength(8);
+    expect(document.querySelectorAll(".admin-client-section-icon")).toHaveLength(9);
     expect(document.querySelectorAll(".admin-client-workspace details.admin-client-section")).toHaveLength(0);
 
     for (const [label] of sections) {

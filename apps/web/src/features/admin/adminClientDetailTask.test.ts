@@ -28,6 +28,7 @@ describe("AdminClientDetailTask", () => {
   });
 
   it.each([
+    ["acquisition", "Источник клиента"],
     ["activity", "Активность"], ["subscriptions", "Подписки"], ["payments", "Оплаты клиента"],
     ["referrals", "Рефералы"], ["moderation", "Ограничения и удаления"], ["devices", "Устройства"], ["login-ips", "IP входов"]
   ] as const)("opens %s as a dedicated task page", (section, title) => {

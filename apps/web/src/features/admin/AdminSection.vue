@@ -219,7 +219,7 @@ const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "member-active", label: "С доступом" },
   { value: "member-inactive", label: "Без доступа" }
 ];
-const primaryAdminPanelIds: AdminPanel[] = ["statistics", "users", "payments"];
+const primaryAdminPanelIds: AdminPanel[] = ["statistics", "users", "payments", "mailings"];
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
   { value: "push", label: "Push", hint: "Приложение + PWA" },
   { value: "email", label: "Email", hint: "Письмо на почту" },

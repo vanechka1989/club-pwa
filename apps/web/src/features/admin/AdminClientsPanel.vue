@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { AdminLoginIp, AdminStatsUser, AdminUserDetailResponse, PaymentOrderLog } from "@club/shared";
-import { Activity, BookOpen, ChevronRight, CircleDollarSign, CreditCard, Lock, LockOpen, MessageCircle, MessageCircleOff, Network, Paperclip, ShieldAlert, SlidersHorizontal, Smartphone, UserRoundPlus, X } from "lucide-vue-next";
-import { defineAsyncComponent, ref } from "vue";
+import { Activity, BookOpen, ChevronRight, CircleDollarSign, CreditCard, Lock, LockOpen, MessageCircle, MessageCircleOff, Network, Paperclip, Route, ShieldAlert, SlidersHorizontal, Smartphone, UserRoundPlus, X } from "lucide-vue-next";
+import { ref } from "vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { getAdminClientAccessState, getAdminRecurrentPaymentBadge, getAdminTariffLabel } from "./adminClientCard";
@@ -9,8 +9,6 @@ import { allClientSourcesFilter, untaggedClientSourceFilter, type AdminClientUtm
 import { formatAdminClientLastLogin, getAdminClientContact } from "./adminClientList";
 import AdminIndividualOfferCard from "./AdminIndividualOfferCard.vue";
 import type { AdminClientDetailSection } from "./adminClientDetailSection";
-
-const AdminClientAcquisition = defineAsyncComponent(() => import("./AdminClientAcquisition.vue"));
 
 function getAdminTariffBadge(user: AdminStatsUser) {
   return getAdminRecurrentPaymentBadge(user) ?? { label: getAdminTariffLabel(user.tariff), tone: "default" as const };
@@ -229,8 +227,7 @@ function updateClientMessageFiles(event: Event) {
 
         <div class="admin-client-primary-actions"><button class="primary-button ui-button admin-message-client-button" type="button" :disabled="saving" @click="emit('open-message')"><MessageCircle aria-hidden="true" />Написать</button><AdminIndividualOfferCard :telegram-id="selectedUser.telegramId" :client-name="userTitle(selectedUser)" :disabled="saving || !canManageSelectedUserAccess" /></div>
         <p v-if="!canGrantClientAccess" class="admin-warning-line">Для выдачи доступа нужно право Доступы.</p><p v-else-if="!canManageSelectedUser" class="admin-warning-line">Менять доступ и ограничения администраторов может только главный админ.</p>
-        <AdminClientAcquisition :telegram-id="selectedUser.telegramId" />
-
+        <button class="admin-client-section admin-client-compact-link admin-detail ui-card" type="button" aria-label="Открыть раздел Источник клиента" @click="emit('open-client-section', 'acquisition')"><span class="admin-client-section-icon"><Route aria-hidden="true" /></span><strong>Источник клиента</strong><span>{{ selectedUser.acquisition?.source || selectedUser.acquisition?.medium || selectedUser.acquisition?.campaign || selectedUser.acquisition?.content || 'Без метки' }}</span><ChevronRight class="admin-client-section-chevron" aria-hidden="true" /></button>
         <button class="admin-client-section admin-client-compact-link admin-detail ui-card" type="button" aria-label="Открыть раздел Активность" @click="emit('open-client-section', 'activity')"><span class="admin-client-section-icon"><Activity aria-hidden="true" /></span><strong>Активность</strong><span>последние события</span><ChevronRight class="admin-client-section-chevron" aria-hidden="true" /></button>
         <button class="admin-client-section admin-client-compact-link admin-detail ui-card" type="button" aria-label="Открыть раздел Обучение" @click="emit('open-client-section', 'learning')"><span class="admin-client-section-icon"><BookOpen aria-hidden="true" /></span><strong>Обучение</strong><span>{{ formatLearningEventCount((selectedUserDetail?.learningEngagement.length ?? 0) + (selectedUserDetail?.learningAssessments.length ?? 0)) }}</span><ChevronRight class="admin-client-section-chevron" aria-hidden="true" /></button>
         <button class="admin-client-section admin-client-compact-link admin-detail ui-card" type="button" aria-label="Открыть раздел Подписки" @click="emit('open-client-section', 'subscriptions')"><span class="admin-client-section-icon"><CircleDollarSign aria-hidden="true" /></span><strong>Подписки</strong><span>{{ selectedUserDetail?.subscriptions.length ?? 0 }} записей</span><ChevronRight class="admin-client-section-chevron" aria-hidden="true" /></button>

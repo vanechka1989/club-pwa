@@ -2804,9 +2804,14 @@ test("keeps compact admin navigation reachable on every release viewport", async
     await expect(modeTrigger).toBeVisible();
     await expect(modeTrigger).toHaveAttribute("aria-expanded", "false");
     await expect(quickNav).toBeVisible();
-    await expect(quickNav.getByRole("button")).toHaveCount(4);
+    await expect(quickNav.getByRole("button")).toHaveCount(5);
     await expect(quickNav.getByRole("button", { name: "Аналитика", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(quickNav.getByRole("button", { name: "Рассылки", exact: true })).toBeVisible();
     await expect(quickNav.getByRole("button", { name: "Ещё", exact: true })).toBeVisible();
+    const quickNavButtonsFit = await quickNav.getByRole("button").evaluateAll((buttons) =>
+      buttons.every((button) => button.scrollWidth <= button.clientWidth + 1 && button.scrollHeight <= button.clientHeight + 1)
+    );
+    expect(quickNavButtonsFit, `quick navigation labels fit at ${viewport.name}`).toBe(true);
     await expectResponsiveLayoutIntegrity(page, "/admin");
     await quickNav.screenshot({ path: testInfo.outputPath(`admin-quick-nav-${viewport.name}.png`), animations: "disabled" });
 
@@ -2836,14 +2841,13 @@ test("keeps compact admin navigation reachable on every release viewport", async
 
   const navigationMenu = page.getByRole("menu", { name: "Все разделы" });
   await expect(navigationMenu).toBeVisible();
-  await expect(navigationMenu.locator(".admin-navigation-menu-option")).toHaveCount(5);
+  await expect(navigationMenu.locator(".admin-navigation-menu-option")).toHaveCount(4);
   await page.getByRole("heading", { name: "Админка", exact: true }).click();
   await expect(navigationMenu).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Ещё", exact: true }).click();
-  await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Рассылки", exact: true }).click();
+  await page.getByRole("button", { name: "Рассылки", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Рассылки", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ещё", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("button", { name: "Рассылки", exact: true })).toHaveAttribute("aria-current", "page");
 });
 
 test("keeps error tracker notification controls compact", async ({ page }, testInfo) => {
@@ -4062,7 +4066,7 @@ test("opens a client's complete quiz result from the unified learning section", 
   await page.getByRole("button", { name: "Клиенты", exact: true }).click();
   await page.getByRole("button", { name: /Екатерина С Очень Длинной Фамилией/ }).click();
   await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
-  await expect(page.locator(".admin-client-section-icon")).toHaveCount(8);
+  await expect(page.locator(".admin-client-section-icon")).toHaveCount(9);
   await page.getByRole("button", { name: "Открыть раздел Обучение" }).click();
 
   await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning$/);
@@ -4086,8 +4090,13 @@ test("opens a client's complete quiz result from the unified learning section", 
   await expect(page).toHaveURL(/\/admin$/);
 });
 
-test("opens every client summary on its own responsive page", async ({ page }) => {
+test("opens every client summary on its own responsive page", async ({ page }, testInfo) => {
+  await page.goto("/admin/clients/593677751");
+  await expect(page.getByRole("button", { name: "Открыть раздел Источник клиента" })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("admin-client-source-row.png"), fullPage: false, animations: "disabled" });
+
   const pages = [
+    ["acquisition", "Источник клиента"],
     ["activity", "Активность"], ["subscriptions", "Подписки"], ["payments", "Оплаты клиента"],
     ["referrals", "Рефералы"], ["moderation", "Ограничения и удаления"], ["devices", "Устройства"], ["login-ips", "IP входов"]
   ] as const;
@@ -4097,6 +4106,9 @@ test("opens every client summary on its own responsive page", async ({ page }) =
     await expect(task, section).toBeVisible();
     await expect(task.getByRole("heading", { name: title })).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    if (section === "acquisition") {
+      await page.screenshot({ path: testInfo.outputPath("admin-client-source-detail.png"), fullPage: false, animations: "disabled" });
+    }
   }
 });
 

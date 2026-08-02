@@ -5030,7 +5030,7 @@ body.club-mobile-device .admin-shell > .ui-page-header > .ui-page-header__action
 
 .admin-quick-nav {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
   padding: 6px;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);

@@ -7,6 +7,7 @@ import { formatMembershipStatus } from "@/features/app/i18n";
 import { formatAdminPaymentMoney } from "./adminPaymentMoney";
 import { getAdminSubscriptionActorLabel, getAdminSubscriptionSourceLabel, getAdminSubscriptionTitle } from "./adminClientCard";
 import type { AdminClientDetailSection } from "./adminClientDetailSection";
+import AdminClientAcquisition from "./AdminClientAcquisition.vue";
 
 type Section = Exclude<AdminClientDetailSection, "learning">;
 type ClientDevice = AdminUserDetailResponse["devices"][number];
@@ -22,14 +23,16 @@ const props = defineProps<{
   isNewLoginIp: (entry: AdminLoginIp) => boolean;
 }>();
 const emit = defineEmits<{ back: []; "revoke-mute": [id: string]; "copy-device-info": [text: string] }>();
-const titles: Record<Section, string> = { activity: "Активность", subscriptions: "Подписки", payments: "Оплаты клиента", referrals: "Рефералы", moderation: "Ограничения и удаления", devices: "Устройства", "login-ips": "IP входов" };
+const titles: Record<Section, string> = { acquisition: "Источник клиента", activity: "Активность", subscriptions: "Подписки", payments: "Оплаты клиента", referrals: "Рефералы", moderation: "Ограничения и удаления", devices: "Устройства", "login-ips": "IP входов" };
 const title = computed(() => titles[props.section]);
 </script>
 
 <template>
   <TaskScreen class="admin-task-screen admin-client-detail-task" :title="title" :subtitle="clientName" portal @back="emit('back')">
     <section class="admin-client-detail-page admin-client-detail-surface">
-      <div v-if="section === 'activity'" class="admin-client-timeline">
+      <AdminClientAcquisition v-if="section === 'acquisition'" :telegram-id="user.telegramId" />
+
+      <div v-else-if="section === 'activity'" class="admin-client-timeline">
         <article v-if="user.lastOpenedItemTitle"><span class="admin-client-dot admin-client-dot-green" /><strong>Открыл урок &quot;{{ user.lastOpenedItemTitle }}&quot;</strong><time>{{ user.lastOpenedAt ? formatCompactDate(user.lastOpenedAt) : 'время не сохранено' }}</time></article>
         <article v-if="lastPayment"><span class="admin-client-dot admin-client-dot-blue" /><strong>Оплата: {{ formatAdminPaymentMoney(lastPayment) }}</strong><time>{{ paymentOrderDate(lastPayment) }}</time></article>
         <p v-if="!user.lastOpenedItemTitle && !lastPayment" class="admin-empty">Последних событий пока нет.</p>

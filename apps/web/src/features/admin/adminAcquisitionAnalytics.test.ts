@@ -69,27 +69,32 @@ describe("admin acquisition analytics", () => {
   it("shows one client source with UTM values and no attribution journey", () => {
     const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
     const section = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
-    expect(card).toContain("Источник клиента");
+    const detailTask = readFileSync(resolve(__dirname, "AdminClientDetailTask.vue"), "utf8");
     expect(card).toContain("utm_source");
     expect(card).toContain("utm_medium");
     expect(card).toContain("utm_campaign");
     expect(card).toContain("utm_content");
-    expect(card).toContain('class="client-acquisition-source-value"');
-    expect(card).not.toContain('class="client-acquisition-source"');
+    expect(card).toContain('class="client-acquisition-utm"');
     expect(card).not.toContain("Первое касание");
     expect(card).not.toContain("Последнее касание");
     expect(card).not.toContain("История переходов");
     expect(card).not.toContain("Открыть аналитику кампании");
     expect(card).not.toContain("client-acquisition-milestones");
-    expect(section).toContain("<AdminClientAcquisition");
+    expect(section).toContain('aria-label="Открыть раздел Источник клиента"');
+    expect(section).toContain("emit('open-client-section', 'acquisition')");
+    expect(section).not.toContain("<AdminClientAcquisition");
+    expect(detailTask).toContain('<AdminClientAcquisition v-if="section === \'acquisition\'"');
     expect(section).not.toContain('@analytics="openSelectedUserAcquisitionAnalytics"');
   });
 
-  it("keeps the client source on one line on narrow phones", () => {
+  it("uses the same compact responsive row as the other client sections", () => {
     const card = readFileSync(resolve(__dirname, "AdminClientAcquisition.vue"), "utf8");
-    expect(card).toMatch(/\.client-acquisition-source-value\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis[^}]*\}/);
-    expect(card).not.toContain("max-width:38%");
-    expect(card).not.toMatch(/\.client-acquisition-source-value\{[^}]*overflow-wrap:anywhere/);
+    const section = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const styles = readFileSync(resolve(__dirname, "adminShell.css"), "utf8");
+    expect(section).toContain('class="admin-client-section admin-client-compact-link admin-detail ui-card"');
+    expect(section).toContain("selectedUser.acquisition?.source || selectedUser.acquisition?.medium");
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-link\s*\{[^}]*height:\s*44px;[^}]*min-height:\s*44px;/s);
+    expect(card).toContain("@media(max-width:359px)");
   });
 
   it("places link management first and accepts any single UTM field", () => {

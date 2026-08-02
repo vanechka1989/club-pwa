@@ -57,7 +57,7 @@ describe("task navigation", () => {
 
   it("recognizes the dedicated admin client learning route", () => {
     expect(taskRoutePaths).toContain("/admin/clients/:customerId/learning");
-    for (const section of ["activity", "subscriptions", "payments", "referrals", "moderation", "devices", "login-ips"]) {
+    for (const section of ["acquisition", "activity", "subscriptions", "payments", "referrals", "moderation", "devices", "login-ips"]) {
       expect(taskRoutePaths).toContain(`/admin/clients/:customerId/${section}`);
       expect(isTaskPath(`/admin/clients/593677751/${section}`)).toBe(true);
     }

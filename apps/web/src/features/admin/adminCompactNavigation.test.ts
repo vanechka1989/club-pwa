@@ -20,8 +20,8 @@ describe("compact admin navigation", () => {
     expect(section).toContain("selectPreviewMode(option.value)");
   });
 
-  it("keeps three primary sections visible and moves permitted secondary sections into More", () => {
-    expect(section).toContain('const primaryAdminPanelIds: AdminPanel[] = ["statistics", "users", "payments"]');
+  it("keeps four primary sections visible and moves permitted secondary sections into More", () => {
+    expect(section).toContain('const primaryAdminPanelIds: AdminPanel[] = ["statistics", "users", "payments", "mailings"]');
     expect(section).toContain("const primaryPanels = computed");
     expect(section).toContain("const secondaryPanels = computed");
     expect(section).toContain('class="admin-quick-nav-shell"');
@@ -37,7 +37,7 @@ describe("compact admin navigation", () => {
 
   it("keeps both overlay menus viewport-safe without changing page flow", () => {
     expect(styles).toMatch(/\.admin-quick-nav-shell\s*\{[^}]*position:\s*sticky;/s);
-    expect(styles).toMatch(/\.admin-quick-nav\s*\{[^}]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/s);
+    expect(styles).toMatch(/\.admin-quick-nav\s*\{[^}]*grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/s);
     expect(styles).toContain(".admin-preview-mode-trigger");
     expect(styles).toMatch(/\.admin-preview-mode-menu\s*\{[^}]*position:\s*absolute;/s);
     expect(styles).toMatch(/\.admin-navigation-menu\s*\{[^}]*position:\s*absolute;/s);

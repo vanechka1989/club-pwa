@@ -86,12 +86,12 @@ describe("admin client card helpers", () => {
     expect(source).not.toContain("+90 дней");
   });
 
-  it("places client actions before messaging and the acquisition source after it", () => {
+  it("places client actions before messaging and the compact acquisition link after it", () => {
     const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
     const detail = source.slice(source.indexOf('<TaskScreen v-if="selectedUser"'));
     const actions = detail.indexOf('class="admin-client-action-panel admin-detail ui-card"');
     const message = detail.indexOf('class="admin-client-primary-actions"');
-    const acquisition = detail.indexOf('<AdminClientAcquisition');
+    const acquisition = detail.indexOf('aria-label="Открыть раздел Источник клиента"');
 
     expect(actions).toBeGreaterThan(0);
     expect(message).toBeGreaterThan(actions);

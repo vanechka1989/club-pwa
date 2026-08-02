@@ -1,4 +1,5 @@
 export const adminClientDetailSections = [
+  "acquisition",
   "activity",
   "learning",
   "subscriptions",
