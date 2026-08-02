@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { z } from "zod";
 import { learningEngagementSnapshotSchema, lessonAssessmentDraftSchema, type LessonAssessmentConfig } from "@club/shared";
-import { assessmentReviews, contentCategories, contentItems, homeworkAttachments, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttemptResets, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
+import { assessmentReviews, contentCategories, contentItems, homeworkAttachments, homeworkReviewDismissals, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttemptResets, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
 import { db } from "../db/client";
 import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
@@ -17,6 +17,7 @@ import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { mergeEngagementCounters } from "../learning/engagement";
 import { serializeLearningProgressRows } from "../learning/learningProgress";
 import { serializeHomeworkReviewNotice } from "../learning/homeworkReviewNotice";
+import { dismissOwnedHomeworkReview } from "../learning/homeworkReviewDismissal";
 import { toPublicAssessment } from "../learning/assessmentConfig";
 import { scoreQuizAttempt } from "../learning/assessmentScoring";
 import { getQuizAttemptAllowance } from "../learning/assessmentAttemptPolicy";
@@ -266,9 +267,10 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     const lastOpenedProgress = lastOpenedRow?.progress ?? null;
     const lastOpenedItem = lastOpenedRow?.item ?? null;
     const newerHomeworkSubmission = alias(homeworkSubmissions, "newer_homework_submission");
-    const [latestHomeworkReviewRow] = moduleContentWhere
+    const homeworkReviewRows = moduleContentWhere
       ? await db
           .select({
+            submissionId: homeworkSubmissions.id,
             contentItemId: homeworkSubmissions.contentItemId,
             status: homeworkSubmissions.status,
             reviewedAt: homeworkSubmissions.reviewedAt,
@@ -277,11 +279,16 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
           .from(homeworkSubmissions)
           .innerJoin(contentItems, eq(contentItems.id, homeworkSubmissions.contentItemId))
           .leftJoin(assessmentReviews, eq(assessmentReviews.homeworkSubmissionId, homeworkSubmissions.id))
+          .leftJoin(homeworkReviewDismissals, and(
+            eq(homeworkReviewDismissals.userId, userId),
+            eq(homeworkReviewDismissals.homeworkSubmissionId, homeworkSubmissions.id)
+          ))
           .where(and(
             eq(homeworkSubmissions.userId, userId),
             moduleContentWhere,
             inArray(homeworkSubmissions.status, ["needs_revision", "accepted"]),
             isNotNull(homeworkSubmissions.reviewedAt),
+            isNull(homeworkReviewDismissals.id),
             notExists(
               db
                 .select({ id: newerHomeworkSubmission.id })
@@ -294,8 +301,10 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
             )
           ))
           .orderBy(desc(homeworkSubmissions.reviewedAt))
-          .limit(1)
       : [];
+    const homeworkReviewNotices = homeworkReviewRows
+      .map(serializeHomeworkReviewNotice)
+      .filter((notice): notice is NonNullable<typeof notice> => notice !== null);
 
     return c.json({
       categories,
@@ -309,9 +318,38 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         lastOpenedMaterialId: lastOpenedItem ? lastOpenedProgress?.lastOpenedMaterialId ?? null : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,
         lastOpenedPlaybackPositionSeconds: lastOpenedItem ? lastOpenedProgress?.playbackPositionSeconds ?? 0 : 0,
-        latestHomeworkReview: serializeHomeworkReviewNotice(latestHomeworkReviewRow)
+        latestHomeworkReview: homeworkReviewNotices[0] ?? null,
+        homeworkReviewNotices
       }
     });
+  })
+  .post("/homework-reviews/:submissionId/dismiss", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const submissionId = c.req.param("submissionId");
+    const dismissed = await dismissOwnedHomeworkReview({ userId, submissionId }, {
+      async ownsReviewedSubmission(ownerId, candidateId) {
+        const submission = await db.query.homeworkSubmissions.findFirst({
+          columns: { id: true },
+          where: and(
+            eq(homeworkSubmissions.id, candidateId),
+            eq(homeworkSubmissions.userId, ownerId),
+            inArray(homeworkSubmissions.status, ["needs_revision", "accepted"]),
+            isNotNull(homeworkSubmissions.reviewedAt)
+          )
+        });
+        return Boolean(submission);
+      },
+      async persistDismissal(ownerId, candidateId) {
+        await db
+          .insert(homeworkReviewDismissals)
+          .values({ userId: ownerId, homeworkSubmissionId: candidateId })
+          .onConflictDoNothing({
+            target: [homeworkReviewDismissals.userId, homeworkReviewDismissals.homeworkSubmissionId]
+          });
+      }
+    });
+
+    return dismissed ? c.json({ ok: true }) : c.json({ error: "Homework review not found" }, 404);
   })
   .get("/items/:id", requireActiveMember, async (c) => {
     const userId = c.get("userId");

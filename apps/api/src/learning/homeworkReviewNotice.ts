@@ -1,4 +1,5 @@
 export type HomeworkReviewNoticeRow = {
+  submissionId: string;
   contentItemId: string;
   status: string;
   reviewedAt: Date | null;
@@ -11,6 +12,7 @@ export function serializeHomeworkReviewNotice(row: HomeworkReviewNoticeRow | nul
   }
 
   return {
+    submissionId: row.submissionId,
     contentItemId: row.contentItemId,
     status: row.status,
     reviewComment: row.reviewComment?.trim() || null,
