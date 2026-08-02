@@ -1304,6 +1304,8 @@ export const adminStatsUserSchema = z.object({
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   tariff: z.string().nullable(),
+  paymentProductIds: z.array(z.string()).default([]),
+  paymentProviders: z.array(paymentProviderCodeSchema).default([]),
   recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable().optional(),
   hasRestrictions: z.boolean(),
   completedItems: z.number().int().nonnegative(),
@@ -1553,12 +1555,96 @@ export const adminUserDetailResponseSchema = z.object({
 });
 export type AdminUserDetailResponse = z.infer<typeof adminUserDetailResponseSchema>;
 
+export const adminPaymentProductOptionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: paymentProductKindSchema
+});
+export type AdminPaymentProductOption = z.infer<typeof adminPaymentProductOptionSchema>;
+
+export const adminPaymentProviderOptionSchema = z.object({
+  code: paymentProviderCodeSchema,
+  title: z.string()
+});
+export type AdminPaymentProviderOption = z.infer<typeof adminPaymentProviderOptionSchema>;
+
+const adminFinanceOverviewSchema = z.object({
+  revenueRub: z.number().int().nonnegative(),
+  paidOrders: z.number().int().nonnegative(),
+  totalAttempts: z.number().int().nonnegative(),
+  uniqueCustomers: z.number().int().nonnegative(),
+  averagePaidOrderRub: z.number().int().nonnegative(),
+  successPercent: z.number().min(0).max(100)
+});
+
+const adminFinanceProviderRowSchema = z.object({
+  provider: paymentProviderCodeSchema,
+  title: z.string(),
+  attempts: z.number().int().nonnegative(),
+  paidOrders: z.number().int().nonnegative(),
+  uniqueCustomers: z.number().int().nonnegative(),
+  revenueRub: z.number().int().nonnegative(),
+  averagePaidOrderRub: z.number().int().nonnegative(),
+  revenuePercent: z.number().min(0).max(100),
+  successPercent: z.number().min(0).max(100)
+});
+
+const adminFinanceProductRowSchema = z.object({
+  productId: z.string().nullable(),
+  title: z.string(),
+  kind: paymentProductKindSchema,
+  paidOrders: z.number().int().nonnegative(),
+  uniqueCustomers: z.number().int().nonnegative(),
+  revenueRub: z.number().int().nonnegative(),
+  averagePaidOrderRub: z.number().int().nonnegative(),
+  revenuePercent: z.number().min(0).max(100)
+});
+
+const adminFinanceRetentionBreakdownSchema = z.object({
+  key: z.string(),
+  title: z.string(),
+  totalCustomers: z.number().int().nonnegative(),
+  activeCustomers: z.number().int().nonnegative(),
+  churnedCustomers: z.number().int().nonnegative(),
+  churnedPercent: z.number().min(0).max(100)
+});
+
+const adminFinanceRetentionSchema = z.object({
+  totalPayingCustomers: z.number().int().nonnegative(),
+  activeCustomers: z.number().int().nonnegative(),
+  activePercent: z.number().min(0).max(100),
+  churnedCustomers: z.number().int().nonnegative(),
+  churnedPercent: z.number().min(0).max(100),
+  onePurchaseChurned: z.number().int().nonnegative(),
+  onePurchaseChurnedPercent: z.number().min(0).max(100),
+  repeatPurchaseChurned: z.number().int().nonnegative(),
+  repeatPurchaseChurnedPercent: z.number().min(0).max(100),
+  exitStages: z.array(z.object({
+    renewals: z.number().int().positive(),
+    label: z.string(),
+    customers: z.number().int().nonnegative(),
+    percentOfRepeatChurned: z.number().min(0).max(100)
+  })),
+  byProviders: z.array(adminFinanceRetentionBreakdownSchema),
+  byProducts: z.array(adminFinanceRetentionBreakdownSchema)
+});
+
+export const adminFinanceAnalyticsResponseSchema = z.object({
+  overview: adminFinanceOverviewSchema,
+  providers: z.array(adminFinanceProviderRowSchema),
+  products: z.array(adminFinanceProductRowSchema),
+  retention: adminFinanceRetentionSchema
+});
+export type AdminFinanceAnalyticsResponse = z.infer<typeof adminFinanceAnalyticsResponseSchema>;
+
 export const adminStatsResponseSchema = z.object({
   totalUsers: z.number().int().nonnegative(),
   activeUsers: z.number().int().nonnegative(),
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   users: z.array(adminStatsUserSchema),
+  paymentProductOptions: z.array(adminPaymentProductOptionSchema).default([]),
+  paymentProviderOptions: z.array(adminPaymentProviderOptionSchema).default([]),
   communityMessages: z.array(adminCommunityMessageSchema).default([]),
   pollStats: z
     .object({
