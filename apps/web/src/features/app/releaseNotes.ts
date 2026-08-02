@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified client page styling",
+  title: "Visual club analytics",
   items: [
-    "Full quiz and homework results now match the compact client detail pages.",
-    "Scores, attempts, answers, and correct choices use dense, readable rows without oversized nested cards.",
-    "All client detail routes were checked across mobile and wide layouts for consistent spacing and tap targets."
+    "The analytics overview now includes ring charts for active clients, successful payments, and average learning progress.",
+    "Every percentage is paired with exact totals, so the club status remains clear without relying on color alone.",
+    "Each chart opens its detailed section and adapts cleanly across mobile, desktop, and every theme."
   ]
 };
 

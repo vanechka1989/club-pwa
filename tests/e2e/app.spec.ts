@@ -2697,7 +2697,9 @@ test("renders visual admin analytics overview without viewport overflow", async 
           { name: "1024", width: 1024, height: 768 },
           { name: "1440", width: 1440, height: 900 }
         ]
-      : [{ name: "default", width: 390, height: 844 }];
+      : testInfo.project.name === "ios-safari-webkit"
+        ? [{ name: "390", width: 390, height: 844 }]
+        : [{ name: "1280", width: 1280, height: 720 }];
 
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
