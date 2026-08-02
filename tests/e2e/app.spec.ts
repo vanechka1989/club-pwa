@@ -1873,6 +1873,51 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await page.screenshot({ path: testInfo.outputPath("learning-path.png"), fullPage: false });
 });
 
+test("keeps homework review decisions above the mobile bottom navigation", async ({ page }, testInfo) => {
+  await page.route("**/api/admin/learning/assessments/review-queue", (route) => route.fulfill(json({
+    total: 1,
+    homework: [{
+      id: "submission-review",
+      user: { displayName: "Иван", photoUrl: null },
+      lesson: { id: "lesson-admin-1", title: "Первый" },
+      version: 1,
+      text: "Олвлвлвлв",
+      submittedAt: now
+    }],
+    quizzes: []
+  })));
+  await page.route("**/api/admin/learning/assessments/homework/submission-review", (route) => route.fulfill(json({
+    submission: { id: "submission-review", text: "Олвлвлвлв", version: 1 },
+    attachments: [{ id: "attachment-review", fileName: "1000065738.jpg", contentType: "image/jpeg", sizeBytes: 860_160, url: "/icons/icon-512.png" }]
+  })));
+
+  await page.evaluate(() => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Модули" }).click();
+  await page.getByRole("button", { name: /Первый.*Иван/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Проверка: Первый" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Комментарий клиенту" }).fill("Ок. Принято");
+
+  const accept = dialog.getByRole("button", { name: "Принять" });
+  const revise = dialog.getByRole("button", { name: "На доработку" });
+  await expect(accept).toBeVisible();
+  await expect(revise).toBeVisible();
+  const acceptBox = await accept.boundingBox();
+  expect(acceptBox).not.toBeNull();
+  const topElement = await page.evaluate(({ x, y }) => {
+    const element = document.elementFromPoint(x, y);
+    return element?.closest("button")?.textContent?.trim() ?? null;
+  }, { x: acceptBox!.x + acceptBox!.width / 2, y: acceptBox!.y + acceptBox!.height / 2 });
+  expect(topElement).toContain("Принять");
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("homework-review-sheet.png"), fullPage: false });
+});
+
 const exactMobileAuditViewports = [
   { name: "320x568", width: 320, height: 568 },
   { name: "360x640", width: 360, height: 640 },
