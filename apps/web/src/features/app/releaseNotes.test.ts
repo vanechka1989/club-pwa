@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the organized learning analytics redesign as version 6.06", () => {
-    expect(appVersion).toBe("6.06");
-    expect(releaseNotes[0]?.title).toBe("Порядок в аналитике обучения");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сводк/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/материал/i);
+  it("publishes continuous daily analytics as version 6.07", () => {
+    expect(appVersion).toBe("6.07");
+    expect(releaseNotes[0]?.title).toBe("Непрерывные графики по дням");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/значением 0/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/клиент/i);
+
+    const learningAnalytics = releaseNotes.find((note) => note.version === "6.06");
+    expect(learningAnalytics?.title).toBe("Порядок в аналитике обучения");
 
     const communityAnalytics = releaseNotes.find((note) => note.version === "6.05");
     expect(communityAnalytics?.title).toBe("Наглядная аналитика общения");

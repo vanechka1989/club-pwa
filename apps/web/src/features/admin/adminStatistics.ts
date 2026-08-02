@@ -1,4 +1,4 @@
-import type { AdminCommunityMessage, AdminLearningMaterial, AdminStatsUser, ClubTopic, ContentKind, LearningCategory, PaymentOrderLog } from "@club/shared";
+import { utcDateKeys, type AdminCommunityMessage, type AdminLearningMaterial, type AdminStatsUser, type ClubTopic, type ContentKind, type LearningCategory, type PaymentOrderLog } from "@club/shared";
 import { isPaymentProblemOrder, type AdminPaymentBreakdownItem } from "./adminPaymentDrilldown";
 import type { AdminAccessBreakdownItem } from "./adminUserDrilldown";
 import { paymentRubMajor } from "./adminPaymentMoney";
@@ -49,7 +49,7 @@ function parseDateBoundary(value: string | undefined, endOfDay = false) {
     return null;
   }
 
-  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}`);
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -66,8 +66,9 @@ function periodRange(period: AdminStatisticsPeriod, now: Date, dateRange?: Admin
   }
 
   const days = period === "7d" ? 7 : 30;
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)));
   return {
-    start: new Date(now.getTime() - days * 24 * 60 * 60 * 1000),
+    start,
     end: now
   };
 }
@@ -175,16 +176,28 @@ function buildTopCommunityClients(messages: AdminCommunityMessage[]) {
     .slice(0, 5);
 }
 
-function countTimeline(values: string[]) {
+function timelineDateKeys(values: string[], options: AdminStatisticsOptions, now: Date) {
+  if (options.period === "custom" && options.dateRange?.from && options.dateRange.to) {
+    return utcDateKeys(options.dateRange.from, options.dateRange.to);
+  }
+  if (options.period === "7d" || options.period === "30d") {
+    const range = periodRange(options.period, now);
+    return utcDateKeys(range.start!.toISOString().slice(0, 10), now.toISOString().slice(0, 10));
+  }
+  const dates = values.map((value) => new Date(value).toISOString().slice(0, 10)).sort();
+  return dates.length ? utcDateKeys(dates[0]!, dates.at(-1)!) : [];
+}
+
+function countTimeline(values: string[], dates: string[]) {
   const rows = new Map<string, number>();
   values.forEach((value) => {
     const date = new Date(value).toISOString().slice(0, 10);
     rows.set(date, (rows.get(date) ?? 0) + 1);
   });
-  return [...rows.entries()].map(([date, value]) => ({ date, value })).sort((left, right) => left.date.localeCompare(right.date)).slice(-14);
+  return dates.map((date) => ({ date, value: rows.get(date) ?? 0 }));
 }
 
-function paymentTimeline(orders: PaymentOrderLog[]) {
+function paymentTimeline(orders: PaymentOrderLog[], dates: string[]) {
   const rows = new Map<string, { date: string; orders: number; revenueRub: number }>();
   orders.forEach((order) => {
     const date = new Date(orderDate(order)).toISOString().slice(0, 10);
@@ -193,7 +206,7 @@ function paymentTimeline(orders: PaymentOrderLog[]) {
     row.revenueRub += paymentRubMajor(order);
     rows.set(date, row);
   });
-  return [...rows.values()].sort((left, right) => left.date.localeCompare(right.date)).slice(-14);
+  return dates.map((date) => rows.get(date) ?? { date, orders: 0, revenueRub: 0 });
 }
 
 export function buildAdminStatistics(input: AdminStatisticsInput, options: AdminStatisticsOptions) {
@@ -231,6 +244,9 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
   const messagesLast7Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "7d", now));
   const messagesLast30Days = memberMessages.filter((message) => isInPeriod(message.createdAt, "30d", now));
   const activeWriters = new Set(periodMessages.map((message) => message.author.id)).size;
+  const clientDates = timelineDateKeys(newUsers.map((user) => user.createdAt), options, now);
+  const paymentDates = timelineDateKeys(paidOrders.map(orderDate), options, now);
+  const communicationDates = timelineDateKeys(periodMessages.map((message) => message.createdAt), options, now);
 
   return {
     clients: {
@@ -240,7 +256,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       restricted: input.users.filter((user) => user.hasRestrictions).length,
       expiringSoon: expiringSoon.length,
       newInPeriod: newUsers.length,
-      timeline: countTimeline(newUsers.map((user) => user.createdAt)),
+      timeline: countTimeline(newUsers.map((user) => user.createdAt), clientDates),
       activePercent: percent(activeUsers.length, input.users.length),
       accessBreakdown: [
         { key: "inactive", label: "Без доступа", value: inactiveUsers.length },
@@ -258,7 +274,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       averagePaidOrderRub: paidOrders.length > 0 ? Math.round(revenueRub / paidOrders.length) : 0,
       oneTimePaidOrders,
       recurrentPaidOrders,
-      timeline: paymentTimeline(paidOrders),
+      timeline: paymentTimeline(paidOrders, paymentDates),
       breakdown: [
         { key: "paid", label: "Всего оплат", value: paidOrders.length },
         { key: "one_time", label: "Разовые", value: oneTimePaidOrders },
@@ -289,7 +305,7 @@ export function buildAdminStatistics(input: AdminStatisticsInput, options: Admin
       messagesLast7Days: messagesLast7Days.length,
       messagesLast30Days: messagesLast30Days.length,
       activeWriters,
-      timeline: countTimeline(periodMessages.map((message) => message.createdAt)),
+      timeline: countTimeline(periodMessages.map((message) => message.createdAt), communicationDates),
       hotTopic: buildHotTopic(periodMessages),
       topClients: buildTopCommunityClients(periodMessages)
     },

@@ -1,3 +1,4 @@
+import { utcDateKeys } from "@club/shared";
 import type {
   AcquisitionAttribution,
   AcquisitionDestination,
@@ -189,7 +190,14 @@ export function buildAcquisitionDashboard(data: AnalyticsData, options: Dashboar
       registrationToPaidRate: rate(periodPaidUsers.size, registrations),
       visitToPaidRate: rate(periodPaidUsers.size, uniqueVisitors)
     },
-    timeline: [...timeline.values()].sort((a, b) => a.date.localeCompare(b.date)),
+    timeline: (() => {
+      const actual = [...timeline.values()].sort((a, b) => a.date.localeCompare(b.date));
+      const from = options.from ? dateKey(options.from) : actual[0]?.date;
+      const to = options.to ? dateKey(options.to) : actual.at(-1)?.date;
+      return from && to
+        ? utcDateKeys(from, to).map((date) => timeline.get(date) ?? { date, visits: 0, registrations: 0, paidUsers: 0, revenueRub: 0 })
+        : actual;
+    })(),
     sources: rows("source"),
     campaigns: rows("campaign"),
     topLinks: data.links.map(serializeLink).sort((a, b) => b.revenueRub - a.revenueRub || b.registrations - a.registrations || b.visits - a.visits)

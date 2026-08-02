@@ -636,6 +636,14 @@ const statisticsEngagementRange = computed(() => {
   from.setDate(from.getDate() - (statisticsPeriod.value === "7d" ? 6 : 29));
   return { from: formatDateInput(from), to: formatDateInput(to) };
 });
+const statisticsAcquisitionRange = computed(() => {
+  if (statisticsPeriod.value === "all") return undefined;
+  if (statisticsDateRange.value) return statisticsDateRange.value;
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - (statisticsPeriod.value === "7d" ? 6 : 29));
+  return { from: formatDateInput(from), to: formatDateInput(to) };
+});
 const statisticsOptions = computed(() =>
   statisticsDateRange.value
     ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
@@ -3170,8 +3178,8 @@ onUnmounted(() => {
         </template>
         <AdminAcquisitionAnalytics
           v-if="activeStatisticsDetail === 'acquisition'"
-          :from="statisticsDateRange?.from"
-          :to="statisticsDateRange?.to"
+          :from="statisticsAcquisitionRange?.from"
+          :to="statisticsAcquisitionRange?.to"
           :learning-categories="learningCategories"
           @client="openAcquisitionClient"
         />

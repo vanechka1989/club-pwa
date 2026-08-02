@@ -24,8 +24,8 @@ const hasAnyUtm = computed(() => [form.source, form.medium, form.campaign, form.
 const canCreateLink = computed(() => Boolean(form.name.trim() && hasAnyUtm.value && (form.destinationKind !== "module" || form.moduleId.trim())));
 
 const dateOptions = computed(() => ({
-  ...(props.from ? { from: new Date(`${props.from}T00:00:00`).toISOString() } : {}),
-  ...(props.to ? { to: new Date(`${props.to}T23:59:59.999`).toISOString() } : {})
+  ...(props.from ? { from: new Date(`${props.from}T00:00:00.000Z`).toISOString() } : {}),
+  ...(props.to ? { to: new Date(`${props.to}T23:59:59.999Z`).toISOString() } : {})
 }));
 const maxTimeline = computed(() => Math.max(1, ...(dashboard.value?.timeline.map((item) => Math.max(item.visits, item.registrations, item.paidUsers)) ?? [1])));
 async function load() {

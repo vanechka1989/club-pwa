@@ -1,5 +1,6 @@
 import { z } from "zod";
 export { currentRelease } from "./release";
+export { utcDateKeys } from "./dailyDateRange";
 
 export const displayNamePattern = /^[\p{L}\p{N}_-]{3,20}$/u;
 export function normalizeDisplayName(value: string) {

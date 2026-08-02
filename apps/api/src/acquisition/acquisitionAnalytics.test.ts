@@ -32,6 +32,28 @@ describe("acquisition analytics aggregation", () => {
     expect(dashboard.timeline.map((row) => row.date)).toEqual(["2026-07-21", "2026-07-22", "2026-07-23"]);
   });
 
+  it("keeps every requested day and fills missing acquisition activity with zeroes", () => {
+    const dashboard = buildAcquisitionDashboard(
+      {
+        links: [linkA],
+        visits: [
+          { id: "first", visitorHash: "visitor-1", linkId: "a", userId: null, occurredAt: new Date("2026-07-21T10:00:00Z") },
+          { id: "last", visitorHash: "visitor-2", linkId: "a", userId: null, occurredAt: new Date("2026-07-24T10:00:00Z") }
+        ],
+        attributions: [],
+        orders: []
+      },
+      { attribution: "last", from: new Date("2026-07-21T00:00:00Z"), to: new Date("2026-07-24T23:59:59Z"), origin: "https://club.example" }
+    );
+
+    expect(dashboard.timeline).toEqual([
+      { date: "2026-07-21", visits: 1, registrations: 0, paidUsers: 0, revenueRub: 0 },
+      { date: "2026-07-22", visits: 0, registrations: 0, paidUsers: 0, revenueRub: 0 },
+      { date: "2026-07-23", visits: 0, registrations: 0, paidUsers: 0, revenueRub: 0 },
+      { date: "2026-07-24", visits: 1, registrations: 0, paidUsers: 0, revenueRub: 0 }
+    ]);
+  });
+
   it("switches registrations and revenue to first touch", () => {
     const dashboard = buildAcquisitionDashboard(
       { links: [linkA, linkB], visits, attributions, orders },

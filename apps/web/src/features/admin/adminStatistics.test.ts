@@ -162,6 +162,33 @@ describe("admin statistics", () => {
     expect(stats.payments.paidOrders).toBe(1);
     expect(stats.payments.revenueRub).toBe(100);
     expect(stats.communication.messagesInPeriod).toBe(1);
+    expect(stats.clients.timeline).toEqual([
+      { date: "2026-06-09", value: 0 },
+      { date: "2026-06-10", value: 1 },
+      { date: "2026-06-11", value: 0 },
+      { date: "2026-06-12", value: 0 },
+      { date: "2026-06-13", value: 0 },
+      { date: "2026-06-14", value: 0 },
+      { date: "2026-06-15", value: 0 }
+    ]);
+    expect(stats.payments.timeline).toEqual([
+      { date: "2026-06-09", orders: 0, revenueRub: 0 },
+      { date: "2026-06-10", orders: 1, revenueRub: 100 },
+      { date: "2026-06-11", orders: 0, revenueRub: 0 },
+      { date: "2026-06-12", orders: 0, revenueRub: 0 },
+      { date: "2026-06-13", orders: 0, revenueRub: 0 },
+      { date: "2026-06-14", orders: 0, revenueRub: 0 },
+      { date: "2026-06-15", orders: 0, revenueRub: 0 }
+    ]);
+    expect(stats.communication.timeline).toEqual([
+      { date: "2026-06-09", value: 0 },
+      { date: "2026-06-10", value: 0 },
+      { date: "2026-06-11", value: 0 },
+      { date: "2026-06-12", value: 1 },
+      { date: "2026-06-13", value: 0 },
+      { date: "2026-06-14", value: 0 },
+      { date: "2026-06-15", value: 0 }
+    ]);
   });
 
   it("builds club metrics from users, payments, learning content and topics", () => {
@@ -280,7 +307,9 @@ describe("admin statistics", () => {
       newInPeriod: 3,
       activePercent: 50
     });
-    expect(stats.clients.timeline).toEqual([
+    expect(stats.clients.timeline).toHaveLength(30);
+    expect(stats.clients.timeline.find((row) => row.date === "2026-06-22")).toEqual({ date: "2026-06-22", value: 0 });
+    expect(stats.clients.timeline.filter((row) => row.value > 0)).toEqual([
       { date: "2026-06-23", value: 1 },
       { date: "2026-06-24", value: 1 },
       { date: "2026-06-25", value: 1 }
@@ -301,7 +330,9 @@ describe("admin statistics", () => {
       oneTimePaidOrders: 1,
       recurrentPaidOrders: 1
     });
-    expect(stats.payments.timeline).toEqual([
+    expect(stats.payments.timeline).toHaveLength(30);
+    expect(stats.payments.timeline.find((row) => row.date === "2026-06-21")).toEqual({ date: "2026-06-21", orders: 0, revenueRub: 0 });
+    expect(stats.payments.timeline.filter((row) => row.orders > 0)).toEqual([
       { date: "2026-06-20", orders: 1, revenueRub: 100 },
       { date: "2026-06-25", orders: 1, revenueRub: 50 }
     ]);
@@ -344,7 +375,9 @@ describe("admin statistics", () => {
         messages: 2
       }
     });
-    expect(stats.communication.timeline).toEqual([
+    expect(stats.communication.timeline).toHaveLength(30);
+    expect(stats.communication.timeline.find((row) => row.date === "2026-06-11")).toEqual({ date: "2026-06-11", value: 0 });
+    expect(stats.communication.timeline.filter((row) => row.value > 0)).toEqual([
       { date: "2026-06-10", value: 1 },
       { date: "2026-06-24", value: 1 },
       { date: "2026-06-25", value: 1 }
