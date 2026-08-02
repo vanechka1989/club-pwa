@@ -85,17 +85,19 @@ describe("compact admin statistics and clients", () => {
     expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-kpi-grid/);
   });
 
-  it("renders client sections as sibling cards instead of nested windows", () => {
+  it("renders client sections as compact navigation rows instead of disclosures", () => {
     expect(source).toContain('class="admin-client-identity admin-detail ui-card"');
     expect(source).toContain('class="admin-client-action-panel admin-detail ui-card"');
-    expect(source).toContain('class="admin-client-section admin-client-compact-section admin-detail ui-card"');
+    expect(source).toContain('class="admin-client-section admin-client-compact-link admin-detail ui-card"');
+    expect(source).not.toContain('details class="admin-client-section');
   });
 
-  it("collapses secondary client information by default", () => {
+  it("routes secondary client information through named buttons", () => {
     for (const label of ["Устройства", "IP входов", "Активность"]) {
       expect(source).toContain(`<strong>${label}</strong>`);
     }
     expect(source).not.toContain("<summary>Профиль");
-    expect(styles).toContain(".admin-client-compact-section");
+    expect(source).toContain('open-client-section');
+    expect(styles).toContain(".admin-client-compact-link");
   });
 });

@@ -1839,6 +1839,13 @@ const responsiveRouteAuditPaths = [
   { path: "/admin", selector: ".admin-shell" },
   { path: "/admin/clients/593677751", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/clients/593677751/learning", selector: ".admin-client-learning-task .task-screen" },
+  { path: "/admin/clients/593677751/activity", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/subscriptions", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/payments", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/referrals", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/moderation", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/devices", selector: ".admin-client-detail-task .task-screen" },
+  { path: "/admin/clients/593677751/login-ips", selector: ".admin-client-detail-task .task-screen" },
   { path: "/admin/clients/593677751/learning/quiz/attempt-demo", selector: ".admin-assessment-result-task .task-screen" },
   { path: "/admin/statistics/payments/paid", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/access-inactive", selector: ".admin-task-screen .task-screen" },
@@ -3759,7 +3766,7 @@ test("opens a client's complete quiz result from the unified learning section", 
   await page.getByRole("button", { name: /Екатерина С Очень Длинной Фамилией/ }).click();
   await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
   await expect(page.locator(".admin-client-section-icon")).toHaveCount(8);
-  await page.getByRole("button", { name: "Открыть обучение клиента" }).click();
+  await page.getByRole("button", { name: "Открыть раздел Обучение" }).click();
 
   await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning$/);
   await expect(page.locator(".admin-client-learning-task.task-screen-route-layer")).toBeVisible();
@@ -3772,6 +3779,7 @@ test("opens a client's complete quiz result from the unified learning section", 
   await expect(resultTask.getByText("Сколько будет 2 + 2?")).toBeVisible();
   await expect(resultTask.getByText("Ответ клиента")).toBeVisible();
   await expect(resultTask.getByText("Правильный ответ")).toBeVisible();
+  await expect(resultTask.getByRole("button", { name: "Сбросить результат" })).toBeVisible();
 
   await resultTask.getByRole("button", { name: "Назад" }).click();
   await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning$/);
@@ -3779,6 +3787,20 @@ test("opens a client's complete quiz result from the unified learning section", 
   await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/admin$/);
+});
+
+test("opens every client summary on its own responsive page", async ({ page }) => {
+  const pages = [
+    ["activity", "Активность"], ["subscriptions", "Подписки"], ["payments", "Оплаты клиента"],
+    ["referrals", "Рефералы"], ["moderation", "Ограничения и удаления"], ["devices", "Устройства"], ["login-ips", "IP входов"]
+  ] as const;
+  for (const [section, title] of pages) {
+    await page.goto(`/admin/clients/593677751/${section}`);
+    const task = page.locator(".admin-client-detail-task.task-screen-route-layer");
+    await expect(task, section).toBeVisible();
+    await expect(task.getByRole("heading", { name: title })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+  }
 });
 
 test("keeps support ticket composer anchored above keyboard in plain Samsung shells", async ({ page }, testInfo) => {

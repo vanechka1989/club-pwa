@@ -24,7 +24,7 @@ const error = ref<string | null>(null);
 const title = computed(() => result.value?.mode === "homework" ? "Результат домашнего задания" : "Результат теста");
 const resetAvailable = computed(() => {
   if (!props.canReset || !result.value || result.value.resetAt) return false;
-  return result.value.mode === "quiz" ? result.value.status === "failed" : result.value.status === "accepted";
+  return result.value.mode === "quiz" ? ["passed", "failed"].includes(result.value.status) : result.value.status === "accepted";
 });
 
 async function load() {
@@ -111,7 +111,7 @@ onMounted(load);
         </template>
 
         <section v-if="result.resetAt" class="admin-assessment-reset-history ui-card"><RotateCcw aria-hidden="true" /><div><strong>Прохождение было сброшено</strong><p>{{ formatDate(result.resetAt) }}<template v-if="result.resetReason"> · {{ result.resetReason }}</template></p></div></section>
-        <button v-if="resetAvailable" class="admin-assessment-reset-button secondary-button ui-button" type="button" @click="emit('reset', { mode: result.mode, recordId: result.id })"><RotateCcw aria-hidden="true" />Сбросить прохождение</button>
+        <button v-if="resetAvailable" class="admin-assessment-reset-button secondary-button ui-button" type="button" @click="emit('reset', { mode: result.mode, recordId: result.id })"><RotateCcw aria-hidden="true" />Сбросить результат</button>
       </template>
     </div>
   </TaskScreen>

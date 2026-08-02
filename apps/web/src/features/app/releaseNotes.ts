@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client learning on a dedicated screen",
+  title: "Client details and repeatable assessments",
   items: [
-    "Client learning now opens from a compact row into a dedicated screen with summary metrics, lessons, quizzes, and homework.",
-    "Returning from a detailed quiz or homework result leads back to the client's learning screen, preserving the admin's context.",
-    "Activity, learning, subscriptions, payments, referrals, restrictions, devices, and login IPs now use consistent semantic icons."
+    "Every client detail section now opens on its own focused screen.",
+    "Admins can reset a completed quiz or accepted homework result so the client can try again.",
+    "Resetting a passed quiz clears lesson completion while preserving the audit trail."
   ]
 };
 

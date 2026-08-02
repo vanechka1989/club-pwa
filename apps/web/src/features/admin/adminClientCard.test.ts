@@ -153,6 +153,7 @@ describe("admin client card helpers", () => {
 
   it("loads and shows login IP history only with the dedicated permission", () => {
     const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
+    const detailTask = readFileSync(resolve(__dirname, "AdminClientDetailTask.vue"), "utf8");
     const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
     const styles = adminStyles;
 
@@ -160,7 +161,7 @@ describe("admin client card helpers", () => {
     expect(shell).toContain("getAdminUserLoginIps");
     expect(source).toContain('v-if="canViewLoginIps"');
     expect(source).toContain("IP входов");
-    expect(source).toContain("История IP появится после следующего входа клиента.");
+    expect(detailTask).toContain("История IP появится после следующего входа клиента.");
     expect(styles).toMatch(/\.admin-login-ip-address\s*\{[^}]*overflow-wrap:\s*anywhere;/s);
   });
 

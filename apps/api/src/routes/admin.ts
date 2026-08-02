@@ -2825,14 +2825,16 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       ),
       orderBy: [asc(quizAttempts.attemptNumber)]
     });
-    const resetWhere = nextAttempt
+    const legacyResetWhere = nextAttempt
       ? and(
+          isNull(quizAttemptResets.quizAttemptId),
           eq(quizAttemptResets.userId, attempt.userId),
           eq(quizAttemptResets.contentItemId, attempt.contentItemId),
           gt(quizAttemptResets.createdAt, attempt.startedAt),
           lt(quizAttemptResets.createdAt, nextAttempt.startedAt)
         )
       : and(
+          isNull(quizAttemptResets.quizAttemptId),
           eq(quizAttemptResets.userId, attempt.userId),
           eq(quizAttemptResets.contentItemId, attempt.contentItemId),
           gt(quizAttemptResets.createdAt, attempt.startedAt)
@@ -2848,7 +2850,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       db.query.quizAnswers.findMany({ where: eq(quizAnswers.attemptId, attempt.id) }),
       db.query.assessmentReviews.findFirst({ where: eq(assessmentReviews.quizAttemptId, attempt.id) }),
       db.query.quizAttemptResets.findFirst({
-        where: resetWhere,
+        where: or(eq(quizAttemptResets.quizAttemptId, attempt.id), legacyResetWhere),
         orderBy: [desc(quizAttemptResets.createdAt)]
       })
     ]);
@@ -2860,7 +2862,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       questions,
       answers,
       review: review ? { comment: review.comment } : null,
-      reset: reset && resetBelongsToAttempt(reset, attempt, nextAttempt) ? { reason: reset.reason, createdAt: reset.createdAt } : null
+      reset: reset && (reset.quizAttemptId === attempt.id || resetBelongsToAttempt(reset, attempt, nextAttempt)) ? { reason: reset.reason, createdAt: reset.createdAt } : null
     }) });
   })
   .get("/users/:telegramId/learning/homework/:id", async (c) => {
@@ -3113,30 +3115,87 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     if (!parsed.success) return c.json({ error: "Invalid reset payload", details: parsed.error.flatten() }, 400);
     const attempt = await db.query.quizAttempts.findFirst({ where: eq(quizAttempts.id, c.req.param("id")) });
     if (!attempt) return c.json({ error: "Quiz attempt not found" }, 404);
-    if (attempt.status !== "failed") return c.json({ error: "Only failed quiz attempts can be reset" }, 409);
-    const [reset] = await db.insert(quizAttemptResets).values({
-      userId: attempt.userId,
-      contentItemId: attempt.contentItemId,
-      resetByUserId: c.get("userId"),
-      reason: parsed.data.reason
-    }).returning();
-    await createAppNotification({
-      userId: attempt.userId,
-      title: "Доступны новые попытки теста",
-      body: parsed.data.reason || "Администратор разрешил пройти тест ещё раз.",
-      source: "lesson_assessment",
-      sourceId: reset!.id,
-      pushUrl: `/learning/lessons/${attempt.contentItemId}`
+    if (attempt.status !== "passed" && attempt.status !== "failed") return c.json({ error: "Only completed quiz attempts can be reset" }, 409);
+    const [targetRole, actorRole] = await Promise.all([
+      db.query.users.findFirst({ where: eq(users.id, attempt.userId) }).then((target) => target ? getUserRole(target.telegramId) : "member" as const),
+      getUserRole(c.get("telegramUser").id)
+    ]);
+    if (targetRole !== "member" && actorRole !== "owner") return c.json({ error: "Only the owner can reset an administrator's quiz" }, 403);
+    const nextAttempt = await db.query.quizAttempts.findFirst({
+      where: and(eq(quizAttempts.userId, attempt.userId), eq(quizAttempts.contentItemId, attempt.contentItemId), gt(quizAttempts.attemptNumber, attempt.attemptNumber)),
+      orderBy: [asc(quizAttempts.attemptNumber)]
     });
-    await recordAdminAction(c, {
-      action: "learning.quiz.attempts_reset",
-      entityType: "quiz_attempt",
-      entityId: attempt.id,
-      targetUserId: attempt.userId,
-      summary: "Разрешил клиенту новые попытки теста",
-      metadata: { contentItemId: attempt.contentItemId, reason: parsed.data.reason }
+    const legacyResetWhere = nextAttempt
+      ? and(isNull(quizAttemptResets.quizAttemptId), eq(quizAttemptResets.userId, attempt.userId), eq(quizAttemptResets.contentItemId, attempt.contentItemId), gt(quizAttemptResets.createdAt, attempt.startedAt), lt(quizAttemptResets.createdAt, nextAttempt.startedAt))
+      : and(isNull(quizAttemptResets.quizAttemptId), eq(quizAttemptResets.userId, attempt.userId), eq(quizAttemptResets.contentItemId, attempt.contentItemId), gt(quizAttemptResets.createdAt, attempt.startedAt));
+    const existingReset = await db.query.quizAttemptResets.findFirst({
+      where: or(eq(quizAttemptResets.quizAttemptId, attempt.id), legacyResetWhere),
+      orderBy: [desc(quizAttemptResets.createdAt)]
     });
-    return c.json({ ok: true, reset });
+    const ensureResetEffects = async (reset: typeof quizAttemptResets.$inferSelect) => {
+      const existingNotification = await db.query.appNotifications.findFirst({ where: and(
+        eq(appNotifications.userId, attempt.userId),
+        eq(appNotifications.source, "lesson_assessment"),
+        eq(appNotifications.sourceId, reset.id)
+      ) });
+      if (!existingNotification) {
+        await createAppNotification({
+          userId: attempt.userId,
+          title: "Доступны новые попытки теста",
+          body: reset.reason || "Администратор разрешил пройти тест ещё раз.",
+          source: "lesson_assessment",
+          sourceId: reset.id,
+          pushUrl: `/learning/lessons/${attempt.contentItemId}`
+        }, { deduplicate: true });
+      }
+      const existingAudit = await db.query.adminActionLogs.findFirst({ where: and(
+        eq(adminActionLogs.action, "learning.quiz.attempts_reset"),
+        eq(adminActionLogs.entityId, attempt.id)
+      ) });
+      if (!existingAudit) {
+        const resetActor = await db.query.users.findFirst({ where: eq(users.id, reset.resetByUserId) });
+        await recordAdminAction(c, {
+          action: "learning.quiz.attempts_reset",
+          entityType: "quiz_attempt",
+          entityId: attempt.id,
+          targetUserId: attempt.userId,
+          summary: "Разрешил клиенту новые попытки теста",
+          metadata: { contentItemId: attempt.contentItemId, reason: reset.reason },
+          deduplicate: true,
+          actorUserId: reset.resetByUserId,
+          actorTelegramId: resetActor?.telegramId ?? c.get("telegramUser").id
+        });
+      }
+    };
+    if (existingReset) {
+      await ensureResetEffects(existingReset);
+      return c.json({ ok: true, reconciled: true, reset: existingReset });
+    }
+    const reset = await db.transaction(async (tx) => {
+      const [created] = await tx.insert(quizAttemptResets).values({
+        quizAttemptId: attempt.id,
+        userId: attempt.userId,
+        contentItemId: attempt.contentItemId,
+        resetByUserId: c.get("userId"),
+        reason: parsed.data.reason
+      }).onConflictDoNothing({ target: quizAttemptResets.quizAttemptId }).returning();
+      if (!created) return null;
+      if (attempt.status === "passed") {
+        await tx.update(userContentProgress).set({ completedAt: null, updatedAt: new Date() }).where(and(
+          eq(userContentProgress.userId, attempt.userId),
+          eq(userContentProgress.contentItemId, attempt.contentItemId)
+        ));
+      }
+      return created;
+    });
+    if (reset) {
+      await ensureResetEffects(reset);
+      return c.json({ ok: true, reset });
+    }
+    const concurrentReset = await db.query.quizAttemptResets.findFirst({ where: eq(quizAttemptResets.quizAttemptId, attempt.id) });
+    if (!concurrentReset) return c.json({ error: "Unable to reset quiz attempts" }, 409);
+    await ensureResetEffects(concurrentReset);
+    return c.json({ ok: true, reconciled: true, reset: concurrentReset });
   })
   .get("/learning/materials/:id/assessment", async (c) => {
     const material = await db.query.contentItems.findFirst({ where: eq(contentItems.id, c.req.param("id")) });

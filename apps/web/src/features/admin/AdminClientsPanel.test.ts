@@ -219,7 +219,7 @@ describe("AdminClientsPanel", () => {
     expect(emitted()["extend-access"]).toEqual([[7]]);
   });
 
-  it("opens learning as a compact task row and gives the remaining sections icons", async () => {
+  it("opens every client summary as an equally compact dedicated task row", async () => {
     const { emitted } = render(AdminClientsPanel, {
       props: createProps({
         selectedUser: client,
@@ -228,14 +228,27 @@ describe("AdminClientsPanel", () => {
       })
     });
 
-    const learning = screen.getByRole("button", { name: "Открыть обучение клиента" });
-    expect(learning.classList.contains("admin-client-compact-link")).toBe(true);
-    expect(within(learning).getByText("0 событий")).toBeTruthy();
+    const sections = [
+      ["Активность", "activity"],
+      ["Обучение", "learning"],
+      ["Подписки", "subscriptions"],
+      ["Оплаты клиента", "payments"],
+      ["Рефералы", "referrals"],
+      ["Ограничения и удаления", "moderation"],
+      ["Устройства", "devices"],
+      ["IP входов", "login-ips"]
+    ] as const;
+
     expect(document.querySelectorAll(".admin-client-section-icon")).toHaveLength(8);
+    expect(document.querySelectorAll(".admin-client-workspace details.admin-client-section")).toHaveLength(0);
 
-    await fireEvent.click(learning);
+    for (const [label] of sections) {
+      const button = screen.getByRole("button", { name: `Открыть раздел ${label}` });
+      expect(button.classList.contains("admin-client-compact-link")).toBe(true);
+      await fireEvent.click(button);
+    }
 
-    expect(emitted()["open-learning"]).toEqual([[]]);
+    expect(emitted()["open-client-section"]).toEqual(sections.map(([, section]) => [section]));
   });
 
   it("uses the never-login fallback in the selected client detail", () => {
@@ -288,8 +301,8 @@ describe("AdminClientsPanel", () => {
     const { emitted } = render(AdminClientsPanel, { props: createProps({ selectedUser: client, selectedUserDetail: detail }) });
 
     expect(screen.getByText("1 событие", { exact: true })).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Открыть обучение клиента" }));
-    expect(emitted()["open-learning"]).toEqual([[]]);
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть раздел Обучение" }));
+    expect(emitted()["open-client-section"]).toEqual([["learning"]]);
   });
 
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {
@@ -331,20 +344,20 @@ describe("AdminClientsPanel", () => {
       }
     });
 
-    await fireEvent.click(await screen.findByRole("button", { name: "Открыть обучение клиента" }));
+    await fireEvent.click(await screen.findByRole("button", { name: "Открыть раздел Обучение" }));
     expect(await screen.findByRole("heading", { name: "Обучение" })).toBeTruthy();
     expect(routerMocks.push).not.toHaveBeenCalled();
 
     await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
-    expect(await screen.findByRole("button", { name: "Открыть обучение клиента" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Открыть раздел Обучение" })).toBeTruthy();
     expect(routerMocks.push).not.toHaveBeenCalled();
     expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
   it("uses browser history for internally opened learning tasks and keeps replace as a deep-link fallback", () => {
     const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
-    const closeResult = shell.slice(shell.indexOf("function closeLearningResult"), shell.indexOf("function openClientLearning"));
-    const closeLearning = shell.slice(shell.indexOf("function closeClientLearning"), shell.indexOf("async function handleResetLearningResult"));
+    const closeResult = shell.slice(shell.indexOf("function closeLearningResult"), shell.indexOf("function openClientSection"));
+    const closeLearning = shell.slice(shell.indexOf("function closeClientSection"), shell.indexOf("async function handleResetLearningResult"));
 
     expect(closeResult).toContain("router.back()");
     expect(closeResult).toContain("replaceAdminTask");

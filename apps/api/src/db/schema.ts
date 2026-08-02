@@ -1012,6 +1012,7 @@ export const quizAttemptResets = pgTable(
   "quiz_attempt_resets",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    quizAttemptId: uuid("quiz_attempt_id").references(() => quizAttempts.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     contentItemId: uuid("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
     resetByUserId: uuid("reset_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
@@ -1019,6 +1020,7 @@ export const quizAttemptResets = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
   },
   (table) => ({
+    quizAttemptIdx: uniqueIndex("quiz_attempt_resets_quiz_attempt_unique").on(table.quizAttemptId),
     userLessonCreatedIdx: index("quiz_attempt_resets_user_lesson_created_idx").on(table.userId, table.contentItemId, table.createdAt)
   })
 );
