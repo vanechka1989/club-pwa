@@ -6,10 +6,12 @@ Present every primary analytics value in one coherent circular visual system ins
 
 ## Layout
 
+- Place the period selector on its own full-width row below the analytics heading, with equal left and right insets and four equal-width buttons.
 - Replace the two-card KPI strip plus three-ring row with one six-item visual grid.
 - Use two balanced rows of three equal items: revenue, new clients, and messages above; active clients, successful payments, and learning progress below.
 - Keep all six items inside the existing analytics surface, with shared dividers, typography, spacing, focus behavior, and tap targets.
 - Preserve a compact layout without horizontal scrolling from 320 px through 1440 px.
+- Preserve the same centered selector alignment in normal mobile, scaled installed-PWA, tablet, and desktop layouts.
 
 ## Metric semantics
 

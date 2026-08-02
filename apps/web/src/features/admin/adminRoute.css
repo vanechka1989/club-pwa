@@ -4508,6 +4508,19 @@ body.club-mobile-device .admin-panel-head {
 
 @media (max-width:359px) { .admin-client-display-name > div { grid-template-columns:1fr; } }
 
+.admin-statistics-panel .admin-statistics-head {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.admin-statistics-panel .admin-stat-period-control {
+  width: 100%;
+  min-width: 0;
+}
+
 .admin-statistics-panel .admin-stat-periods,
 body.club-mobile-device .admin-statistics-panel .admin-stat-periods,
 body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-periods {

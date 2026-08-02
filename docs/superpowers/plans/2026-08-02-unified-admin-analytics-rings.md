@@ -10,6 +10,7 @@
 
 ## Global Constraints
 
+- Keep the four period buttons equal-width and center their container with symmetrical insets.
 - Do not invent percentages for revenue or new clients.
 - Preserve existing analytics data contracts and drill-down screens.
 - Support widths 320, 390, 768, 1024, and 1440 px without horizontal overflow.
@@ -17,7 +18,7 @@
 
 ---
 
-### Task 1: Specify the unified five-metric structure
+### Task 1: Specify the unified six-metric structure
 
 **Files:**
 - Modify: `apps/web/src/features/admin/adminStatisticsNavigation.test.ts`
@@ -39,7 +40,7 @@ Expected: FAIL because only three visual actions exist and the KPI strip remains
 
 - [ ] **Step 3: Extend the release E2E assertions**
 
-Require five visible rings and clicks from revenue to Finance and new clients to Clients.
+Require six visible rings, centered period-selector bounds, and correct drill-down navigation.
 
 ### Task 2: Implement the unified visual grid
 

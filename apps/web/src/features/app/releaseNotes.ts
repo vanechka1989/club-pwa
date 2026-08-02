@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "One visual system for every metric",
+  title: "Aligned analytics period selector",
   items: [
-    "Revenue and new clients now use the same circular visual treatment as activity, payments, and learning progress.",
-    "All six primary metrics, including period messages, sit in one balanced block with two equal rows of three.",
-    "Every circular metric opens its detailed section while preserving the real meaning of values without invented percentages."
+    "The analytics period selector now spans the full inner width of its card instead of drifting toward the left edge.",
+    "The four period buttons have equal widths and symmetrical outer spacing.",
+    "Alignment remains consistent on mobile, under system scaling, and across wide screens."
   ]
 };
 

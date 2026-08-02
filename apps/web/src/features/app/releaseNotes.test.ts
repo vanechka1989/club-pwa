@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes unified analytics rings as version 5.99", () => {
-    expect(appVersion).toBe("5.99");
-    expect(releaseNotes[0]?.title).toBe("Все показатели в едином стиле");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/кольцев/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/выручк/i);
+  it("publishes aligned analytics periods as version 6.00", () => {
+    expect(appVersion).toBe("6.00");
+    expect(releaseNotes[0]?.title).toBe("Ровный выбор периода аналитики");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/период/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/ширин/i);
+
+    const unifiedAnalyticsRelease = releaseNotes.find((note) => note.version === "5.99");
+    expect(unifiedAnalyticsRelease?.title).toBe("Все показатели в едином стиле");
 
     const visualAnalyticsRelease = releaseNotes.find((note) => note.version === "5.98");
     expect(visualAnalyticsRelease?.title).toBe("Наглядная аналитика клуба");
@@ -279,7 +282,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("One visual system for every metric");
+    expect(englishNotes[0]?.title).toBe("Aligned analytics period selector");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

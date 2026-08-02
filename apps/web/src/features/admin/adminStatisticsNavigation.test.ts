@@ -103,6 +103,8 @@ describe("admin statistics navigation", () => {
     expect(section).toContain('class="admin-stat-periods"');
     expect(styles).toContain("grid-template-columns: repeat(4, minmax(0, 1fr))");
     expect(styles).toContain("body.club-mobile-device .admin-stat-periods");
+    expect(styles).toMatch(/\.admin-statistics-panel \.admin-statistics-head\s*\{[^}]*display:\s*grid;[^}]*width:\s*100%/s);
+    expect(styles).toMatch(/\.admin-statistics-panel \.admin-stat-period-control\s*\{[^}]*width:\s*100%/s);
   });
 
   it("keeps the selected period visible inside every analytics detail", () => {

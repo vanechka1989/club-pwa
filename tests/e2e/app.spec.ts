@@ -2716,6 +2716,23 @@ test("renders visual admin analytics overview without viewport overflow", async 
     await expect(page.getByRole("button", { name: /Успешные оплаты: \d+%/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /Средний прогресс обучения: \d+%/ })).toBeVisible();
 
+    const periodAlignment = await page.locator(".admin-statistics-head").evaluate((head) => {
+      const periods = head.querySelector<HTMLElement>(".admin-stat-periods");
+      if (!periods) return null;
+      const headRect = head.getBoundingClientRect();
+      const periodRect = periods.getBoundingClientRect();
+      return {
+        leftInset: Math.round(periodRect.left - headRect.left),
+        rightInset: Math.round(headRect.right - periodRect.right)
+      };
+    });
+    expect(periodAlignment).not.toBeNull();
+    expect(Math.abs((periodAlignment?.leftInset ?? 0) - (periodAlignment?.rightInset ?? 0))).toBeLessThanOrEqual(1);
+    await page.locator(".admin-statistics-head").screenshot({
+      path: testInfo.outputPath(`admin-period-selector-${viewport.name}.png`),
+      animations: "disabled"
+    });
+
     const metrics = await overview.evaluate((element) => {
       const rings = [...element.querySelectorAll<HTMLElement>(".admin-stat-ring")];
       const actions = [...element.querySelectorAll<HTMLElement>(".admin-stat-visual-action")];
