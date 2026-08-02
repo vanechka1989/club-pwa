@@ -30,9 +30,9 @@ describe("admin storage section", () => {
     expect(adminSectionSource).toContain("selectedStorageTargetConfigured");
     expect(storagePanelSource).toContain("selectedStorageSettingsTitle");
     expect(adminSectionSource).toContain("openSelectedStorageFiles");
-    expect(adminSectionSource).toContain("admin-preview-switcher");
-    expect(adminSectionSource).toContain('class="admin-preview-switcher" aria-label="Вид как"');
-    expect(adminSectionSource).not.toContain("<span>Вид как</span>");
+    expect(adminSectionSource).toContain("admin-preview-mode-trigger");
+    expect(adminSectionSource).toContain('title="Режим просмотра"');
+    expect(adminSectionSource).not.toContain("admin-preview-switcher");
     expect(adminSectionSource).toContain("ui.setPreviewMode");
     expect(adminSectionSource).toContain('"preview-mode-change": [mode: PreviewMode];');
     expect(adminSectionSource).toContain('emit("preview-mode-change", mode);');

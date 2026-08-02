@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Aligned analytics period selector",
+  title: "Compact admin navigation",
   items: [
-    "The analytics period selector now spans the full inner width of its card instead of drifting toward the left edge.",
-    "The four period buttons have equal widths and symmetrical outer spacing.",
-    "Alignment remains consistent on mobile, under system scaling, and across wide screens."
+    "The large preview switcher has moved into a single compact mode button in the header.",
+    "Analytics, Clients, and Payments stay visible in a sticky quick bar while secondary sections live under More.",
+    "Permission-aware menus preserve the active section and remain usable across mobile and wide screens."
   ]
 };
 

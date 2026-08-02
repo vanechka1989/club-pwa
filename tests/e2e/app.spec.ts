@@ -2780,10 +2780,54 @@ test("renders visual admin analytics overview without viewport overflow", async 
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
 });
 
+test("keeps compact admin navigation reachable on every release viewport", async ({ page }, testInfo) => {
+  const viewports = testInfo.project.name === "release-android"
+    ? [
+        { name: "320", width: 320, height: 720 },
+        { name: "390", width: 390, height: 844 },
+        { name: "768", width: 768, height: 1024 }
+      ]
+    : [
+        { name: "1024", width: 1024, height: 768 },
+        { name: "1440", width: 1440, height: 900 }
+      ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/admin");
+
+    const quickNav = page.locator(".admin-quick-nav");
+    await expect(page.locator(".admin-preview-switcher")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Режим:/ })).toBeVisible();
+    await expect(quickNav).toBeVisible();
+    await expect(quickNav.getByRole("button")).toHaveCount(4);
+    await expect(quickNav.getByRole("button", { name: "Аналитика", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(quickNav.getByRole("button", { name: "Ещё", exact: true })).toBeVisible();
+    await expectResponsiveLayoutIntegrity(page, "/admin");
+    await quickNav.screenshot({ path: testInfo.outputPath(`admin-quick-nav-${viewport.name}.png`), animations: "disabled" });
+  }
+
+  await page.getByRole("button", { name: /^Режим:/ }).click();
+  const modeDialog = page.getByRole("dialog", { name: "Режим просмотра" });
+  await expect(modeDialog).toBeVisible();
+  await expect(modeDialog.getByRole("button", { name: "Разраб", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await modeDialog.getByRole("button", { name: "Разраб", exact: true }).click();
+  await expect(modeDialog).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  const navigationDialog = page.getByRole("dialog", { name: "Все разделы" });
+  await expect(navigationDialog).toBeVisible();
+  await expect(navigationDialog.locator(".admin-navigation-sheet-option")).toHaveCount(5);
+  await navigationDialog.getByRole("button", { name: "Рассылки", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Рассылки", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ещё", exact: true })).toHaveAttribute("aria-current", "page");
+});
+
 test("keeps error tracker notification controls compact", async ({ page }, testInfo) => {
   test.skip(!["android-compact-320", "viewport-390-844"].includes(testInfo.project.name));
   await page.goto("/admin");
-  await page.getByRole("button", { name: "Сервер", exact: true }).click();
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Сервер и интеграции" })).toBeVisible();
   const pushCheckbox = page.getByLabel("PWA push");
   const emailCheckbox = page.getByLabel("Email", { exact: true });
@@ -2811,7 +2855,8 @@ test("keeps the copyable error detail usable at all target widths", async ({ pag
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/admin");
-    await page.getByRole("button", { name: "Сервер", exact: true }).click();
+    await page.getByRole("button", { name: "Ещё", exact: true }).click();
+    await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
     await page.getByRole("button", { name: /Не удалось открыть оплату/ }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/server/errors/${errorTrackerGroup.id}$`));
     await expect(page.getByRole("heading", { name: "Ошибка", exact: true })).toBeVisible();
@@ -3690,7 +3735,8 @@ test("keeps Samsung chat header aligned to the PWA viewport", async ({ page }, t
 test("keeps database backup tools usable in the server admin panel", async ({ page }) => {
   await page.getByRole("button", { name: "Админ" }).click();
   await expect(page.getByRole("heading", { name: "Админка" }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Сервер" }).click();
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
   await expect(page.getByRole("heading", { exact: true, name: "Сервер" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Скачать базу" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Восстановить базу" })).toBeVisible();
@@ -3702,7 +3748,8 @@ test("keeps the mailing task screen header and footer usable", async ({ page }, 
   test.skip(testInfo.project.name !== "pixel-7");
 
   await page.getByRole("button", { name: "Админ" }).click();
-  await page.getByRole("button", { name: "Рассылки" }).click();
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Рассылки", exact: true }).click();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
 
   const taskScreen = page.locator(".admin-mailing-task-screen .task-screen");

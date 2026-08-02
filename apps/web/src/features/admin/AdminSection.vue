@@ -29,12 +29,15 @@ import {
 import {
   BarChart3,
   CalendarClock,
+  Check,
+  ChevronDown,
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
   Cloud,
   CreditCard,
   Link2,
+  LayoutGrid,
   Megaphone,
   Server,
   SlidersHorizontal,
@@ -101,6 +104,7 @@ import {
 } from "@/features/admin/adminClientAcquisitionFilters";
 import { blurActiveTextField } from "@/features/app/keyboardFocus";
 import ConfirmDialog from "@/features/app/ConfirmDialog.vue";
+import BottomSheet from "@/features/app/BottomSheet.vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { UiPageHeader } from "@/features/ui";
 import {
@@ -215,6 +219,7 @@ const previewModeOptions: Array<{ value: PreviewMode; label: string }> = [
   { value: "member-active", label: "С доступом" },
   { value: "member-inactive", label: "Без доступа" }
 ];
+const primaryAdminPanelIds: AdminPanel[] = ["statistics", "users", "payments"];
 const mailingChannelOptions: Array<{ value: MailingChannel; label: string; hint: string }> = [
   { value: "push", label: "Push", hint: "Приложение + PWA" },
   { value: "email", label: "Email", hint: "Письмо на почту" },
@@ -245,6 +250,8 @@ const adminPermissionOptions = allAdminPermissions.map((permission) => ({
 }));
 
 const activePanel = ref<AdminPanel>("statistics");
+const showPreviewModeSheet = ref(false);
+const showAdminNavigationSheet = ref(false);
 const ownerTelegramId = ref("");
 const admins = ref<AdminUser[]>([]);
 const adminActionAdmins = ref<AdminActionActor[]>([]);
@@ -414,6 +421,12 @@ const panels = computed(() =>
     icon: panelIcons[panel.id]
   }))
 );
+const primaryPanels = computed(() => panels.value.filter((panel) => primaryAdminPanelIds.includes(panel.id)));
+const secondaryPanels = computed(() => panels.value.filter((panel) => !primaryAdminPanelIds.includes(panel.id)));
+const currentPreviewModeLabel = computed(
+  () => previewModeOptions.find((option) => option.value === ui.previewMode)?.label ?? "Админ"
+);
+const secondaryPanelActive = computed(() => secondaryPanels.value.some((panel) => panel.id === activePanel.value));
 const adminPermissionStateKey = computed(
   () => `${session.user?.role ?? "none"}:${session.user?.adminPermissions.join("|") ?? ""}`
 );
@@ -424,6 +437,16 @@ function hasCurrentAdminPermission(permission: AdminPermission) {
 function selectAdminPanel(panel: AdminPanel) {
   blurActiveTextField();
   activePanel.value = panel;
+}
+
+function selectPreviewMode(mode: PreviewMode) {
+  showPreviewModeSheet.value = false;
+  void handlePreviewModeChange(mode);
+}
+
+function selectSecondaryPanel(panel: AdminPanel) {
+  showAdminNavigationSheet.value = false;
+  selectAdminPanel(panel);
 }
 
 const canUseStorage = computed(() => hasCurrentAdminPermission("storage"));
@@ -2776,24 +2799,20 @@ onUnmounted(() => {
     <UiPageHeader title="Админка" subtitle="Клиенты, доступ и ограничения.">
       <template #actions>
         <div class="admin-head-actions">
-        <button v-if="canViewReleaseNotes" class="app-version-badge ui-button" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
-          <span>v{{ appVersion }}</span>
-          <small>{{ appVersionUpdatedAt }}</small>
-        </button>
-        <section v-if="isOwner" class="admin-preview-switcher" aria-label="Вид как">
-          <div>
-            <button
-              v-for="option in previewModeOptions"
-              :key="option.value"
-              class="admin-preview-option ui-button"
-              :class="{ 'admin-preview-option-active': ui.previewMode === option.value }"
-              type="button"
-              @click="handlePreviewModeChange(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </section>
+          <button v-if="canViewReleaseNotes" class="app-version-badge ui-button" type="button" aria-label="Открыть список обновлений" @click="openReleaseNotesModal">
+            <span>v{{ appVersion }}</span>
+            <small>{{ appVersionUpdatedAt }}</small>
+          </button>
+          <button
+            v-if="isOwner"
+            class="admin-preview-mode-trigger ui-button"
+            type="button"
+            aria-haspopup="dialog"
+            @click="showPreviewModeSheet = true"
+          >
+            <span>Режим: {{ currentPreviewModeLabel }}</span>
+            <ChevronDown class="h-4 w-4" aria-hidden="true" />
+          </button>
         </div>
       </template>
     </UiPageHeader>
@@ -2884,19 +2903,65 @@ onUnmounted(() => {
         </section>
     </TaskScreen>
 
-    <div class="admin-tabs ui-responsive-grid">
+    <nav class="admin-quick-nav" aria-label="Разделы админки">
       <button
-        v-for="panel in panels"
+        v-for="panel in primaryPanels"
         :key="panel.id"
         class="admin-tab ui-button"
         :class="{ 'admin-tab-active': activePanel === panel.id }"
         type="button"
+        :aria-current="activePanel === panel.id ? 'page' : undefined"
         @click="selectAdminPanel(panel.id)"
       >
         <component :is="panel.icon" class="h-4 w-4" aria-hidden="true" />
         <span>{{ panel.label }}</span>
       </button>
-    </div>
+      <button
+        class="admin-more-trigger admin-tab ui-button"
+        :class="{ 'admin-tab-active': secondaryPanelActive }"
+        type="button"
+        aria-haspopup="dialog"
+        :aria-current="secondaryPanelActive ? 'page' : undefined"
+        @click="showAdminNavigationSheet = true"
+      >
+        <LayoutGrid class="h-4 w-4" aria-hidden="true" />
+        <span>Ещё</span>
+      </button>
+    </nav>
+
+    <BottomSheet :open="showPreviewModeSheet" title="Режим просмотра" @close="showPreviewModeSheet = false">
+      <div class="admin-preview-mode-sheet ui-responsive-grid">
+        <button
+          v-for="option in previewModeOptions"
+          :key="option.value"
+          class="admin-sheet-option ui-button"
+          :class="{ 'admin-sheet-option-active': ui.previewMode === option.value }"
+          type="button"
+          :aria-pressed="ui.previewMode === option.value"
+          @click="selectPreviewMode(option.value)"
+        >
+          <span>{{ option.label }}</span>
+          <Check v-if="ui.previewMode === option.value" class="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </BottomSheet>
+
+    <BottomSheet :open="showAdminNavigationSheet" title="Все разделы" @close="showAdminNavigationSheet = false">
+      <div class="admin-navigation-sheet-grid">
+        <button
+          v-for="panel in secondaryPanels"
+          :key="panel.id"
+          class="admin-navigation-sheet-option ui-button"
+          :class="{ 'admin-navigation-sheet-option-active': activePanel === panel.id }"
+          type="button"
+          :aria-current="activePanel === panel.id ? 'page' : undefined"
+          @click="selectSecondaryPanel(panel.id)"
+        >
+          <component :is="panel.icon" class="h-5 w-5" aria-hidden="true" />
+          <span>{{ panel.label }}</span>
+        </button>
+      </div>
+    </BottomSheet>
 
     <p v-if="message" class="admin-status admin-status-ok">{{ message }}</p>
     <p v-if="error" class="admin-status admin-status-error">{{ error }}</p>

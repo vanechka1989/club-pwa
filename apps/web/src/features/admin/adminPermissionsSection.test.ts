@@ -37,17 +37,17 @@ describe("admin permissions section", () => {
     expect(clientsPanelSource).toContain("Для выдачи доступа нужно право Доступы.");
   });
 
-  it("places preview mode switcher in the admin header, not inside the admins section", () => {
+  it("places the compact preview mode trigger in the admin header", () => {
     const adminTitleIndex = adminSectionSource.indexOf('<UiPageHeader title="Админка"');
-    const tabsIndex = indexOfClass(adminSectionSource, "admin-tabs");
-    const previewSwitcherIndex = indexOfClass(adminSectionSource, "admin-preview-switcher");
+    const tabsIndex = indexOfClass(adminSectionSource, "admin-quick-nav");
+    const previewTriggerIndex = indexOfClass(adminSectionSource, "admin-preview-mode-trigger");
     const versionBadgeIndex = indexOfClass(adminSectionSource, "app-version-badge");
 
     expect(adminTitleIndex).toBeGreaterThan(-1);
     expect(versionBadgeIndex).toBeGreaterThan(adminTitleIndex);
-    expect(versionBadgeIndex).toBeLessThan(previewSwitcherIndex);
-    expect(previewSwitcherIndex).toBeGreaterThan(adminTitleIndex);
-    expect(previewSwitcherIndex).toBeLessThan(tabsIndex);
+    expect(versionBadgeIndex).toBeLessThan(previewTriggerIndex);
+    expect(previewTriggerIndex).toBeGreaterThan(adminTitleIndex);
+    expect(previewTriggerIndex).toBeLessThan(tabsIndex);
     expect(adminSectionSource).not.toContain("<h3>Администраторы</h3>");
     expect(permissionsPanelSource).toContain("<h3>Администраторы</h3>");
     expect(indexOfClass(permissionsPanelSource, "admin-permissions-owner")).toBeGreaterThan(-1);
