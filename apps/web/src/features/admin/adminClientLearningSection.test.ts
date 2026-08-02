@@ -46,7 +46,7 @@ describe("admin client learning section", () => {
       }
     });
 
-    expect(screen.getAllByText("Обучение")).toHaveLength(1);
+    expect(screen.getByRole("region", { name: "Обучение" })).toBeTruthy();
     expect(screen.getByText("1 урок")).toBeTruthy();
     expect(screen.getByText("1 результат")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Все" }).getAttribute("aria-pressed")).toBe("true");

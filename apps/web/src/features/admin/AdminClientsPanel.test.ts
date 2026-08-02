@@ -11,7 +11,8 @@ import AdminSection from "./AdminSection.vue";
 
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
-  replace: vi.fn()
+  replace: vi.fn(),
+  back: vi.fn()
 }));
 
 vi.mock("vue-router", () => ({
@@ -218,6 +219,25 @@ describe("AdminClientsPanel", () => {
     expect(emitted()["extend-access"]).toEqual([[7]]);
   });
 
+  it("opens learning as a compact task row and gives the remaining sections icons", async () => {
+    const { emitted } = render(AdminClientsPanel, {
+      props: createProps({
+        selectedUser: client,
+        selectedUserDetail: clientDetail,
+        canViewLoginIps: true
+      })
+    });
+
+    const learning = screen.getByRole("button", { name: "Открыть обучение клиента" });
+    expect(learning.classList.contains("admin-client-compact-link")).toBe(true);
+    expect(within(learning).getByText("0 событий")).toBeTruthy();
+    expect(document.querySelectorAll(".admin-client-section-icon")).toHaveLength(8);
+
+    await fireEvent.click(learning);
+
+    expect(emitted()["open-learning"]).toEqual([[]]);
+  });
+
   it("uses the never-login fallback in the selected client detail", () => {
     const neverLoggedInClient: AdminStatsUser = { ...client, lastLoginAt: null };
     render(AdminClientsPanel, {
@@ -242,7 +262,7 @@ describe("AdminClientsPanel", () => {
     expect(screen.getAllByText("до 27.07", { exact: true }).length).toBeGreaterThan(0);
   });
 
-  it("shows a specific homework result and opens its full result", async () => {
+  it("summarizes assessment events before opening the learning task", async () => {
     const detail: AdminUserDetailResponse = {
       ...clientDetail,
       learningAssessments: [{
@@ -267,10 +287,9 @@ describe("AdminClientsPanel", () => {
     };
     const { emitted } = render(AdminClientsPanel, { props: createProps({ selectedUser: client, selectedUserDetail: detail }) });
 
-    expect(screen.getByText("ДЗ принято", { exact: true })).toBeTruthy();
-    expect(screen.getByText("Версия 2", { exact: true })).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Открыть результат: Практика" }));
-    expect(emitted()["open-learning-result"]).toEqual([[{ mode: "homework", recordId: "submission-1" }]]);
+    expect(screen.getByText("1 событие", { exact: true })).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Открыть обучение клиента" }));
+    expect(emitted()["open-learning"]).toEqual([[]]);
   });
 
   it("emits client-card-close from a clientCardOnly card without owning router side effects", async () => {
@@ -294,5 +313,42 @@ describe("AdminClientsPanel", () => {
     expect(emitted()["client-card-close"]).toEqual([[]]);
     expect(routerMocks.push).not.toHaveBeenCalled();
     expect(routerMocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("keeps the separate learning screen inside a support client card without changing routes", async () => {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    useSessionStore().user = adminUser;
+    vi.mocked(getAdminStats).mockResolvedValue(statsResponse);
+    vi.mocked(getAdminUserDetail).mockResolvedValue(clientDetail);
+    routerMocks.push.mockClear();
+    routerMocks.replace.mockClear();
+    render(AdminSection, {
+      props: { clientCardOnly: true, openClientTelegramId: client.telegramId },
+      global: {
+        plugins: [pinia],
+        stubs: { AdminClientAcquisition: true }
+      }
+    });
+
+    await fireEvent.click(await screen.findByRole("button", { name: "Открыть обучение клиента" }));
+    expect(await screen.findByRole("heading", { name: "Обучение" })).toBeTruthy();
+    expect(routerMocks.push).not.toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(await screen.findByRole("button", { name: "Открыть обучение клиента" })).toBeTruthy();
+    expect(routerMocks.push).not.toHaveBeenCalled();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
+  });
+
+  it("uses browser history for internally opened learning tasks and keeps replace as a deep-link fallback", () => {
+    const shell = readFileSync(resolve(__dirname, "AdminSection.vue"), "utf8");
+    const closeResult = shell.slice(shell.indexOf("function closeLearningResult"), shell.indexOf("function openClientLearning"));
+    const closeLearning = shell.slice(shell.indexOf("function closeClientLearning"), shell.indexOf("async function handleResetLearningResult"));
+
+    expect(closeResult).toContain("router.back()");
+    expect(closeResult).toContain("replaceAdminTask");
+    expect(closeLearning).toContain("router.back()");
+    expect(closeLearning).toContain("replaceAdminTask");
   });
 });

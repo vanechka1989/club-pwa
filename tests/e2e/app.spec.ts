@@ -1838,6 +1838,7 @@ const responsiveRouteAuditPaths = [
   { path: "/support/tickets/ticket-payment", selector: ".support-task-screen .task-screen" },
   { path: "/admin", selector: ".admin-shell" },
   { path: "/admin/clients/593677751", selector: ".admin-task-screen .task-screen" },
+  { path: "/admin/clients/593677751/learning", selector: ".admin-client-learning-task .task-screen" },
   { path: "/admin/clients/593677751/learning/quiz/attempt-demo", selector: ".admin-assessment-result-task .task-screen" },
   { path: "/admin/statistics/payments/paid", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/access-inactive", selector: ".admin-task-screen .task-screen" },
@@ -3757,6 +3758,11 @@ test("opens a client's complete quiz result from the unified learning section", 
   await page.getByRole("button", { name: "Клиенты", exact: true }).click();
   await page.getByRole("button", { name: /Екатерина С Очень Длинной Фамилией/ }).click();
   await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
+  await expect(page.locator(".admin-client-section-icon")).toHaveCount(8);
+  await page.getByRole("button", { name: "Открыть обучение клиента" }).click();
+
+  await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning$/);
+  await expect(page.locator(".admin-client-learning-task.task-screen-route-layer")).toBeVisible();
   await page.getByRole("button", { name: "Открыть результат: Видео для теста ютуба" }).click();
 
   await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning\/quiz\/attempt-demo$/);
@@ -3766,6 +3772,13 @@ test("opens a client's complete quiz result from the unified learning section", 
   await expect(resultTask.getByText("Сколько будет 2 + 2?")).toBeVisible();
   await expect(resultTask.getByText("Ответ клиента")).toBeVisible();
   await expect(resultTask.getByText("Правильный ответ")).toBeVisible();
+
+  await resultTask.getByRole("button", { name: "Назад" }).click();
+  await expect(page).toHaveURL(/\/admin\/clients\/593677751\/learning$/);
+  await page.locator(".admin-client-learning-task").getByRole("button", { name: "Назад" }).click();
+  await expect(page).toHaveURL(/\/admin\/clients\/593677751$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/admin$/);
 });
 
 test("keeps support ticket composer anchored above keyboard in plain Samsung shells", async ({ page }, testInfo) => {

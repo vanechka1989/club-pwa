@@ -66,12 +66,7 @@ function openAssessment(item: Assessment) {
 </script>
 
 <template>
-  <details class="admin-client-learning admin-client-section admin-detail ui-card" open>
-    <summary>
-      <span><BookOpen aria-hidden="true" /><strong>Обучение</strong></span>
-      <em>{{ engagement.length + assessments.length }} событий</em>
-    </summary>
-
+  <section class="admin-client-learning admin-client-section admin-detail ui-card" aria-label="Обучение">
     <div class="admin-client-learning__body">
       <div class="admin-client-learning__kpis" aria-label="Сводка обучения">
         <article><BookOpen aria-hidden="true" /><span>Уроки<strong>{{ plural(engagement.length, 'урок', 'урока', 'уроков') }}</strong></span></article>
@@ -99,18 +94,13 @@ function openAssessment(item: Assessment) {
         </template>
       </div>
     </div>
-  </details>
+  </section>
 </template>
 
 <style scoped>
 .admin-client-learning { overflow: hidden; }
-.admin-client-learning > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 58px; padding: 0 18px; cursor: pointer; list-style: none; }
-.admin-client-learning > summary::-webkit-details-marker { display: none; }
-.admin-client-learning > summary > span { display: inline-flex; align-items: center; gap: 10px; }
-.admin-client-learning > summary svg { width: 19px; color: var(--accent); }
-.admin-client-learning > summary em { color: var(--text-muted); font-size: 12px; font-style: normal; }
-.admin-client-learning__body { display: grid; gap: 14px; padding: 0 14px 16px; border-top: 1px solid var(--border); }
-.admin-client-learning__kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-top: 14px; }
+.admin-client-learning__body { display: grid; gap: 14px; padding: 14px; }
+.admin-client-learning__kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .admin-client-learning__kpis article { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 11px; border: 1px solid var(--border); border-radius: 15px; background: var(--panel-soft); }
 .admin-client-learning__kpis svg { width: 18px; flex: 0 0 auto; color: var(--accent); }
 .admin-client-learning__kpis span { display: grid; min-width: 0; color: var(--text-muted); font-size: 11px; }
