@@ -23,11 +23,11 @@ describe("admin poll and learning statistics layout", () => {
     expect(styles).toContain("font-size: 14px");
   });
 
-  it("uses one readable typography system for community and learning footers", () => {
-    expect(detail).toContain('class="admin-stat-hot-topic"');
+  it("uses one readable typography system for community and learning analytics", () => {
+    expect(detail).toContain('class="admin-stat-hot-topic-card ui-card"');
     expect(detail).toContain('class="admin-stat-community-ranking"');
     expect(detail).toContain('class="admin-stat-content-kinds"');
-    expect(styles).toContain(".admin-stat-hot-topic");
+    expect(styles).toContain(".admin-stat-hot-topic-card");
     expect(styles).toContain(".admin-stat-community-ranking");
     expect(styles).toContain(".admin-stat-content-kinds");
   });

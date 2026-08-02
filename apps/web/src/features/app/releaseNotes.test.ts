@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the full-screen release history fix as version 6.04", () => {
-    expect(appVersion).toBe("6.04");
-    expect(releaseNotes[0]?.title).toBe("Полноэкранная история обновлений");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/весь экран/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/прокрутк/i);
+  it("publishes the visual community analytics redesign as version 6.05", () => {
+    expect(appVersion).toBe("6.05");
+    expect(releaseNotes[0]?.title).toBe("Наглядная аналитика общения");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/рейтинг/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/график/i);
+
+    const releaseHistoryFix = releaseNotes.find((note) => note.version === "6.04");
+    expect(releaseHistoryFix?.title).toBe("Полноэкранная история обновлений");
 
     const clientNavigationRelease = releaseNotes.find((note) => note.version === "6.03");
     expect(clientNavigationRelease?.title).toBe("Источник клиента и быстрые рассылки");
@@ -294,7 +297,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Full-screen release history");
+    expect(englishNotes[0]?.title).toBe("Visual community analytics");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -27,10 +27,14 @@ function shortDate(value: string) {
 function barHeight(value: number, values: number[]) {
   return `${Math.max(4, (value / Math.max(1, ...values)) * 72)}px`;
 }
+
+function barWidth(value: number, values: number[]) {
+  return `${Math.max(4, (value / Math.max(1, ...values)) * 100)}%`;
+}
 </script>
 
 <template>
-  <div class="admin-stat-detail">
+  <div class="admin-stat-detail" :class="{ 'admin-stat-community-dashboard': detail === 'community' }">
     <template v-if="detail === 'clients'">
       <section class="admin-stat-detail-hero ui-card">
         <div><span>Активный доступ</span><strong>{{ stats.clients.active }} из {{ stats.clients.total }}</strong></div>
@@ -114,7 +118,7 @@ function barHeight(value: number, values: number[]) {
         <b>{{ stats.communication.activeWriters }} авторов</b>
         <small>Всего в клубе {{ stats.communication.messages }} сообщений</small>
       </section>
-      <section class="admin-stat-detail-card ui-card">
+      <section class="admin-stat-detail-card admin-stat-community-summary ui-card">
         <header><div><h4>Активность</h4><p>Темы клуба и общение клиентов.</p></div></header>
         <div class="admin-stat-detail-grid">
           <article><span>Темы</span><strong>{{ stats.communication.topics }}</strong></article>
@@ -122,14 +126,20 @@ function barHeight(value: number, values: number[]) {
           <article><span>Закрыты</span><strong>{{ stats.communication.lockedTopics }}</strong></article>
           <article><span>За 30 дней</span><strong>{{ stats.communication.messagesLast30Days }}</strong></article>
         </div>
-        <div class="admin-stat-hot-topic">
-          <span>Горячая тема</span>
-          <strong>{{ stats.communication.hotTopic?.title || "Пока нет сообщений" }}</strong>
-          <small v-if="stats.communication.hotTopic">{{ stats.communication.hotTopic.messages }} сообщений за период</small>
-        </div>
+      </section>
+      <section class="admin-stat-hot-topic-card ui-card">
+        <span>Горячая тема</span>
+        <strong>{{ stats.communication.hotTopic?.title || "Пока нет сообщений" }}</strong>
+        <small v-if="stats.communication.hotTopic">{{ stats.communication.hotTopic.messages }} сообщений за период</small>
+        <small v-else>Активность появится после новых сообщений.</small>
+      </section>
+      <section class="admin-stat-detail-card admin-stat-community-ranking-card ui-card">
+        <header><div><h4>Активные участники</h4><p>Сообщения каждого участника за выбранный период.</p></div></header>
         <div class="admin-stat-community-ranking">
-          <h5>Активные участники</h5>
-          <article v-for="client in stats.communication.topClients" :key="client.telegramId"><span>{{ client.name }}</span><strong>{{ client.messages }}</strong></article>
+          <article v-for="client in stats.communication.topClients" :key="client.telegramId">
+            <div><span>{{ client.name }}</span><strong>{{ client.messages }}</strong></div>
+            <i class="admin-stat-community-bar" aria-hidden="true"><span :style="{ width: barWidth(client.messages, stats.communication.topClients.map((row) => row.messages)) }"></span></i>
+          </article>
           <p v-if="!stats.communication.topClients.length" class="admin-empty">Активных клиентов в общении пока нет.</p>
         </div>
       </section>

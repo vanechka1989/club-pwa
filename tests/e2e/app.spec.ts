@@ -2771,9 +2771,42 @@ test("renders visual admin analytics overview without viewport overflow", async 
   await page.getByRole("button", { name: "Назад" }).click();
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
 
+  await page.getByRole("button", { name: "Всё время", exact: true }).click();
   await page.getByRole("button", { name: /Сообщения за период: \d+/ }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Общение", exact: true })).toBeVisible();
+
+  const communityDashboard = page.locator(".admin-stat-community-dashboard");
+  const communityCards = communityDashboard.locator(":scope > .ui-card");
+  const rankingRows = communityDashboard.locator(".admin-stat-community-ranking article");
+  const rankingBars = communityDashboard.locator(".admin-stat-community-bar > span");
+  await expect(communityDashboard).toBeVisible();
+  await expect(communityCards).toHaveCount(5);
+  await expect(communityDashboard.locator(":scope > .admin-stat-community-summary")).toBeVisible();
+  await expect(communityDashboard.locator(":scope > .admin-stat-hot-topic-card")).toBeVisible();
+  await expect(communityDashboard.locator(":scope > .admin-stat-community-ranking-card")).toBeVisible();
+  await expect.poll(() => rankingRows.count()).toBeGreaterThan(0);
+  const rankingCount = await rankingRows.count();
+  await expect(rankingBars).toHaveCount(rankingCount);
+
+  const communityLayout = await communityDashboard.evaluate((element) => {
+    const cards = [...element.querySelectorAll<HTMLElement>(":scope > .ui-card")];
+    const bars = [...element.querySelectorAll<HTMLElement>(".admin-stat-community-bar > span")];
+    return {
+      cardWidths: cards.map((card) => Math.round(card.getBoundingClientRect().width)),
+      cardGaps: cards.slice(1).map((card, index) => Math.round(card.getBoundingClientRect().top - cards[index]!.getBoundingClientRect().bottom)),
+      barWidths: bars.map((bar) => Math.round(bar.getBoundingClientRect().width)),
+      trackWidths: bars.map((bar) => Math.round(bar.parentElement!.getBoundingClientRect().width))
+    };
+  });
+  expect(new Set(communityLayout.cardWidths).size).toBe(1);
+  expect(communityLayout.cardGaps.every((gap) => gap >= 8)).toBe(true);
+  expect(communityLayout.barWidths.every((width) => width > 0)).toBe(true);
+  expect(communityLayout.barWidths.every((width, index) => width <= communityLayout.trackWidths[index]!)).toBe(true);
+  await expectResponsiveLayoutIntegrity(page, "/admin communication analytics");
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("admin-community-dashboard.png"), fullPage: false, animations: "disabled" });
+  }
   await page.getByRole("button", { name: "Назад" }).click();
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
 });

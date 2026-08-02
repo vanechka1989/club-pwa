@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Full-screen release history",
+  title: "Visual community analytics",
   items: [
-    "Release history fills the application viewport again without a nested modal or an empty area below it.",
-    "Every release scrolls in one continuous task page, and the duplicate inner heading has been removed.",
-    "Full-screen geometry and scrolling are covered across Android, iPhone, and desktop browsers."
+    "Metrics, the hot topic, participant ranking, and the daily chart now live in five evenly spaced analytics blocks.",
+    "Participant rankings include comparison bars, so the most active people are visible without reading every number.",
+    "The dashboard keeps a consistent grid and spacing across phones, tablets, and wide screens."
   ]
 };
 

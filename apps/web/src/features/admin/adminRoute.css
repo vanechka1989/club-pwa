@@ -4715,41 +4715,44 @@ body.club-mobile-app-scaled .admin-statistics-panel .admin-stat-nav-row {
 
 .admin-stat-content-kinds b { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1; }
 
-.admin-stat-hot-topic {
+.admin-stat-hot-topic-card {
   display: grid;
   gap: 3px;
-  margin-top: 12px;
-  padding: 12px 14px;
+  padding: 14px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
   border-radius: 14px;
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-soft));
 }
 
-.admin-stat-hot-topic > span { color: var(--accent); font-size: var(--app-type-micro-size); font-weight: 780; line-height: 1.2; }
+.admin-stat-hot-topic-card > span { color: var(--accent); font-size: var(--app-type-micro-size); font-weight: 780; line-height: 1.2; }
 
-.admin-stat-hot-topic > strong { color: var(--text); font-size: 14px; font-weight: 820; line-height: 1.3; overflow-wrap: anywhere; }
+.admin-stat-hot-topic-card > strong { color: var(--text); font-size: 16px; font-weight: 820; line-height: 1.3; overflow-wrap: anywhere; }
 
-.admin-stat-hot-topic > small { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 680; line-height: 1.2; }
+.admin-stat-hot-topic-card > small { color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 680; line-height: 1.3; }
 
-.admin-stat-community-ranking { display: grid; gap: 6px; margin-top: 12px; }
+.admin-stat-community-ranking { display: grid; gap: 8px; }
 
-.admin-stat-community-ranking h5 { margin: 0 2px 2px; color: var(--text); font-size: 13px; font-weight: 800; line-height: 1.2; }
+.admin-stat-community-ranking-card header { margin-bottom: 10px; }
 
 .admin-stat-community-ranking article {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 8px 12px;
+  gap: 7px;
+  min-height: 52px;
+  padding: 9px 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-soft);
 }
 
+.admin-stat-community-ranking article > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+
 .admin-stat-community-ranking article span { min-width: 0; overflow: hidden; color: var(--text); font-size: 13px; font-weight: 740; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 
 .admin-stat-community-ranking article strong { color: var(--accent); font-size: 13px; font-weight: 840; line-height: 1; }
+
+.admin-stat-community-bar { display: block; height: 5px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--surface)); }
+
+.admin-stat-community-bar > span { display: block; height: 100%; min-width: 4px; border-radius: inherit; background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 62%, #4ade80)); }
 
 @media (max-width: 359px) {
   .admin-stat-content-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
