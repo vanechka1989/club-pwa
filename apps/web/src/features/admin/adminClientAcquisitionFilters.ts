@@ -3,6 +3,8 @@ import { getAdminClientDisplayName } from "./adminClientCard";
 
 export const allClientSourcesFilter = "__all_sources__";
 export const untaggedClientSourceFilter = "__untagged_source__";
+export const allPaymentProvidersFilter = "__all_payment_providers__";
+export const allPaymentProductsFilter = "__all_payment_products__";
 
 export type AdminClientUtmField = "all" | "source" | "medium" | "campaign" | "content";
 
@@ -10,6 +12,8 @@ export type AdminClientFilters = {
   query: string;
   subscription: "all" | "active" | "closed";
   tariff: string;
+  paymentProvider: string;
+  paymentProductId: string;
   restrictions: "all" | "restricted";
   source: string;
   utmField: AdminClientUtmField;
@@ -66,6 +70,8 @@ export function filterAdminClients(users: AdminStatsUser[], filters: AdminClient
       filters.subscription === "all" ||
       (filters.subscription === "active" ? user.membershipStatus === "active" : user.membershipStatus !== "active");
     const matchesTariff = filters.tariff === "all" || (user.tariff || "future") === filters.tariff;
+    const matchesPaymentProvider = filters.paymentProvider === allPaymentProvidersFilter || (user.paymentProviders ?? []).includes(filters.paymentProvider as "prodamus" | "lava");
+    const matchesPaymentProduct = filters.paymentProductId === allPaymentProductsFilter || (user.paymentProductIds ?? []).includes(filters.paymentProductId);
     const matchesRestrictions = filters.restrictions === "all" || user.hasRestrictions;
     const userSource = normalize(user.acquisition?.source);
     const matchesSource =
@@ -80,7 +86,7 @@ export function filterAdminClients(users: AdminStatsUser[], filters: AdminClient
       : [];
     const matchesUtm = !utmValue || utmValues.some((value) => normalize(value).includes(utmValue));
 
-    return matchesQuery && matchesSubscription && matchesTariff && matchesRestrictions && matchesSource && matchesUtm;
+    return matchesQuery && matchesSubscription && matchesTariff && matchesPaymentProvider && matchesPaymentProduct && matchesRestrictions && matchesSource && matchesUtm;
   });
 
   return sortAdminClientsByLastLogin(filteredUsers);

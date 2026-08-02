@@ -5,7 +5,7 @@ import { ref } from "vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { getAdminClientAccessState, getAdminRecurrentPaymentBadge, getAdminTariffLabel } from "./adminClientCard";
-import { allClientSourcesFilter, untaggedClientSourceFilter, type AdminClientUtmField } from "./adminClientAcquisitionFilters";
+import { allClientSourcesFilter, allPaymentProductsFilter, allPaymentProvidersFilter, untaggedClientSourceFilter, type AdminClientUtmField } from "./adminClientAcquisitionFilters";
 import { formatAdminClientLastLogin, getAdminClientContact } from "./adminClientList";
 import AdminIndividualOfferCard from "./AdminIndividualOfferCard.vue";
 import type { AdminClientDetailSection } from "./adminClientDetailSection";
@@ -29,6 +29,8 @@ type ClientFilters = {
   query: string;
   subscription: "all" | "active" | "closed";
   tariff: string;
+  paymentProvider: string;
+  paymentProductId: string;
   restrictions: "all" | "restricted";
   source: string;
   utmField: AdminClientUtmField;
@@ -55,6 +57,8 @@ const props = defineProps<{
   filters: Readonly<ClientFilters>;
   filtersActive: boolean;
   tariffOptions: ReadonlyArray<{ value: string; label: string }>;
+  paymentProviderOptions: ReadonlyArray<{ value: string; label: string }>;
+  paymentProductOptions: ReadonlyArray<{ value: string; label: string }>;
   clientSourceOptions: ReadonlyArray<{ value: string; label: string }>;
   filteredUsers: readonly AdminStatsUser[];
   selectedUser: Readonly<AdminStatsUser> | null;
@@ -166,6 +170,14 @@ function updateClientMessageFiles(event: Event) {
         </select>
         <select :value="filters.tariff" class="text-input" @change="updateFilters({ tariff: ($event.target as HTMLSelectElement).value })">
           <option v-for="tariff in tariffOptions" :key="tariff.value" :value="tariff.value">{{ tariff.label }}</option>
+        </select>
+        <select :value="filters.paymentProvider" class="text-input" aria-label="Платёжная система" @change="updateFilters({ paymentProvider: ($event.target as HTMLSelectElement).value })">
+          <option :value="allPaymentProvidersFilter">Любая платёжная система</option>
+          <option v-for="provider in paymentProviderOptions" :key="provider.value" :value="provider.value">{{ provider.label }}</option>
+        </select>
+        <select :value="filters.paymentProductId" class="text-input" aria-label="Продукт" @change="updateFilters({ paymentProductId: ($event.target as HTMLSelectElement).value })">
+          <option :value="allPaymentProductsFilter">Любой продукт</option>
+          <option v-for="product in paymentProductOptions" :key="product.value" :value="product.value">{{ product.label }}</option>
         </select>
         <select :value="filters.restrictions" class="text-input" @change="updateFilters({ restrictions: ($event.target as HTMLSelectElement).value as ClientFilters['restrictions'] })">
           <option value="all">Все клиенты</option><option value="restricted">С ограничениями</option>

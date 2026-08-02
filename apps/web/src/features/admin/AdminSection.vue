@@ -99,6 +99,8 @@ import {
 } from "@/features/admin/adminClientCard";
 import {
   allClientSourcesFilter,
+  allPaymentProductsFilter,
+  allPaymentProvidersFilter,
   filterAdminClients,
   getAdminClientSourceOptions,
   type AdminClientUtmField
@@ -180,6 +182,8 @@ type ClientFilters = {
   query: string;
   subscription: "all" | "active" | "closed";
   tariff: string;
+  paymentProvider: string;
+  paymentProductId: string;
   restrictions: "all" | "restricted";
   source: string;
   utmField: AdminClientUtmField;
@@ -260,6 +264,8 @@ const adminActionLogs = ref<AdminActionLog[]>([]);
 const adminActionActorFilter = ref("");
 const adminActionLogExpanded = ref(false);
 const users = ref<AdminStatsUser[]>([]);
+const paymentProductOptions = ref<NonNullable<AdminStatsResponse["paymentProductOptions"]>>([]);
+const paymentProviderOptions = ref<NonNullable<AdminStatsResponse["paymentProviderOptions"]>>([]);
 const mailings = ref<AdminMailing[]>([]);
 const mailingPreview = ref<AdminMailingPreviewResponse | null>(null);
 const mailingEmailQuota = ref<EmailDeliveryQuota>({
@@ -329,6 +335,8 @@ const assessmentReviewCount = ref(0);
 const search = ref("");
 const subscriptionFilter = ref<"all" | "active" | "closed">("all");
 const tariffFilter = ref("all");
+const paymentProviderFilter = ref(allPaymentProvidersFilter);
+const paymentProductFilter = ref(allPaymentProductsFilter);
 const restrictionFilter = ref<"all" | "restricted">("all");
 const sourceFilter = ref(allClientSourcesFilter);
 const utmFieldFilter = ref<AdminClientUtmField>("all");
@@ -499,11 +507,15 @@ const tariffOptions = computed(() => {
       .map((value) => ({ value, label: getAdminTariffLabel(value) }))
   ];
 });
+const clientPaymentProviderOptions = computed(() => paymentProviderOptions.value.map((provider) => ({ value: provider.code, label: provider.title })));
+const clientPaymentProductOptions = computed(() => paymentProductOptions.value.map((product) => ({ value: product.id, label: product.title })));
 const clientSourceOptions = computed(() => getAdminClientSourceOptions(users.value));
 const clientFilters = computed<ClientFilters>(() => ({
   query: search.value,
   subscription: subscriptionFilter.value,
   tariff: tariffFilter.value,
+  paymentProvider: paymentProviderFilter.value,
+  paymentProductId: paymentProductFilter.value,
   restrictions: restrictionFilter.value,
   source: sourceFilter.value,
   utmField: utmFieldFilter.value,
@@ -524,6 +536,8 @@ const filteredUsers = computed(() => filterAdminClients(users.value, {
   query: search.value,
   subscription: subscriptionFilter.value,
   tariff: tariffFilter.value,
+  paymentProvider: paymentProviderFilter.value,
+  paymentProductId: paymentProductFilter.value,
   restrictions: restrictionFilter.value,
   source: sourceFilter.value,
   utmField: utmFieldFilter.value,
@@ -566,6 +580,8 @@ const filtersActive = computed(
     Boolean(search.value.trim()) ||
     subscriptionFilter.value !== "all" ||
     tariffFilter.value !== "all" ||
+    paymentProviderFilter.value !== allPaymentProvidersFilter ||
+    paymentProductFilter.value !== allPaymentProductsFilter ||
     restrictionFilter.value !== "all" ||
     sourceFilter.value !== allClientSourcesFilter ||
     utmFieldFilter.value !== "all" ||
@@ -1821,6 +1837,8 @@ function resetClientFilters() {
   search.value = "";
   subscriptionFilter.value = "all";
   tariffFilter.value = "all";
+  paymentProviderFilter.value = allPaymentProvidersFilter;
+  paymentProductFilter.value = allPaymentProductsFilter;
   restrictionFilter.value = "all";
   sourceFilter.value = allClientSourcesFilter;
   utmFieldFilter.value = "all";
@@ -1831,6 +1849,8 @@ function updateClientFilters(filters: ClientFilters) {
   search.value = filters.query;
   subscriptionFilter.value = filters.subscription;
   tariffFilter.value = filters.tariff;
+  paymentProviderFilter.value = filters.paymentProvider;
+  paymentProductFilter.value = filters.paymentProductId;
   restrictionFilter.value = filters.restrictions;
   sourceFilter.value = filters.source;
   utmFieldFilter.value = filters.utmField;
@@ -2173,6 +2193,8 @@ async function loadAll() {
     }
     if (statsResponse) {
       users.value = statsResponse.users;
+      paymentProductOptions.value = statsResponse.paymentProductOptions ?? [];
+      paymentProviderOptions.value = statsResponse.paymentProviderOptions ?? [];
       communityMessages.value = statsResponse.communityMessages ?? [];
       pollStats.value = resolveAdminPollStats(statsResponse.pollStats, pollStats.value);
     }
@@ -3253,6 +3275,8 @@ onUnmounted(() => {
       :filters="clientFilters"
       :filters-active="filtersActive"
       :tariff-options="tariffOptions"
+      :payment-provider-options="clientPaymentProviderOptions"
+      :payment-product-options="clientPaymentProductOptions"
       :client-source-options="clientSourceOptions"
       :filtered-users="filteredUsers"
       :selected-user="selectedUser"

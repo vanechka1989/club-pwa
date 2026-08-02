@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { AdminStatsUser } from "@club/shared";
 import {
   allClientSourcesFilter,
+  allPaymentProductsFilter,
+  allPaymentProvidersFilter,
   filterAdminClients,
   getAdminClientSourceOptions,
   sortAdminClientsByLastLogin,
@@ -41,6 +43,8 @@ const baseFilters = {
   query: "",
   subscription: "all" as const,
   tariff: "all",
+  paymentProvider: allPaymentProvidersFilter,
+  paymentProductId: allPaymentProductsFilter,
   restrictions: "all" as const,
   source: allClientSourcesFilter,
   utmField: "all" as const,
@@ -82,6 +86,20 @@ describe("admin client acquisition filters", () => {
       source: "vk"
     });
     expect(result.map((user) => user.id)).toEqual(["restricted"]);
+  });
+
+  it("filters clients by successful payment provider and product facets", () => {
+    const paymentUsers = [
+      client({ id: "lava-pro", paymentProviders: ["lava"], paymentProductIds: ["pro"] }),
+      client({ id: "lava-basic", paymentProviders: ["lava"], paymentProductIds: ["basic"] }),
+      client({ id: "prodamus-pro", paymentProviders: ["prodamus"], paymentProductIds: ["pro"] }),
+      client({ id: "never-paid", paymentProviders: [], paymentProductIds: [] })
+    ];
+
+    expect(filterAdminClients(paymentUsers, { ...baseFilters, paymentProvider: "lava" }).map((user) => user.id)).toEqual(["lava-basic", "lava-pro"]);
+    expect(filterAdminClients(paymentUsers, { ...baseFilters, paymentProductId: "pro" }).map((user) => user.id)).toEqual(["lava-pro", "prodamus-pro"]);
+    expect(filterAdminClients(paymentUsers, { ...baseFilters, paymentProvider: "lava", paymentProductId: "pro" }).map((user) => user.id)).toEqual(["lava-pro"]);
+    expect(filterAdminClients(paymentUsers, { ...baseFilters, paymentProductId: "missing" })).toEqual([]);
   });
 
   it("returns unique sorted source options", () => {

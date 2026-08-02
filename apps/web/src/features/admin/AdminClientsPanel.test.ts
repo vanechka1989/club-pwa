@@ -109,9 +109,11 @@ const adminUser: ClubUser = {
 function createProps(overrides: Record<string, unknown> = {}) {
   return {
     summary: { total: 1, active: 1, restricted: 0 },
-    filters: { query: "", subscription: "all", tariff: "all", restrictions: "all", source: "all", utmField: "all", utmValue: "" } as const,
+    filters: { query: "", subscription: "all", tariff: "all", paymentProvider: "__all_payment_providers__", paymentProductId: "__all_payment_products__", restrictions: "all", source: "all", utmField: "all", utmValue: "" } as const,
     filtersActive: false,
     tariffOptions: [{ value: "all", label: "Все тарифы" }],
+    paymentProviderOptions: [{ value: "lava", label: "Lava" }, { value: "prodamus", label: "Prodamus" }],
+    paymentProductOptions: [{ value: "product-pro", label: "Клуб Pro" }],
     clientSourceOptions: [],
     filteredUsers: [client],
     selectedUser: null,
@@ -178,8 +180,26 @@ describe("AdminClientsPanel", () => {
 
     await fireEvent.update(screen.getByPlaceholderText("Поиск по ID, имени или username"), "Анна");
 
-    expect(props.filters).toEqual({ query: "", subscription: "all", tariff: "all", restrictions: "all", source: "all", utmField: "all", utmValue: "" });
+    expect(props.filters).toEqual({ query: "", subscription: "all", tariff: "all", paymentProvider: "__all_payment_providers__", paymentProductId: "__all_payment_products__", restrictions: "all", source: "all", utmField: "all", utmValue: "" });
     expect(emitted()["update:filters"]).toEqual([[{ ...props.filters, query: "Анна" }]]);
+  });
+
+  it("renders dynamic payment system and product filters and emits their values", async () => {
+    const props = createProps();
+    const { emitted } = render(AdminClientsPanel, { props });
+
+    const provider = screen.getByLabelText("Платёжная система");
+    const product = screen.getByLabelText("Продукт");
+    expect(within(provider).getByRole("option", { name: "Lava" })).toBeTruthy();
+    expect(within(product).getByRole("option", { name: "Клуб Pro" })).toBeTruthy();
+
+    await fireEvent.update(provider, "lava");
+    await fireEvent.update(product, "product-pro");
+
+    expect(emitted()["update:filters"]).toEqual([
+      [{ ...props.filters, paymentProvider: "lava" }],
+      [{ ...props.filters, paymentProductId: "product-pro" }]
+    ]);
   });
 
   it("renders one complete client button and emits its user when the card is clicked", async () => {

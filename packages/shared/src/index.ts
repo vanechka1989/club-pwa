@@ -1304,8 +1304,8 @@ export const adminStatsUserSchema = z.object({
   membershipStatus: membershipStatusSchema,
   membershipExpiresAt: z.string().datetime().nullable(),
   tariff: z.string().nullable(),
-  paymentProductIds: z.array(z.string()).default([]),
-  paymentProviders: z.array(paymentProviderCodeSchema).default([]),
+  paymentProductIds: z.array(z.string()).optional(),
+  paymentProviders: z.array(paymentProviderCodeSchema).optional(),
   recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable().optional(),
   hasRestrictions: z.boolean(),
   completedItems: z.number().int().nonnegative(),
@@ -1643,8 +1643,8 @@ export const adminStatsResponseSchema = z.object({
   completedItems: z.number().int().nonnegative(),
   totalItems: z.number().int().nonnegative(),
   users: z.array(adminStatsUserSchema),
-  paymentProductOptions: z.array(adminPaymentProductOptionSchema).default([]),
-  paymentProviderOptions: z.array(adminPaymentProviderOptionSchema).default([]),
+  paymentProductOptions: z.array(adminPaymentProductOptionSchema).optional(),
+  paymentProviderOptions: z.array(adminPaymentProviderOptionSchema).optional(),
   communityMessages: z.array(adminCommunityMessageSchema).default([]),
   pollStats: z
     .object({

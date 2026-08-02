@@ -31,7 +31,7 @@ describe("admin finance analytics contracts", () => {
     expect(user.paymentProviders).toEqual(["lava"]);
   });
 
-  it("defaults new client facets and catalog options for older payloads", () => {
+  it("accepts older payloads without client facets and catalog options", () => {
     const user = adminStatsUserSchema.parse({
       id: "user-1", telegramId: "100", firstName: null, username: null, photoUrl: null, role: "member",
       membershipStatus: "inactive", membershipExpiresAt: null, tariff: null, hasRestrictions: false,
@@ -43,10 +43,10 @@ describe("admin finance analytics contracts", () => {
       totalUsers: 1, activeUsers: 0, completedItems: 0, totalItems: 0, users: [user]
     });
 
-    expect(user.paymentProductIds).toEqual([]);
-    expect(user.paymentProviders).toEqual([]);
-    expect(stats.paymentProductOptions).toEqual([]);
-    expect(stats.paymentProviderOptions).toEqual([]);
+    expect(user.paymentProductIds).toBeUndefined();
+    expect(user.paymentProviders).toBeUndefined();
+    expect(stats.paymentProductOptions).toBeUndefined();
+    expect(stats.paymentProviderOptions).toBeUndefined();
   });
 
   it("parses provider, product and lifetime retention analytics", () => {
