@@ -55,6 +55,11 @@ describe("task navigation", () => {
     expect(isTaskPath("/support/tickets/ticket-1/clients/customer-1")).toBe(true);
   });
 
+  it("recognizes the dedicated admin client learning route", () => {
+    expect(taskRoutePaths).toContain("/admin/clients/:customerId/learning");
+    expect(isTaskPath("/admin/clients/593677751/learning")).toBe(true);
+  });
+
   it("does not treat section roots as task screens", () => {
     expect(isTaskPath("/profile")).toBe(false);
     expect(isTaskPath("/support")).toBe(false);

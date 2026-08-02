@@ -166,9 +166,9 @@ describe("admin client card helpers", () => {
 
   it("removes the duplicate profile disclosure and places device history and IPs last", () => {
     const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
-    const activityIndex = source.indexOf("<summary>Активность");
-    const deviceIndex = source.indexOf("<summary>Устройства");
-    const ipIndex = source.indexOf("<summary>IP входов");
+    const activityIndex = source.indexOf("<strong>Активность</strong>");
+    const deviceIndex = source.indexOf("<strong>Устройства</strong>");
+    const ipIndex = source.indexOf("<strong>IP входов</strong>");
 
     expect(source).not.toContain("<summary>Профиль");
     expect(source).toContain("selectedUserDevices");
@@ -199,7 +199,7 @@ describe("admin client card helpers", () => {
     const clientScreen = source.slice(source.indexOf('<TaskScreen v-if="selectedUser"'), source.indexOf('<Teleport to="body">'));
 
     for (const label of ["Подписки", "Оплаты клиента", "Рефералы", "Ограничения и удаления", "Устройства", "IP входов"]) {
-      expect(clientScreen).toContain(`<summary>${label}`);
+      expect(clientScreen).toContain(`<strong>${label}</strong>`);
     }
     expect(clientScreen).not.toContain("admin-crm-block ui-card admin-accordion-block");
     expect(clientScreen).not.toContain("admin-accordion-head");
@@ -209,7 +209,8 @@ describe("admin client card helpers", () => {
     const styles = adminStyles;
 
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section\s*\{[^}]*gap:\s*0;[^}]*min-height:\s*0;[^}]*padding:\s*0;/s);
-    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto;[^}]*box-sizing:\s*border-box;[^}]*height:\s*44px;[^}]*min-height:\s*44px;[^}]*align-content:\s*center;[^}]*align-items:\s*center;[^}]*padding:\s*0 12px;[^}]*line-height:\s*1;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section > summary\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*24px minmax\(0, 1fr\) auto auto;[^}]*box-sizing:\s*border-box;[^}]*height:\s*44px;[^}]*min-height:\s*44px;[^}]*align-content:\s*center;[^}]*align-items:\s*center;[^}]*padding:\s*0 12px;[^}]*line-height:\s*1;/s);
+    expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-link\s*\{[^}]*height:\s*44px;[^}]*min-height:\s*44px;/s);
     expect(styles).toMatch(/\.admin-client-workspace \.admin-client-compact-section:not\(\[open\]\)\s*\{[^}]*height:\s*44px;/s);
     expect(styles).toMatch(/\.admin-client-workspace\s*\{[^}]*gap:\s*4px;/s);
   });

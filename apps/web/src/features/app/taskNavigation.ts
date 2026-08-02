@@ -16,6 +16,7 @@ export const taskRoutePaths = [
   "/support/tickets/:ticketId",
   "/support/tickets/:ticketId/clients/:customerId",
   "/admin/clients/:customerId",
+  "/admin/clients/:customerId/learning",
   "/admin/clients/:customerId/learning/:mode/:recordId",
   "/admin/statistics/payments/:segment",
   "/admin/statistics/users/:segment",

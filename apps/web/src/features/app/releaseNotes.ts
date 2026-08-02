@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified learning and complete results",
+  title: "Client learning on a dedicated screen",
   items: [
-    "Overall progress and the next learning step now share one clear card, while every module has an explicit status and percentage.",
-    "The client profile combines lesson activity, quizzes, and homework in one Learning section with filters and summary metrics.",
-    "Admins can open a complete quiz or homework breakdown with answers, correct options, points, files, reviews, and reset history."
+    "Client learning now opens from a compact row into a dedicated screen with summary metrics, lessons, quizzes, and homework.",
+    "Returning from a detailed quiz or homework result leads back to the client's learning screen, preserving the admin's context.",
+    "Activity, learning, subscriptions, payments, referrals, restrictions, devices, and login IPs now use consistent semantic icons."
   ]
 };
 
