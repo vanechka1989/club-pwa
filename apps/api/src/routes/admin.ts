@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   acquisitionAttributionSchema,
   acquisitionLinkInputSchema,
+  adminFinanceAnalyticsResponseSchema,
   adminPermissionSchema,
   lessonAssessmentDraftSchema,
   deviceDiagnosticsSchema,
@@ -42,6 +43,7 @@ import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } fro
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import { buildClientPaymentFacetMaps, type ClientPaymentFacets } from "../admin/clientPaymentFacets";
+import { buildAdminFinanceAnalytics, parseAdminFinanceRange } from "../admin/financeAnalytics";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildAdminHomeworkResult, buildAdminQuizResult, recordBelongsToUser, resetBelongsToAttempt } from "../admin/assessmentResult";
 import { buildMessageAuthor } from "../community/messageMetadata";
@@ -2530,6 +2532,52 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     });
 
     return c.json({ ok: true });
+  })
+  .get("/analytics/finance", async (c) => {
+    let range: ReturnType<typeof parseAdminFinanceRange>;
+    try {
+      range = parseAdminFinanceRange(c.req.query("from"), c.req.query("to"));
+    } catch {
+      return c.json({ error: "Invalid finance analytics date range" }, 400);
+    }
+
+    const [orderRecords, membershipRecords] = await Promise.all([
+      db.query.paymentOrders.findMany({
+        with: { product: true, provider: true },
+        orderBy: [asc(paymentOrders.createdAt)]
+      }),
+      db.query.subscriptions.findMany()
+    ]);
+    const orders = orderRecords.flatMap((order) => {
+      const provider = order.provider.provider;
+      if (provider !== "prodamus" && provider !== "lava") return [];
+      const productTitle = order.product?.title ?? order.productTitleSnapshot ?? "Индивидуальное предложение";
+      const productKind = order.product?.kind ?? order.productKindSnapshot ?? "one_time";
+      return [{
+        id: order.id,
+        userId: order.userId,
+        provider: provider as PaymentProviderCode,
+        productId: order.productId,
+        productTitle,
+        productKind,
+        status: order.status,
+        currency: order.currency,
+        amountMinor: order.amountMinor,
+        amountRub: order.amountRub,
+        paidAt: order.paidAt,
+        createdAt: order.createdAt
+      }];
+    });
+    const result = buildAdminFinanceAnalytics({
+      orders,
+      memberships: membershipRecords.map((membership) => ({
+        userId: membership.userId,
+        status: membership.status,
+        expiresAt: membership.expiresAt
+      })),
+      ...range
+    });
+    return c.json(adminFinanceAnalyticsResponseSchema.parse(result));
   })
   .get("/analytics/learning-engagement", async (c) => {
     try {
