@@ -122,4 +122,13 @@ describe("admin statistics navigation", () => {
     expect(source).toContain("Сообщения по дням");
     expect(styles).toContain(".admin-stat-timeline-bars");
   });
+
+  it("restores the finance dashboard after closing a nested payment list", () => {
+    const openStart = section.indexOf("function openPaymentDrilldown");
+    const nextFunction = section.indexOf("function openUserAccessDrilldown", openStart);
+    const paymentNavigation = section.slice(openStart, nextFunction);
+
+    expect(paymentNavigation).toContain("paymentDrilldownParent.value = activeStatisticsDetail.value");
+    expect(paymentNavigation).toContain("activeStatisticsDetail.value = paymentDrilldownParent.value");
+  });
 });

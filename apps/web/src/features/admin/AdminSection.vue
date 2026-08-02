@@ -309,6 +309,7 @@ const selectedUserLoginIps = ref<AdminLoginIp[]>([]);
 const selectedUserLoginIpsLoading = ref(false);
 const selectedUserLoginIpsError = ref(false);
 const selectedPaymentBreakdown = ref<AdminPaymentBreakdownItem | null>(null);
+const paymentDrilldownParent = ref<AnalyticsDetail | null>(null);
 const selectedUserDrilldown = ref<UserDrilldownSelection | null>(null);
 const activeStatisticsDetail = ref<AnalyticsDetail | null>(null);
 const selectedMailing = ref<AdminMailing | null>(null);
@@ -1425,6 +1426,7 @@ async function handlePreviewModeChange(mode: PreviewMode) {
 }
 
 function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
+  paymentDrilldownParent.value = activeStatisticsDetail.value;
   activeStatisticsDetail.value = null;
   selectedPaymentBreakdown.value = item;
   openAdminTask(`/admin/statistics/payments/${item.key}`);
@@ -1432,6 +1434,8 @@ function openPaymentDrilldown(item: AdminPaymentBreakdownItem) {
 
 function closePaymentDrilldown() {
   selectedPaymentBreakdown.value = null;
+  activeStatisticsDetail.value = paymentDrilldownParent.value;
+  paymentDrilldownParent.value = null;
   closeAdminTask();
 }
 
