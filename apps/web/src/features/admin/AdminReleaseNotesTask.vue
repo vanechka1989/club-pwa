@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, X } from "lucide-vue-next";
+import { ChevronDown } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { useI18n } from "@/features/app/i18n";
@@ -17,18 +17,8 @@ function toggleReleaseNote(version: string) {
 </script>
 
 <template>
-  <TaskScreen class="admin-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="emit('back')">
-    <section class="admin-detail ui-card admin-client-modal release-notes-modal">
-      <header class="admin-client-modal-head">
-        <div>
-          <h3 id="release-notes-title">Обновления</h3>
-          <p>История изменений приложения по версиям.</p>
-        </div>
-        <button class="icon-button ui-icon-button" type="button" aria-label="Закрыть список обновлений" @click="emit('back')">
-          <X class="h-4 w-4" aria-hidden="true" />
-        </button>
-      </header>
-
+  <TaskScreen class="admin-task-screen release-notes-task-screen" title="Обновления" subtitle="История изменений приложения по версиям." portal @back="emit('back')">
+    <section class="release-notes-page" aria-label="История обновлений">
       <div class="release-notes-list">
         <article v-for="note in localizedReleaseNotes" :key="note.version" class="release-note-card">
           <button class="release-note-head" type="button" @click="toggleReleaseNote(note.version)">

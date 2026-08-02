@@ -4122,7 +4122,6 @@ body.club-mobile-device .module-name-modal,
 body.club-mobile-device .profile-avatar-editor-modal,
 body.club-mobile-device .profile-logout-confirm,
 body.club-mobile-device .notification-center-panel,
-body.club-mobile-device .release-notes-modal,
 body.club-mobile-device .admin-mailing-composer-modal,
 body.club-mobile-device .admin-mailing-detail-modal,
 body.club-mobile-device .admin-storage-modal,
@@ -4152,7 +4151,6 @@ body.club-mobile-device .payment-form-modal,
 body.club-mobile-device .lesson-preview-modal,
 body.club-mobile-device .module-name-modal,
 body.club-mobile-device .notification-center-panel,
-body.club-mobile-device .release-notes-modal,
 body.club-mobile-device .admin-payment-drilldown-modal,
 body.club-mobile-device .admin-server-logs-modal,
 body.club-mobile-device .admin-permission-modal {
@@ -4168,7 +4166,6 @@ body.club-mobile-device :is(
   .profile-avatar-editor-modal,
   .profile-logout-confirm,
   .notification-center-panel,
-  .release-notes-modal,
   .admin-mailing-composer-modal,
   .admin-mailing-detail-modal,
   .admin-storage-modal,
@@ -4864,7 +4861,6 @@ textarea::placeholder {
 .profile-avatar-editor-modal,
 .profile-logout-confirm,
 .notification-center-panel,
-.release-notes-modal,
 .admin-mailing-composer-modal,
 .admin-mailing-detail-modal,
 .admin-storage-modal,
@@ -4997,7 +4993,6 @@ body.club-mobile-device .module-name-modal,
 body.club-mobile-device .profile-avatar-editor-modal,
 body.club-mobile-device .profile-logout-confirm,
 body.club-mobile-device .notification-center-panel,
-body.club-mobile-device .release-notes-modal,
 body.club-mobile-device .admin-mailing-composer-modal,
 body.club-mobile-device .admin-mailing-detail-modal,
 body.club-mobile-device .admin-storage-modal,
@@ -5050,7 +5045,6 @@ body.club-mobile-device .module-name-modal,
 body.club-mobile-device .modal-size-compact,
 body.club-mobile-device .profile-logout-confirm,
 body.club-mobile-device .notification-center-panel,
-body.club-mobile-device .release-notes-modal,
 body.club-mobile-device .payment-confirm-card,
 body.club-mobile-device .push-permission-card,
 body.club-mobile-device .admin-client-message-modal,
@@ -5070,7 +5064,6 @@ body.club-mobile-device :is(
   .profile-avatar-editor-modal,
   .profile-logout-confirm,
   .notification-center-panel,
-  .release-notes-modal,
   .admin-mailing-composer-modal,
   .admin-mailing-detail-modal,
   .admin-storage-modal,
@@ -7016,7 +7009,6 @@ html.club-mobile-device .task-screen-route-layer :is(
   .support-modal-body,
   .support-ticket-modal-body,
   .notification-center-list,
-  .release-notes-modal,
   .profile-avatar-editor-modal
 ),
 body.club-mobile-device .task-screen-route-layer :is(
@@ -7038,7 +7030,6 @@ body.club-mobile-device .task-screen-route-layer :is(
   .support-modal-body,
   .support-ticket-modal-body,
   .notification-center-list,
-  .release-notes-modal,
   .profile-avatar-editor-modal
 ) {
   box-sizing: border-box;
@@ -7056,7 +7047,6 @@ html.club-mobile-device .task-screen-route-layer :is(
   .modal-size-compact,
   .lesson-preview-modal,
   .lesson-preview-modal-edit,
-  .release-notes-modal,
   .support-ticket-modal-body
 ),
 body.club-mobile-device .task-screen-route-layer :is(
@@ -7065,7 +7055,6 @@ body.club-mobile-device .task-screen-route-layer :is(
   .modal-size-compact,
   .lesson-preview-modal,
   .lesson-preview-modal-edit,
-  .release-notes-modal,
   .support-ticket-modal-body
 ) {
   overflow-x: clip;

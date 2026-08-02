@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client source and quick mailings",
+  title: "Full-screen release history",
   items: [
-    "Client Source now matches the other compact client sections and opens UTM details on its own screen.",
-    "Mailings now stay visible in the quick-access bar beside Analytics, Clients, and Payments.",
-    "All five quick-navigation buttons remain evenly sized across phones, tablets, and wide screens."
+    "Release history fills the application viewport again without a nested modal or an empty area below it.",
+    "Every release scrolls in one continuous task page, and the duplicate inner heading has been removed.",
+    "Full-screen geometry and scrolling are covered across Android, iPhone, and desktop browsers."
   ]
 };
 

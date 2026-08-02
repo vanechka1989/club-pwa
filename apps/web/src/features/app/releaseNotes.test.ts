@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes client source and quick mailings navigation as version 6.03", () => {
-    expect(appVersion).toBe("6.03");
-    expect(releaseNotes[0]?.title).toBe("Источник клиента и быстрые рассылки");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/источник/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/рассылк/i);
+  it("publishes the full-screen release history fix as version 6.04", () => {
+    expect(appVersion).toBe("6.04");
+    expect(releaseNotes[0]?.title).toBe("Полноэкранная история обновлений");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/весь экран/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/прокрутк/i);
+
+    const clientNavigationRelease = releaseNotes.find((note) => note.version === "6.03");
+    expect(clientNavigationRelease?.title).toBe("Источник клиента и быстрые рассылки");
 
     const dropdownNavigationRelease = releaseNotes.find((note) => note.version === "6.02");
     expect(dropdownNavigationRelease?.title).toBe("Выпадающая навигация админки");
@@ -291,7 +294,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client source and quick mailings");
+    expect(englishNotes[0]?.title).toBe("Full-screen release history");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

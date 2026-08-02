@@ -1614,7 +1614,6 @@ const mobileModalFixtures = [
   { backdropClass: "profile-modal-backdrop", modalClass: "profile-avatar-editor-modal" },
   { backdropClass: "profile-modal-backdrop", modalClass: "profile-logout-confirm" },
   { backdropClass: "notification-center-backdrop", modalClass: "notification-center-panel" },
-  { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal release-notes-modal" },
   { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-mailing-composer-modal" },
   { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-mailing-detail-modal" },
   { backdropClass: "admin-modal-backdrop", modalClass: "admin-detail admin-client-modal admin-storage-modal" },
@@ -1631,7 +1630,6 @@ const compactMobileModalClasses = [
   "module-name-modal",
   "profile-logout-confirm",
   "notification-center-panel",
-  "release-notes-modal",
   "payment-confirm-card",
   "push-permission-card"
 ];
@@ -1876,7 +1874,7 @@ const responsiveRouteAuditPaths = [
   { path: "/admin/statistics/payments/paid", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/access-inactive", selector: ".admin-task-screen .task-screen" },
   { path: "/admin/statistics/users/tariff-manual", selector: ".admin-task-screen .task-screen" },
-  { path: "/admin/releases", selector: ".release-notes-modal" },
+  { path: "/admin/releases", selector: ".release-notes-task-screen .task-screen" },
   { path: "/admin/mailings/new", selector: ".admin-mailing-task-screen .task-screen" },
   { path: "/admin/mailings/history", selector: ".admin-mailing-history-task-screen .task-screen" },
   { path: "/admin/mailings/mailing-demo", selector: ".admin-task-screen .task-screen" },
@@ -2910,6 +2908,52 @@ test("opens payment admin task screens when their URLs are loaded directly", asy
   await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
 });
 
+test("keeps release history inside one full-screen scrolling task page", async ({ page }, testInfo) => {
+  await page.goto("/admin/releases");
+  await expect(page).toHaveURL(/\/admin\/releases$/);
+
+  const routeLayer = page.locator(".release-notes-task-screen.task-screen-route-layer");
+  const taskScreen = routeLayer.locator(":scope > .task-screen");
+  const taskBody = taskScreen.locator(":scope > .task-screen-body");
+  const releasePage = taskBody.locator(":scope > .release-notes-page");
+
+  await expect(routeLayer).toBeVisible();
+  await expect(releasePage).toBeVisible();
+  await expect(taskBody.locator(":scope > .admin-client-modal")).toHaveCount(0);
+
+  const layout = await page.evaluate(() => {
+    const layer = document.querySelector<HTMLElement>(".release-notes-task-screen.task-screen-route-layer")!;
+    const screen = layer.querySelector<HTMLElement>(":scope > .task-screen")!;
+    const body = screen.querySelector<HTMLElement>(":scope > .task-screen-body")!;
+    const pageSurface = body.querySelector<HTMLElement>(":scope > .release-notes-page")!;
+    return {
+      layerPosition: getComputedStyle(layer).position,
+      layerHeight: layer.getBoundingClientRect().height,
+      screenHeight: screen.getBoundingClientRect().height,
+      bodyOverflowY: getComputedStyle(body).overflowY,
+      pageOverflowY: getComputedStyle(pageSurface).overflowY,
+      bodyClientHeight: body.clientHeight,
+      bodyScrollHeight: body.scrollHeight
+    };
+  });
+
+  expect(layout.layerPosition).toBe("fixed");
+  expect(Math.abs(layout.layerHeight - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(layout.screenHeight - page.viewportSize()!.height)).toBeLessThanOrEqual(1);
+  expect(layout.bodyOverflowY).toBe("auto");
+  expect(layout.pageOverflowY).toBe("visible");
+  expect(layout.bodyScrollHeight).toBeGreaterThan(layout.bodyClientHeight);
+
+  await taskBody.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+  await expect(page.getByText("v1.38", { exact: true })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+
+  if (testInfo.project.name === "release-android") {
+    await taskBody.evaluate((element) => element.scrollTo({ top: 0 }));
+    await page.screenshot({ path: testInfo.outputPath("release-history-full-screen.png"), fullPage: false, animations: "disabled" });
+  }
+});
+
 test("opens a personal payment offer without viewport overflow", async ({ page }, testInfo) => {
   await page.goto(`/payments/offers/${individualOfferToken}`);
   await expect(page.locator(".offer-card")).toBeVisible();
@@ -2925,7 +2969,7 @@ test("keeps routed task screens full width in wide mobile PWA viewports", async 
   test.skip(!wideMobilePwaRouteAuditProjects.has(testInfo.project.name));
   test.setTimeout(120_000);
 
-  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen") || route.selector.includes("release-notes-modal"))) {
+  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen"))) {
     await page.goto(auditRoute.path);
     await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
     await expectResponsiveLayoutIntegrity(page, auditRoute.path);
@@ -2937,7 +2981,7 @@ test("keeps routed task screens full width for plain Samsung mobile shells", asy
   test.skip(testInfo.project.name !== "android-wide-layout-980");
   test.setTimeout(120_000);
 
-  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen") || route.selector.includes("release-notes-modal"))) {
+  for (const auditRoute of responsiveRouteAuditPaths.filter((route) => route.selector.includes("task-screen"))) {
     await page.goto(auditRoute.path);
     await expect(page.locator(auditRoute.selector).first(), auditRoute.path).toBeVisible({ timeout: 12_000 });
     await forcePlainMobileDeviceShell(page);
@@ -4234,7 +4278,7 @@ test("separates the complete developer surface from an administrator with all pe
     await expect(page.getByRole("button", { name: panel, exact: true })).toBeVisible();
   }
   await page.goto("/admin/releases");
-  await expect(page.locator(".release-notes-modal")).toBeVisible();
+  await expect(page.locator(".release-notes-task-screen .task-screen")).toBeVisible();
   await page.goto("/admin/owner/transfer");
   await expect(page.locator(".admin-task-screen .task-screen")).toBeVisible();
 
