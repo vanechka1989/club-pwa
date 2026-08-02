@@ -156,6 +156,8 @@ const adminStatsUser = {
   membershipStatus: "active",
   membershipExpiresAt: activeUntil,
   tariff: "manual",
+  paymentProductIds: ["product-pro"],
+  paymentProviders: ["lava"],
   hasRestrictions: false,
   completedItems: 4,
   totalItems: 9,
@@ -234,9 +236,38 @@ const adminPaymentOrder = {
   productKind: "one_time",
   customer: ownAuthor,
   webhook: { isValid: true, createdAt: now },
-  paidAt: now,
-  createdAt: now,
-  updatedAt: now
+  paidAt: "2026-08-01T10:00:00.000Z",
+  createdAt: "2026-08-01T10:00:00.000Z",
+  updatedAt: "2026-08-01T10:00:00.000Z"
+};
+
+const adminFinanceAnalytics = {
+  overview: { revenueRub: 42_000, paidOrders: 12, totalAttempts: 15, uniqueCustomers: 8, averagePaidOrderRub: 3_500, successPercent: 80 },
+  providers: [
+    { provider: "lava", title: "Lava", attempts: 10, paidOrders: 8, uniqueCustomers: 6, revenueRub: 30_000, averagePaidOrderRub: 3_750, revenuePercent: 71.4, successPercent: 80 },
+    { provider: "prodamus", title: "Prodamus", attempts: 5, paidOrders: 4, uniqueCustomers: 2, revenueRub: 12_000, averagePaidOrderRub: 3_000, revenuePercent: 28.6, successPercent: 80 }
+  ],
+  products: [
+    { productId: "product-pro", title: "Клуб Pro", kind: "recurrent", paidOrders: 8, uniqueCustomers: 6, revenueRub: 30_000, averagePaidOrderRub: 3_750, revenuePercent: 71.4 }
+  ],
+  retention: {
+    totalPayingCustomers: 276,
+    activeCustomers: 179,
+    activePercent: 64.9,
+    churnedCustomers: 97,
+    churnedPercent: 35.1,
+    onePurchaseChurned: 76,
+    onePurchaseChurnedPercent: 78.4,
+    repeatPurchaseChurned: 21,
+    repeatPurchaseChurnedPercent: 21.6,
+    exitStages: [
+      { renewals: 1, label: "После 1 продления", customers: 17, percentOfRepeatChurned: 81 },
+      { renewals: 2, label: "После 2 продлений", customers: 3, percentOfRepeatChurned: 14.3 },
+      { renewals: 3, label: "После 3 продлений", customers: 1, percentOfRepeatChurned: 4.8 }
+    ],
+    byProviders: [{ key: "lava", title: "Lava", totalCustomers: 100, activeCustomers: 70, churnedCustomers: 30, churnedPercent: 30 }],
+    byProducts: [{ key: "product-pro", title: "Клуб Pro", totalCustomers: 100, activeCustomers: 70, churnedCustomers: 30, churnedPercent: 30 }]
+  }
 };
 
 const adminMailing = {
@@ -672,6 +703,8 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           completedItems: 4,
           totalItems: 18,
           users: [adminStatsUser, inactiveStatsUser, closedStatsUser],
+          paymentProductOptions: [{ id: "product-pro", title: "Клуб Pro", kind: "recurrent" }],
+          paymentProviderOptions: [{ code: "lava", title: "Lava" }, { code: "prodamus", title: "Prodamus" }],
           communityMessages: [
             {
               id: "admin-community-message",
@@ -685,6 +718,11 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           ]
         })
       );
+      return;
+    }
+
+    if (path === "/admin/analytics/finance") {
+      await route.fulfill(json(adminFinanceAnalytics));
       return;
     }
 
@@ -2901,9 +2939,27 @@ test("renders visual admin analytics overview without viewport overflow", async 
     animations: "disabled"
   });
 
+  if (testInfo.project.name === "release-android") {
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
   await page.getByRole("button", { name: /Выручка: .* рублей/ }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("heading", { name: "Финансы", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Платёжные системы", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Удержание клиентов", exact: true })).toBeVisible();
+  await expect(page.locator('[aria-label="Удержание платящих клиентов"]')).toContainText("276");
+  if (testInfo.project.name === "release-android") {
+    await page.locator(".admin-finance-insight").nth(0).screenshot({ path: testInfo.outputPath("admin-finance-providers.png"), animations: "disabled" });
+    await page.locator(".admin-finance-insight").nth(1).screenshot({ path: testInfo.outputPath("admin-finance-products.png"), animations: "disabled" });
+    await page.locator('[aria-label="Удержание платящих клиентов"]').screenshot({ path: testInfo.outputPath("admin-finance-retention.png"), animations: "disabled" });
+  }
+
+  await page.getByRole("button", { name: /Разовые/ }).click();
+  await expect(page.getByRole("heading", { name: "Разовые", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+  await expect(page.getByRole("heading", { name: "Финансы", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Удержание клиентов", exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: "Назад" }).click();
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
 
@@ -3042,6 +3098,14 @@ test("keeps compact admin navigation reachable on every release viewport", async
     await page.keyboard.press("Escape");
     await expect(page.getByRole("menu", { name: "Все разделы" })).toHaveCount(0);
   }
+
+  await page.getByRole("button", { name: "Клиенты", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Клиенты и доступ", exact: true })).toBeVisible();
+  await page.locator("details").filter({ hasText: "Дополнительные фильтры" }).evaluate((element) => {
+    (element as HTMLDetailsElement).open = true;
+  });
+  await expect(page.getByLabel("Платёжная система")).toContainText("Lava");
+  await expect(page.getByLabel("Продукт")).toContainText("Клуб Pro");
 
   const modeTrigger = page.getByRole("button", { name: /^Режим просмотра:/ });
   await modeTrigger.click();

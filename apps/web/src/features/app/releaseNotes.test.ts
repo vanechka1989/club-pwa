@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the homework result inbox as version 6.12", () => {
-    expect(appVersion).toBe("6.12");
-    expect(releaseNotes[0]?.title).toBe("Отдельный экран результатов ДЗ");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Проверки ДЗ/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/закры/i);
+  it("publishes extended finance analytics as version 6.13", () => {
+    expect(appVersion).toBe("6.13");
+    expect(releaseNotes[0]?.title).toBe("Расширенная аналитика финансов");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/платёжн/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/не продлили/i);
+
+    const homeworkInbox = releaseNotes.find((note) => note.version === "6.12");
+    expect(homeworkInbox?.title).toBe("Отдельный экран результатов ДЗ");
 
     const visibleHomeworkDecisions = releaseNotes.find((note) => note.version === "6.11");
     expect(visibleHomeworkDecisions?.title).toBe("Результат проверки ДЗ на виду");
