@@ -2144,6 +2144,34 @@ body.club-mobile-device .module-name-modal {
 .learning-progress-hero__copy small { color: var(--text-muted); font-size: .7rem; line-height: 1.35; }
 .learning-progress-hero__state-icon { width: 22px; color: #55d9a8; }
 
+.learning-progress-hero__review {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 76px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 16px;
+  color: var(--text);
+  text-align: left;
+}
+.learning-progress-hero__review--needs_revision { border-color: color-mix(in srgb, var(--danger) 42%, var(--border)); background: color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+.learning-progress-hero__review--accepted { border-color: color-mix(in srgb, #55d9a8 38%, var(--border)); background: color-mix(in srgb, #55d9a8 9%, var(--surface)); }
+.learning-progress-hero__review-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; }
+.learning-progress-hero__review--needs_revision .learning-progress-hero__review-icon { color: var(--danger-text); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+.learning-progress-hero__review--accepted .learning-progress-hero__review-icon { color: #55d9a8; background: color-mix(in srgb, #55d9a8 15%, transparent); }
+.learning-progress-hero__review-icon svg { width: 21px; }
+.learning-progress-hero__review-copy { display: grid; gap: 3px; min-width: 0; }
+.learning-progress-hero__review-copy small { font-size: .7rem; font-weight: 850; }
+.learning-progress-hero__review--needs_revision small,.learning-progress-hero__review--needs_revision em { color: var(--danger-text); }
+.learning-progress-hero__review--accepted small,.learning-progress-hero__review--accepted em { color: #55d9a8; }
+.learning-progress-hero__review-copy strong { overflow-wrap: anywhere; font-size: .9rem; }
+.learning-progress-hero__review-copy p { margin: 0; color: var(--text-muted); font-size: .72rem; line-height: 1.35; overflow-wrap: anywhere; }
+.learning-progress-hero__review-copy em { font-size: .72rem; font-style: normal; font-weight: 850; }
+.learning-progress-hero__review > svg { width: 20px; color: currentColor; }
+
 .learning-progress-hero__lesson {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr) 24px;

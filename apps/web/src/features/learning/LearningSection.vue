@@ -351,6 +351,15 @@ const progressHeroModule = computed(() => {
   const lesson = progressHeroLesson.value;
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? firstAvailableLessonModule.value : null;
 });
+const homeworkReviewNotice = computed(() => {
+  const review = learningProgress.value?.latestHomeworkReview;
+  if (!review) return null;
+  for (const module of moduleCards.value) {
+    const lesson = module.images.find((item) => item.id === review.contentItemId);
+    if (lesson) return { review, module, lesson };
+  }
+  return null;
+});
 const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
 const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
 const favoriteLessonIds = learningFavorites.favoriteIds;
@@ -443,6 +452,10 @@ function openProgressLesson() {
   const module = progressHeroModule.value;
   const lesson = progressHeroLesson.value;
   if (module && lesson) openLessonModal(module, lesson);
+}
+function openHomeworkReviewLesson() {
+  const notice = homeworkReviewNotice.value;
+  if (notice) openLessonModal(notice.module, notice.lesson);
 }
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonContext = computed(() => {
@@ -3240,7 +3253,11 @@ watch(
       :context="lastOpenedMaterial ? continueLessonContext : progressHeroModule.title"
       :image-url="getContinueLessonImage(progressHeroModule, progressHeroLesson)"
       :action-label="overallProgressPercent === 100 ? 'Повторить последний урок' : lastOpenedLesson ? continueLessonProgressLabel : 'Начать'"
+      :review-status="homeworkReviewNotice?.review.status ?? null"
+      :review-lesson-title="homeworkReviewNotice?.lesson.title ?? null"
+      :review-comment="homeworkReviewNotice?.review.reviewComment ?? null"
       @open="openProgressLesson"
+      @open-review="openHomeworkReviewLesson"
     />
 
     <section v-if="!canManageModules && learningDiscoveryActive && !visibleModuleCards.length" class="modules-state-card learning-discovery-empty ui-card">

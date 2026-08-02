@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ArrowRight, CheckCircle2, Play } from "lucide-vue-next";
+import { ArrowRight, CheckCircle2, CircleAlert, Play } from "lucide-vue-next";
 
-defineProps<{
+withDefaults(defineProps<{
   percent: number;
   completed: number;
   total: number;
@@ -10,9 +10,16 @@ defineProps<{
   context: string;
   imageUrl: string;
   actionLabel: string;
-}>();
+  reviewStatus?: "needs_revision" | "accepted" | null | undefined;
+  reviewLessonTitle?: string | null | undefined;
+  reviewComment?: string | null | undefined;
+}>(), {
+  reviewStatus: null,
+  reviewLessonTitle: null,
+  reviewComment: null
+});
 
-defineEmits<{ open: [] }>();
+defineEmits<{ open: []; openReview: [] }>();
 </script>
 
 <template>
@@ -37,6 +44,27 @@ defineEmits<{ open: [] }>();
       </div>
       <CheckCircle2 v-if="percent === 100" class="learning-progress-hero__state-icon" aria-hidden="true" />
     </header>
+
+    <button
+      v-if="reviewStatus && reviewLessonTitle"
+      class="learning-progress-hero__review ui-button"
+      :class="`learning-progress-hero__review--${reviewStatus}`"
+      type="button"
+      :aria-label="`${reviewStatus === 'needs_revision' ? 'Исправить ДЗ' : 'Открыть урок'}: ${reviewLessonTitle}`"
+      @click="$emit('openReview')"
+    >
+      <span class="learning-progress-hero__review-icon">
+        <CircleAlert v-if="reviewStatus === 'needs_revision'" aria-hidden="true" />
+        <CheckCircle2 v-else aria-hidden="true" />
+      </span>
+      <span class="learning-progress-hero__review-copy">
+        <small>{{ reviewStatus === "needs_revision" ? "Нужна доработка" : "ДЗ принято" }}</small>
+        <strong>{{ reviewLessonTitle }}</strong>
+        <p v-if="reviewComment">{{ reviewComment }}</p>
+        <em>{{ reviewStatus === "needs_revision" ? "Исправить ДЗ" : "Открыть урок" }}</em>
+      </span>
+      <ArrowRight aria-hidden="true" />
+    </button>
 
     <button class="learning-progress-hero__lesson ui-button" type="button" :aria-label="`${actionLabel}: ${title}`" @click="$emit('open')">
       <img :src="imageUrl" :alt="title" loading="lazy" />

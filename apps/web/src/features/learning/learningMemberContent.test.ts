@@ -151,6 +151,54 @@ describe("Learning section member content", () => {
     expect(await screen.findByText("Пройден")).toBeTruthy();
   });
 
+  it("shows a homework revision with the admin comment and opens that lesson", async () => {
+    const home = await vi.mocked(getLearningHome)();
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      ...home,
+      progress: {
+        ...home.progress,
+        latestHomeworkReview: {
+          contentItemId: "lesson-1",
+          status: "needs_revision",
+          reviewComment: "Добавьте пример и загрузите исправленный файл",
+          reviewedAt: "2026-08-02T16:40:00.000Z"
+        }
+      }
+    });
+
+    renderAsMember();
+
+    expect(await screen.findByText("Нужна доработка")).toBeTruthy();
+    expect(screen.getByText("Добавьте пример и загрузите исправленный файл")).toBeTruthy();
+    const reviewAction = screen.getByRole("button", { name: "Исправить ДЗ: Урок с содержимым" });
+    await fireEvent.click(reviewAction);
+
+    await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-1"));
+  });
+
+  it("shows an accepted homework comment without hiding the ordinary learning action", async () => {
+    const home = await vi.mocked(getLearningHome)();
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      ...home,
+      progress: {
+        ...home.progress,
+        latestHomeworkReview: {
+          contentItemId: "lesson-1",
+          status: "accepted",
+          reviewComment: "Отличная работа, всё принято",
+          reviewedAt: "2026-08-02T16:45:00.000Z"
+        }
+      }
+    });
+
+    renderAsMember();
+
+    expect(await screen.findByText("ДЗ принято")).toBeTruthy();
+    expect(screen.getByText("Отличная работа, всё принято")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Открыть урок: Урок с содержимым" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Начать: Урок с содержимым" })).toBeTruthy();
+  });
+
   it("opens discovery from the modules header instead of occupying the feed", async () => {
     renderAsMember();
 
