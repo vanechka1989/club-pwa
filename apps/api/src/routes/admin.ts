@@ -30,7 +30,8 @@ import {
   type ContentKind,
   type MediaSource,
   type LessonAssessmentDraft,
-  type MembershipStatus
+  type MembershipStatus,
+  type PaymentProviderCode
 } from "@club/shared";
 import { getAcquisitionDashboard, getAcquisitionDayDetail, getUserAcquisition, listAcquisitionLinks } from "../acquisition/acquisitionAnalytics";
 import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/acquisitionStore";
@@ -40,6 +41,7 @@ import { recordAdminAction } from "../admin/actionLog";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
+import { buildClientPaymentFacetMaps, type ClientPaymentFacets } from "../admin/clientPaymentFacets";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildAdminHomeworkResult, buildAdminQuizResult, recordBelongsToUser, resetBelongsToAttempt } from "../admin/assessmentResult";
 import { buildMessageAuthor } from "../community/messageMetadata";
@@ -72,6 +74,8 @@ import {
   homeworkSubmissions,
   lessonComments,
   learningEngagementSessions,
+  paymentOrders,
+  paymentProducts,
   subscriptions,
   quizAnswers,
   quizAttemptQuestions,
@@ -827,14 +831,36 @@ async function getLatestRecurrentPaymentStatuses(userIds: string[]) {
   return recurrentPaymentStatusByUserId;
 }
 
+async function getClientPaymentFacets(userIds: string[]) {
+  if (!userIds.length) return new Map<string, ClientPaymentFacets>();
+
+  const rows = await db.query.paymentOrders.findMany({
+    where: and(inArray(paymentOrders.userId, userIds), eq(paymentOrders.status, "paid")),
+    with: { provider: true }
+  });
+
+  return buildClientPaymentFacetMaps(rows.flatMap((order) => {
+    const provider = order.provider.provider;
+    if (provider !== "prodamus" && provider !== "lava") return [];
+    return [{
+      userId: order.userId,
+      status: order.status,
+      productId: order.productId,
+      provider: provider as PaymentProviderCode
+    }];
+  }));
+}
+
 async function buildStatsUser(
   user: typeof users.$inferSelect,
   totalItems: number,
   acquisitionByUserId?: Map<string, ClientAcquisitionSummary>,
-  recurrentPaymentStatusByUserId?: Map<string, AdminStatsUser["recurrentPaymentStatus"]>
+  recurrentPaymentStatusByUserId?: Map<string, AdminStatsUser["recurrentPaymentStatus"]>,
+  paymentFacetsByUserId?: Map<string, ClientPaymentFacets>
 ): Promise<AdminStatsUser> {
   const resolvedAcquisitionByUserId = acquisitionByUserId ?? await getClientAcquisitionSummaries([user.id]);
   const resolvedRecurrentPaymentStatusByUserId = recurrentPaymentStatusByUserId ?? await getLatestRecurrentPaymentStatuses([user.id]);
+  const resolvedPaymentFacetsByUserId = paymentFacetsByUserId ?? await getClientPaymentFacets([user.id]);
   const membership = await getMembership(user.id);
   const role = await getUserRole(user.telegramId);
   const activeMute = await getActiveMute(user.id);
@@ -877,6 +903,8 @@ async function buildStatsUser(
     membershipStatus: membership.status,
     membershipExpiresAt: membership.subscription?.expiresAt?.toISOString() ?? null,
     tariff: membership.subscription?.provider ?? null,
+    paymentProductIds: resolvedPaymentFacetsByUserId.get(user.id)?.paymentProductIds ?? [],
+    paymentProviders: resolvedPaymentFacetsByUserId.get(user.id)?.paymentProviders ?? [],
     recurrentPaymentStatus: resolvedRecurrentPaymentStatusByUserId.get(user.id) ?? null,
     hasRestrictions: Boolean(activeMute),
     completedItems: completedRow?.value ?? 0,
@@ -2527,7 +2555,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
   .get("/stats", async (c) => {
     const totalItems = await getPublishedItemsCount();
     const now = new Date();
-    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords] = await Promise.all([
+    const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords, paymentProductRecords, paymentProviderRecords] = await Promise.all([
       db.select({ value: count(users.id) }).from(users),
       db
         .select({ value: countDistinct(subscriptions.userId) })
@@ -2556,7 +2584,12 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         orderBy: (table, { desc }) => [desc(table.createdAt)],
         limit: 500,
         with: { message: { with: { topic: true, user: true } }, options: true, votes: true }
-      })
+      }),
+      db.query.paymentProducts.findMany({
+        where: or(isNull(paymentProducts.archivedUntil), gt(paymentProducts.archivedUntil, now)),
+        orderBy: [asc(paymentProducts.sortOrder), asc(paymentProducts.createdAt)]
+      }),
+      db.query.paymentProviders.findMany({ orderBy: (table, { asc }) => [asc(table.createdAt)] })
     ]);
     const totalPolls = pollCountRow?.value ?? 0;
     const activePolls = activePollCountRow?.value ?? 0;
@@ -2571,12 +2604,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       participationPercent: eligibleUsers ? Math.round((uniqueParticipants / eligibleUsers) * 100) : 0
     };
     const recentUserIds = recentUsers.map((user) => user.id);
-    const [acquisitionByUserId, recurrentPaymentStatusByUserId] = await Promise.all([
+    const [acquisitionByUserId, recurrentPaymentStatusByUserId, paymentFacetsByUserId] = await Promise.all([
       getClientAcquisitionSummaries(recentUserIds),
-      getLatestRecurrentPaymentStatuses(recentUserIds)
+      getLatestRecurrentPaymentStatuses(recentUserIds),
+      getClientPaymentFacets(recentUserIds)
     ]);
     const statsUsers = await Promise.all(
-      recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId, recurrentPaymentStatusByUserId))
+      recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId, recurrentPaymentStatusByUserId, paymentFacetsByUserId))
     );
 
     return c.json({
@@ -2585,6 +2619,12 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       completedItems: completedItemsCountRow?.value ?? 0,
       totalItems,
       users: statsUsers,
+      paymentProductOptions: paymentProductRecords.map((product) => ({ id: product.id, title: product.title, kind: product.kind })),
+      paymentProviderOptions: paymentProviderRecords.flatMap((provider) =>
+        provider.provider === "prodamus" || provider.provider === "lava"
+          ? [{ code: provider.provider, title: provider.title }]
+          : []
+      ),
       pollStats: {
         ...pollSummary,
         polls: pollRecords.map((poll) => {
