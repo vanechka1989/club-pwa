@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes extended finance analytics as version 6.13", () => {
-    expect(appVersion).toBe("6.13");
-    expect(releaseNotes[0]?.title).toBe("Расширенная аналитика финансов");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/платёжн/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/не продлили/i);
+  it("publishes the visual finance dashboard as version 6.14", () => {
+    expect(appVersion).toBe("6.14");
+    expect(releaseNotes[0]?.title).toBe("Визуальный финансовый дашборд");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/кругов/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/удержан/i);
+
+    const extendedFinance = releaseNotes.find((note) => note.version === "6.13");
+    expect(extendedFinance?.title).toBe("Расширенная аналитика финансов");
 
     const homeworkInbox = releaseNotes.find((note) => note.version === "6.12");
     expect(homeworkInbox?.title).toBe("Отдельный экран результатов ДЗ");
@@ -321,7 +324,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Homework review results inbox");
+    expect(englishNotes[0]?.title).toBe("Visual finance dashboard");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

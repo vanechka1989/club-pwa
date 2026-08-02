@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Homework review results inbox",
+  title: "Visual finance dashboard",
   items: [
-    "A compact Homework Reviews action now shows how many moderator decisions are waiting.",
-    "Accepted and rejected homework results open on a dedicated screen with lesson details and moderator comments.",
-    "Each result can be dismissed separately and stays dismissed across sessions and devices."
+    "The finance pulse presents payment success, active customers, and churn as four clear circular metrics.",
+    "Payment providers and products now combine revenue-share rings with exact totals, customers, average order value, and success rate.",
+    "Retention and churn are easier to compare with a large overview ring, renewal exit stages, and product and provider breakdowns."
   ]
 };
 
