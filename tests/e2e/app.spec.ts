@@ -1824,7 +1824,23 @@ test("shows a clear learning path with progress and lesson navigation", async ({
   await page.route("**/api/learning", (route) => route.fulfill(json({
     categories: [{ ...adminLearningCategory, id: "module-path", title: "Маршрут", itemsCount: 2 }],
     featured: lessons,
-    progress: { totalItems: 2, completedItems: 1, startedItemIds: ["lesson-path-1", "lesson-path-2"], completedItemIds: ["lesson-path-1"], favoriteItemIds: [], lastOpenedItem: { ...lessons[0], body: "Содержимое: Первый урок" }, lastOpenedMaterialId: null, lastOpenedAt: now, lastOpenedPlaybackPositionSeconds: 0 }
+    progress: {
+      totalItems: 2,
+      completedItems: 1,
+      startedItemIds: ["lesson-path-1", "lesson-path-2"],
+      completedItemIds: ["lesson-path-1"],
+      favoriteItemIds: [],
+      lastOpenedItem: { ...lessons[0], body: "Содержимое: Первый урок" },
+      lastOpenedMaterialId: null,
+      lastOpenedAt: now,
+      lastOpenedPlaybackPositionSeconds: 0,
+      latestHomeworkReview: {
+        contentItemId: "lesson-path-2",
+        status: "needs_revision",
+        reviewComment: "Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.",
+        reviewedAt: now
+      }
+    }
   })));
   await page.route("**/api/learning/items/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -1845,13 +1861,22 @@ test("shows a clear learning path with progress and lesson navigation", async ({
     const item = lessons.find((lesson) => lesson.id === id) ?? lessons[0];
     await route.fulfill(json({ item: { ...item, body: `Содержимое: ${item.title}` }, completedAt: item.id === "lesson-path-1" ? now : null, lastOpenedMaterialId: null, playbackPositionSeconds: 0 }));
   });
+  await page.evaluate(() => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+  });
   await page.reload();
   await page.getByRole("button", { name: "Модули" }).click();
 
   await expect(page.getByRole("progressbar", { name: "Общий прогресс обучения" })).toHaveAttribute("aria-valuenow", "50");
   await expect(page.getByText("1 из 2 уроков").first()).toBeVisible();
   await expect(page.locator(".learning-progress-hero")).toHaveCount(1);
+  await expect(page.getByText("Нужна доработка")).toBeVisible();
+  await expect(page.getByText("Добавьте конкретный пример и приложите исправленный файл без сокращений в описании результата.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Исправить ДЗ: Второй урок" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Продолжить: Первый урок" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("learning-progress.png"), fullPage: false });
   await page.getByRole("button", { name: "Открыть поиск и фильтры" }).click();
   await page.getByRole("searchbox", { name: "Найти модуль или урок" }).fill("Первый");

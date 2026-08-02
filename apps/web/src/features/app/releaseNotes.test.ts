@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes unobstructed homework review as version 6.10", () => {
-    expect(appVersion).toBe("6.10");
-    expect(releaseNotes[0]?.title).toBe("Проверка ДЗ без перекрытия");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/навигац/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/безопасн/i);
+  it("publishes visible homework decisions as version 6.11", () => {
+    expect(appVersion).toBe("6.11");
+    expect(releaseNotes[0]?.title).toBe("Результат проверки ДЗ на виду");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/комментари/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/модул/i);
+
+    const unobstructedHomeworkReview = releaseNotes.find((note) => note.version === "6.10");
+    expect(unobstructedHomeworkReview?.title).toBe("Проверка ДЗ без перекрытия");
 
     const compatibleHomeworkUploads = releaseNotes.find((note) => note.version === "6.09");
     expect(compatibleHomeworkUploads?.title).toBe("Домашние задания доходят до проверки");
