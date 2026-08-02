@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from "vue";
 import type { LessonAssessmentConfig } from "@club/shared";
 import { CheckCircle2, CircleX, Clock3, FileUp, ListChecks, RotateCcw, Send } from "lucide-vue-next";
 import { createHomeworkUpload, getLessonAssessmentStatus, saveLessonQuizDraft, startLessonQuiz, submitLessonHomework, submitLessonQuiz, type LessonAssessmentStatus, type LessonQuizAttemptResponse } from "@/api/client";
+import { putHomeworkObject } from "./homeworkDirectUpload";
 
 const props = defineProps<{ lessonId: string; assessment: LessonAssessmentConfig }>();
 const emit = defineEmits<{ completed: [] }>();
@@ -99,8 +100,7 @@ async function submitHomework() {
     const attachments = [];
     for (const file of homeworkFiles.value) {
       const intent = await createHomeworkUpload(props.lessonId, { fileName: file.name, contentType: file.type || "application/octet-stream", sizeBytes: file.size });
-      const upload = await fetch(intent.uploadUrl, { method: "PUT", headers: { "Content-Type": intent.contentType }, body: file });
-      if (!upload.ok) throw new Error("Не удалось загрузить один из файлов.");
+      await putHomeworkObject(intent.uploadUrl, file, intent.contentType);
       attachments.push({ objectKey: intent.objectKey, fileName: intent.fileName, contentType: intent.contentType, sizeBytes: intent.sizeBytes });
     }
     await submitLessonHomework(props.lessonId, { submissionKey: homeworkSubmissionKey.value, text: homeworkText.value.trim() || null, attachments });

@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
 import { z } from "zod";
 import { learningEngagementSnapshotSchema, lessonAssessmentDraftSchema, type LessonAssessmentConfig } from "@club/shared";
 import { assessmentReviews, contentCategories, contentItems, homeworkAttachments, homeworkSubmissions, learningEngagementSessions, lessonAssessmentOptions, lessonAssessmentQuestions, lessonAssessmentRevisions, lessonComments, lessonMaterials, quizAnswers, quizAttemptQuestions, quizAttemptResets, quizAttempts, userContentProgress, userLearningFavorites } from "../db/schema";
@@ -9,7 +10,7 @@ import { buildMessageAuthor } from "../community/messageMetadata";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { requireActiveMember } from "../middleware/requireActiveMember";
-import { createObjectUploadUrl, getObjectMetadata, getObjectReadUrl } from "../storage/s3";
+import { getObjectMetadata, getObjectReadUrl, uploadObjectStream } from "../storage/s3";
 import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription, isModuleCategoryDescription } from "../learning/moduleCategory";
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { mergeEngagementCounters } from "../learning/engagement";
@@ -18,8 +19,9 @@ import { toPublicAssessment } from "../learning/assessmentConfig";
 import { scoreQuizAttempt } from "../learning/assessmentScoring";
 import { getQuizAttemptAllowance } from "../learning/assessmentAttemptPolicy";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
-import { buildHomeworkObjectKey, classifyHomeworkContentType, ownsHomeworkObject } from "../learning/homeworkUpload";
+import { classifyHomeworkContentType, createHomeworkUploadIntent, ownsHomeworkObject, validateHomeworkUploadStreamRequest } from "../learning/homeworkUpload";
 import { buildQuizAttemptReview } from "../learning/assessmentStatusResult";
+import { logger } from "../logger";
 
 const commentPayloadSchema = z.object({
   body: z.string().trim().min(1).max(2000)
@@ -45,6 +47,10 @@ const homeworkUploadIntentSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   contentType: z.string().trim().min(1).max(160),
   sizeBytes: z.number().int().positive().max(100 * 1024 * 1024)
+});
+
+const homeworkUploadStreamSchema = homeworkUploadIntentSchema.extend({
+  objectKey: z.string().min(1).max(1000)
 });
 
 const homeworkSubmissionSchema = z.object({
@@ -515,10 +521,61 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
     if (!revision?.allowAttachments || !kind || !revision.allowedFileKinds?.includes(kind)) {
       return c.json({ error: "This file type is not allowed for the homework" }, 400);
     }
-    const token = randomUUID();
-    const objectKey = buildHomeworkObjectKey({ userId, token, fileName: parsed.data.fileName });
-    const upload = await createObjectUploadUrl({ key: objectKey, contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes });
-    return c.json({ ...upload, objectKey: upload.key, fileName: parsed.data.fileName, contentType: parsed.data.contentType, sizeBytes: parsed.data.sizeBytes });
+    return c.json(createHomeworkUploadIntent({
+      userId,
+      lessonId: item.id,
+      uploadToken: randomUUID(),
+      input: parsed.data
+    }));
+  })
+  .put("/items/:id/homework/uploads/:uploadToken", requireActiveMember, async (c) => {
+    const userId = c.get("userId");
+    const uploaded = homeworkUploadStreamSchema.safeParse({
+      objectKey: c.req.query("objectKey"),
+      fileName: c.req.query("fileName"),
+      contentType: c.req.query("contentType"),
+      sizeBytes: Number(c.req.query("sizeBytes"))
+    });
+    const expiresAt = z.coerce.date().safeParse(c.req.query("expiresAt"));
+    if (!uploaded.success || !expiresAt.success) return c.json({ error: "Некорректные параметры загрузки." }, 400);
+
+    const item = await db.query.contentItems.findFirst({ where: and(eq(contentItems.id, c.req.param("id")), publishedContentWhere()) });
+    if (!item || item.assessmentMode !== "homework" || !item.publishedAssessmentRevisionId) {
+      return c.json({ error: "Домашнее задание не настроено." }, 409);
+    }
+    const revision = await db.query.lessonAssessmentRevisions.findFirst({ where: eq(lessonAssessmentRevisions.id, item.publishedAssessmentRevisionId) });
+    const kind = classifyHomeworkContentType(uploaded.data.contentType);
+    if (!revision?.allowAttachments || !kind || !revision.allowedFileKinds?.includes(kind)) {
+      return c.json({ error: "Этот тип файла нельзя прикрепить к заданию." }, 400);
+    }
+
+    const rawLength = Number(c.req.header("content-length"));
+    const validation = validateHomeworkUploadStreamRequest({
+      uploaded: uploaded.data,
+      userId,
+      uploadToken: c.req.param("uploadToken"),
+      contentLength: Number.isSafeInteger(rawLength) ? rawLength : null,
+      contentType: c.req.header("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "",
+      hasBody: Boolean(c.req.raw.body),
+      expiresAt: expiresAt.data
+    });
+    if (!validation.ok) {
+      const status = validation.error === "content_length_mismatch" ? 413 : 400;
+      return c.json({ error: "Файл не прошёл проверку загрузки." }, status);
+    }
+
+    try {
+      await uploadObjectStream({
+        key: uploaded.data.objectKey,
+        body: Readable.fromWeb(c.req.raw.body as never),
+        contentType: uploaded.data.contentType,
+        sizeBytes: uploaded.data.sizeBytes
+      });
+      return c.json({ ok: true });
+    } catch (error) {
+      logger.warn({ error, userId, objectKey: uploaded.data.objectKey }, "Unable to stream homework upload to S3");
+      return c.json({ error: "Хранилище временно не приняло файл." }, 503);
+    }
   })
   .post("/items/:id/homework/submit", requireActiveMember, async (c) => {
     const userId = c.get("userId");

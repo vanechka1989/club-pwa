@@ -36,6 +36,21 @@
     }
   }
 
+  @homeworkUpload {
+    path /api/learning/items/*/homework/uploads/*
+    method PUT
+  }
+  handle @homeworkUpload {
+    request_body {
+      max_size 103MB
+    }
+    uri strip_prefix /api
+    reverse_proxy api:3000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
   handle_path /api/* {
     reverse_proxy api:3000 {
       header_up X-Forwarded-For {remote_host}

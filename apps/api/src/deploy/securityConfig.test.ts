@@ -171,17 +171,19 @@ describe("production security config", () => {
     expect(productionCompose.slice(apiStart, apiEnd)).toContain("stop_grace_period: 30s");
   });
 
-  it("bounds avatar and support streams before the general API handler without limiting lessons", () => {
+  it("bounds avatar, support and homework streams before the general API handler", () => {
     for (const source of [caddyfile, scaleCaddyfile]) {
       expect(source).toContain("@avatarUpload path /api/me/avatar/upload");
       expect(source).toContain("@supportUpload {");
       expect(source).toContain("path /api/support/uploads/*");
+      expect(source).toContain("path /api/learning/items/*/homework/uploads/*");
       expect(source).toContain("method PUT");
       expect(source).toContain("max_size 11MB");
       expect(source).toContain("max_size 53MB");
+      expect(source).toContain("max_size 103MB");
       expect(source.indexOf("handle @avatarUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
       expect(source.indexOf("handle @supportUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
-      expect(source).not.toContain("@learningUpload");
+      expect(source.indexOf("handle @homeworkUpload")).toBeLessThan(source.indexOf("handle_path /api/*"));
     }
   });
 });
