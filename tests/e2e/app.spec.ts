@@ -2787,6 +2787,8 @@ test("keeps compact admin navigation reachable on every release viewport", async
         { name: "390", width: 390, height: 844 },
         { name: "768", width: 768, height: 1024 }
       ]
+    : testInfo.project.name === "ios-safari-webkit"
+      ? [{ name: "390-ios", width: 390, height: 844 }]
     : [
         { name: "1024", width: 1024, height: 768 },
         { name: "1440", width: 1440, height: 900 }
@@ -2798,27 +2800,48 @@ test("keeps compact admin navigation reachable on every release viewport", async
 
     const quickNav = page.locator(".admin-quick-nav");
     await expect(page.locator(".admin-preview-switcher")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Режим:/ })).toBeVisible();
+    const modeTrigger = page.getByRole("button", { name: /^Режим просмотра:/ });
+    await expect(modeTrigger).toBeVisible();
+    await expect(modeTrigger).toHaveAttribute("aria-expanded", "false");
     await expect(quickNav).toBeVisible();
     await expect(quickNav.getByRole("button")).toHaveCount(4);
     await expect(quickNav.getByRole("button", { name: "Аналитика", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(quickNav.getByRole("button", { name: "Ещё", exact: true })).toBeVisible();
     await expectResponsiveLayoutIntegrity(page, "/admin");
     await quickNav.screenshot({ path: testInfo.outputPath(`admin-quick-nav-${viewport.name}.png`), animations: "disabled" });
+
+    await modeTrigger.click();
+    await expect(modeTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("menu", { name: "Режим просмотра" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`admin-preview-menu-${viewport.name}.png`), animations: "disabled" });
+    await page.getByRole("heading", { name: "Админка", exact: true }).click();
+    await expect(page.getByRole("menu", { name: "Режим просмотра" })).toHaveCount(0);
+
+    const moreTrigger = quickNav.getByRole("button", { name: "Ещё", exact: true });
+    await moreTrigger.click();
+    await expect(moreTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("menu", { name: "Все разделы" })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`admin-navigation-menu-${viewport.name}.png`), animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu", { name: "Все разделы" })).toHaveCount(0);
   }
 
-  await page.getByRole("button", { name: /^Режим:/ }).click();
-  const modeDialog = page.getByRole("dialog", { name: "Режим просмотра" });
-  await expect(modeDialog).toBeVisible();
-  await expect(modeDialog.getByRole("button", { name: "Разраб", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await modeDialog.getByRole("button", { name: "Разраб", exact: true }).click();
-  await expect(modeDialog).toHaveCount(0);
+  const modeTrigger = page.getByRole("button", { name: /^Режим просмотра:/ });
+  await modeTrigger.click();
+  const modeMenu = page.getByRole("menu", { name: "Режим просмотра" });
+  await expect(modeMenu.getByRole("menuitemradio", { name: "Разраб", exact: true })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("heading", { name: "Админка", exact: true }).click();
+  await expect(modeMenu).toHaveCount(0);
+  await page.getByRole("button", { name: "Ещё", exact: true }).click();
+
+  const navigationMenu = page.getByRole("menu", { name: "Все разделы" });
+  await expect(navigationMenu).toBeVisible();
+  await expect(navigationMenu.locator(".admin-navigation-menu-option")).toHaveCount(5);
+  await page.getByRole("heading", { name: "Админка", exact: true }).click();
+  await expect(navigationMenu).toHaveCount(0);
 
   await page.getByRole("button", { name: "Ещё", exact: true }).click();
-  const navigationDialog = page.getByRole("dialog", { name: "Все разделы" });
-  await expect(navigationDialog).toBeVisible();
-  await expect(navigationDialog.locator(".admin-navigation-sheet-option")).toHaveCount(5);
-  await navigationDialog.getByRole("button", { name: "Рассылки", exact: true }).click();
+  await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Рассылки", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Рассылки", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ещё", exact: true })).toHaveAttribute("aria-current", "page");
 });
@@ -2827,7 +2850,7 @@ test("keeps error tracker notification controls compact", async ({ page }, testI
   test.skip(!["android-compact-320", "viewport-390-844"].includes(testInfo.project.name));
   await page.goto("/admin");
   await page.getByRole("button", { name: "Ещё", exact: true }).click();
-  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
+  await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Сервер", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Сервер и интеграции" })).toBeVisible();
   const pushCheckbox = page.getByLabel("PWA push");
   const emailCheckbox = page.getByLabel("Email", { exact: true });
@@ -2856,7 +2879,7 @@ test("keeps the copyable error detail usable at all target widths", async ({ pag
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/admin");
     await page.getByRole("button", { name: "Ещё", exact: true }).click();
-    await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
+    await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Сервер", exact: true }).click();
     await page.getByRole("button", { name: /Не удалось открыть оплату/ }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/server/errors/${errorTrackerGroup.id}$`));
     await expect(page.getByRole("heading", { name: "Ошибка", exact: true })).toBeVisible();
@@ -3736,7 +3759,7 @@ test("keeps database backup tools usable in the server admin panel", async ({ pa
   await page.getByRole("button", { name: "Админ" }).click();
   await expect(page.getByRole("heading", { name: "Админка" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Ещё", exact: true }).click();
-  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Сервер", exact: true }).click();
+  await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Сервер", exact: true }).click();
   await expect(page.getByRole("heading", { exact: true, name: "Сервер" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Скачать базу" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Восстановить базу" })).toBeVisible();
@@ -3749,7 +3772,7 @@ test("keeps the mailing task screen header and footer usable", async ({ page }, 
 
   await page.getByRole("button", { name: "Админ" }).click();
   await page.getByRole("button", { name: "Ещё", exact: true }).click();
-  await page.getByRole("dialog", { name: "Все разделы" }).getByRole("button", { name: "Рассылки", exact: true }).click();
+  await page.getByRole("menu", { name: "Все разделы" }).getByRole("menuitem", { name: "Рассылки", exact: true }).click();
   await page.getByRole("button", { name: "Новая рассылка" }).click();
 
   const taskScreen = page.locator(".admin-mailing-task-screen .task-screen");

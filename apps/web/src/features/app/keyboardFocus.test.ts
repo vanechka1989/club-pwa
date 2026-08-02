@@ -25,7 +25,7 @@ describe("keyboard focus handling", () => {
   it("blurs active text fields when switching admin tabs", () => {
     expect(adminSource).toContain("selectAdminPanel");
     expect(adminSource).toMatch(/function selectAdminPanel[\s\S]*blurActiveTextField\(\)/);
-    expect(adminSource).toContain("@click=\"selectAdminPanel(panel.id)\"");
+    expect(adminSource).toMatch(/@click="[^"]*selectAdminPanel\(panel\.id\)"/);
   });
 
   it("keeps focused text fields visible above the mobile keyboard", () => {

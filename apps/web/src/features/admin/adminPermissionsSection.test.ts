@@ -42,11 +42,14 @@ describe("admin permissions section", () => {
     const tabsIndex = indexOfClass(adminSectionSource, "admin-quick-nav");
     const previewTriggerIndex = indexOfClass(adminSectionSource, "admin-preview-mode-trigger");
     const versionBadgeIndex = indexOfClass(adminSectionSource, "app-version-badge");
+    const versionMetaIndex = indexOfClass(adminSectionSource, "admin-version-meta");
 
     expect(adminTitleIndex).toBeGreaterThan(-1);
+    expect(versionMetaIndex).toBeGreaterThan(adminTitleIndex);
     expect(versionBadgeIndex).toBeGreaterThan(adminTitleIndex);
-    expect(versionBadgeIndex).toBeLessThan(previewTriggerIndex);
+    expect(versionBadgeIndex).toBeGreaterThan(versionMetaIndex);
     expect(previewTriggerIndex).toBeGreaterThan(adminTitleIndex);
+    expect(previewTriggerIndex).toBeGreaterThan(versionMetaIndex);
     expect(previewTriggerIndex).toBeLessThan(tabsIndex);
     expect(adminSectionSource).not.toContain("<h3>Администраторы</h3>");
     expect(permissionsPanelSource).toContain("<h3>Администраторы</h3>");

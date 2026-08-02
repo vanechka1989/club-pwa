@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes compact admin navigation as version 6.01", () => {
-    expect(appVersion).toBe("6.01");
-    expect(releaseNotes[0]?.title).toBe("Компактная навигация админки");
+  it("publishes dropdown admin navigation as version 6.02", () => {
+    expect(appVersion).toBe("6.02");
+    expect(releaseNotes[0]?.title).toBe("Выпадающая навигация админки");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/режим/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/раздел/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/выпада/i);
+
+    const compactNavigationRelease = releaseNotes.find((note) => note.version === "6.01");
+    expect(compactNavigationRelease?.title).toBe("Компактная навигация админки");
 
     const alignedAnalyticsRelease = releaseNotes.find((note) => note.version === "6.00");
     expect(alignedAnalyticsRelease?.title).toBe("Ровный выбор периода аналитики");
@@ -285,7 +288,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact admin navigation");
+    expect(englishNotes[0]?.title).toBe("Dropdown admin navigation");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -31,7 +31,8 @@ describe("admin storage section", () => {
     expect(storagePanelSource).toContain("selectedStorageSettingsTitle");
     expect(adminSectionSource).toContain("openSelectedStorageFiles");
     expect(adminSectionSource).toContain("admin-preview-mode-trigger");
-    expect(adminSectionSource).toContain('title="Режим просмотра"');
+    expect(adminSectionSource).toContain("admin-preview-mode-menu");
+    expect(adminSectionSource).not.toContain("<BottomSheet");
     expect(adminSectionSource).not.toContain("admin-preview-switcher");
     expect(adminSectionSource).toContain("ui.setPreviewMode");
     expect(adminSectionSource).toContain('"preview-mode-change": [mode: PreviewMode];');

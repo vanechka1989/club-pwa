@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact admin navigation",
+  title: "Dropdown admin navigation",
   items: [
-    "The large preview switcher has moved into a single compact mode button in the header.",
-    "Analytics, Clients, and Payments stay visible in a sticky quick bar while secondary sections live under More.",
-    "Permission-aware menus preserve the active section and remain usable across mobile and wide screens."
+    "The preview-mode switcher is now integrated into the compact version block instead of occupying a separate row.",
+    "Preview modes and secondary sections open in lightweight dropdown menus without dimming or shifting the analytics page.",
+    "Menus close on outside click or Escape, respect administrator permissions, and preserve the active section."
   ]
 };
 
