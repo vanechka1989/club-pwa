@@ -888,6 +888,55 @@ async function mockApi(page: Page, sessionUser = currentUser) {
       return;
     }
 
+    if (path === "/admin/analytics/learning-engagement") {
+      await route.fulfill(json({
+        summary: { uniqueViewers: 3, views: 27, medianActiveSeconds: 8, quickExitPercent: 41 },
+        assessments: {
+          homeworkSubmitted: 4,
+          homeworkAccepted: 2,
+          homeworkPendingReview: 1,
+          homeworkNeedsRevision: 1,
+          quizSubmitted: 3,
+          quizPassed: 2
+        },
+        cards: [
+          {
+            contentItemId: "lesson-admin-1",
+            title: "Тестовая 1",
+            categoryTitle: "Обзорный",
+            viewers: 3,
+            views: 18,
+            engagedViews: 7,
+            totalActiveSeconds: 81,
+            averageActiveSeconds: 9,
+            medianActiveSeconds: 8,
+            quickExits: 5,
+            quickExitPercent: 38,
+            videoSeconds: 15,
+            completedUsers: 2,
+            lastViewedAt: now
+          },
+          {
+            contentItemId: "lesson-admin-2",
+            title: "Первый",
+            categoryTitle: "Вертикальные карточки",
+            viewers: 1,
+            views: 4,
+            engagedViews: 1,
+            totalActiveSeconds: 16,
+            averageActiveSeconds: 4,
+            medianActiveSeconds: 3,
+            quickExits: 3,
+            quickExitPercent: 75,
+            videoSeconds: 0,
+            completedUsers: 0,
+            lastViewedAt: now
+          }
+        ]
+      }));
+      return;
+    }
+
     if (path === "/admin/storage/s3") {
       await route.fulfill(json({ settings: s3StorageSettings }));
       return;
@@ -2809,6 +2858,45 @@ test("renders visual admin analytics overview without viewport overflow", async 
   }
   await page.getByRole("button", { name: "Назад" }).click();
   await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
+
+  if (testInfo.project.name === "release-android") {
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+  await page.getByRole("button", { name: /Средний прогресс обучения: \d+%/ }).click();
+  await expect(page.getByRole("heading", { name: "Обучение", exact: true })).toBeVisible();
+
+  const learningDashboard = page.locator(".admin-learning-dashboard");
+  const learningCards = learningDashboard.locator(".admin-learning-engagement-card");
+  const quickExitBars = learningDashboard.locator(".admin-learning-quick-exit-bar > span");
+  await expect(learningDashboard).toBeVisible();
+  await expect(learningDashboard.locator(":scope > .admin-learning-overview-card")).toBeVisible();
+  await expect(learningDashboard.locator(":scope > .admin-learning-assessment-summary")).toBeVisible();
+  await expect(learningDashboard.locator(":scope > .admin-learning-materials")).toBeVisible();
+  await expect(learningDashboard.locator(".admin-learning-overview-metrics > article")).toHaveCount(4);
+  await expect.poll(() => learningCards.count()).toBeGreaterThan(0);
+  await expect(quickExitBars).toHaveCount(await learningCards.count());
+
+  const learningLayout = await learningDashboard.evaluate((element) => {
+    const cards = [...element.querySelectorAll<HTMLElement>(".admin-learning-engagement-card")];
+    const bars = [...element.querySelectorAll<HTMLElement>(".admin-learning-quick-exit-bar > span")];
+    return {
+      dashboardWidth: Math.round(element.getBoundingClientRect().width),
+      overviewWidth: Math.round(element.querySelector<HTMLElement>(".admin-learning-overview-card")!.getBoundingClientRect().width),
+      assessmentWidth: Math.round(element.querySelector<HTMLElement>(".admin-learning-assessment-summary")!.getBoundingClientRect().width),
+      materialWidths: cards.map((card) => Math.round(card.getBoundingClientRect().width)),
+      barWidths: bars.map((bar) => Math.round(bar.getBoundingClientRect().width)),
+      trackWidths: bars.map((bar) => Math.round(bar.parentElement!.getBoundingClientRect().width))
+    };
+  });
+  expect(learningLayout.overviewWidth).toBe(learningLayout.dashboardWidth);
+  expect(learningLayout.assessmentWidth).toBe(learningLayout.dashboardWidth);
+  expect(new Set(learningLayout.materialWidths).size).toBe(1);
+  expect(learningLayout.barWidths.every((width) => width > 0)).toBe(true);
+  expect(learningLayout.barWidths.every((width, index) => width <= learningLayout.trackWidths[index]!)).toBe(true);
+  await expectResponsiveLayoutIntegrity(page, "/admin learning analytics");
+  if (testInfo.project.name === "release-android") {
+    await page.screenshot({ path: testInfo.outputPath("admin-learning-dashboard.png"), fullPage: false, animations: "disabled" });
+  }
 });
 
 test("keeps compact admin navigation reachable on every release viewport", async ({ page }, testInfo) => {

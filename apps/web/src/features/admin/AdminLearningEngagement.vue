@@ -58,20 +58,26 @@ watch(() => [props.from, props.to], load);
 </script>
 
 <template>
-  <div class="admin-learning-engagement">
+  <div class="admin-learning-engagement admin-learning-dashboard">
     <button v-if="drilldown" class="admin-learning-back ui-button" type="button" @click="drilldown = null">
       <ArrowLeft aria-hidden="true" /> К карточкам
     </button>
 
     <template v-if="!drilldown">
-      <div v-if="dashboard" class="admin-learning-engagement-kpis" aria-label="Сводка просмотров обучения">
-        <article><Users aria-hidden="true" /><span>Уникальные зрители</span><strong>{{ dashboard.summary.uniqueViewers }}</strong></article>
-        <article><Eye aria-hidden="true" /><span>Открытия</span><strong>{{ dashboard.summary.views }}</strong></article>
-        <article><Clock3 aria-hidden="true" /><span>Медианное время</span><strong>{{ duration(dashboard.summary.medianActiveSeconds) }}</strong></article>
-        <article><Zap aria-hidden="true" /><span>Быстрые выходы</span><strong>{{ dashboard.summary.quickExitPercent }}%</strong></article>
-      </div>
+      <section v-if="dashboard" class="admin-learning-overview-card ui-card" aria-label="Сводка просмотров обучения">
+        <header class="admin-learning-section-head">
+          <div><strong>Обзор активности</strong><small>Как клиенты изучают материалы</small></div>
+          <b>{{ dashboard.cards.length }} материалов</b>
+        </header>
+        <div class="admin-learning-overview-metrics">
+          <article><Users aria-hidden="true" /><span>Уникальные зрители</span><strong>{{ dashboard.summary.uniqueViewers }}</strong></article>
+          <article><Eye aria-hidden="true" /><span>Открытия</span><strong>{{ dashboard.summary.views }}</strong></article>
+          <article><Clock3 aria-hidden="true" /><span>Медиана</span><strong>{{ duration(dashboard.summary.medianActiveSeconds) }}</strong></article>
+          <article><Zap aria-hidden="true" /><span>Быстрые выходы</span><strong>{{ dashboard.summary.quickExitPercent }}%</strong></article>
+        </div>
+      </section>
 
-      <section v-if="dashboard" class="admin-learning-assessment-summary" aria-label="Тесты и домашние задания">
+      <section v-if="dashboard" class="admin-learning-assessment-summary ui-card" aria-label="Тесты и домашние задания">
         <header><ClipboardCheck aria-hidden="true" /><div><strong>Тесты и домашние задания</strong><small>Результаты за выбранный период</small></div></header>
         <div>
           <article><FileCheck2 aria-hidden="true" /><span>ДЗ отправлено</span><strong>{{ dashboard.assessments.homeworkSubmitted }}</strong></article>
@@ -86,18 +92,28 @@ watch(() => [props.from, props.to], load);
       <div v-else-if="error" class="admin-learning-state admin-learning-state-error"><p>{{ error }}</p><button class="ui-button" type="button" @click="load">Повторить</button></div>
       <p v-else-if="dashboard && !dashboard.cards.length" class="admin-learning-state">Данные появятся после новых просмотров карточек.</p>
 
-      <div v-else-if="dashboard" class="admin-learning-engagement-list">
-        <button v-for="card in dashboard.cards" :key="card.contentItemId" class="admin-learning-engagement-card ui-button" type="button" @click="loadUsers(card)">
-          <header><div><small>{{ card.categoryTitle }}</small><strong>{{ card.title }}</strong></div><ChevronRight aria-hidden="true" /></header>
-          <div class="admin-learning-card-metrics">
-            <span><small>Зрители</small><b>{{ card.viewers }}</b></span>
-            <span><small>Открытия</small><b>{{ card.views }}</b></span>
-            <span><small>Среднее время</small><b>{{ duration(card.averageActiveSeconds) }}</b></span>
-            <span><small>Быстрые выходы</small><b>{{ card.quickExitPercent }}%</b></span>
-          </div>
-          <footer><span>Активных просмотров: {{ card.engagedViews }}</span><span>Завершили: {{ card.completedUsers }}</span><span v-if="card.videoSeconds">Видео: {{ duration(card.videoSeconds) }}</span></footer>
-        </button>
-      </div>
+      <section v-else-if="dashboard" class="admin-learning-materials" aria-label="Материалы обучения">
+        <header class="admin-learning-materials-head">
+          <div><h4>Материалы</h4><p>Активность по каждой карточке</p></div>
+          <strong>{{ dashboard.cards.length }}</strong>
+        </header>
+        <div class="admin-learning-engagement-list">
+          <button v-for="card in dashboard.cards" :key="card.contentItemId" class="admin-learning-engagement-card ui-button" type="button" @click="loadUsers(card)">
+            <header><div><small>{{ card.categoryTitle }}</small><strong>{{ card.title }}</strong></div><ChevronRight aria-hidden="true" /></header>
+            <div class="admin-learning-card-metrics">
+              <span><small>Зрители</small><b>{{ card.viewers }}</b></span>
+              <span><small>Открытия</small><b>{{ card.views }}</b></span>
+              <span><small>Среднее время</small><b>{{ duration(card.averageActiveSeconds) }}</b></span>
+              <span class="admin-learning-quick-exit-metric"><small>Быстрые выходы</small><b>{{ card.quickExitPercent }}%</b><i class="admin-learning-quick-exit-bar" aria-hidden="true"><span :style="{ width: `max(4px, ${card.quickExitPercent}%)` }"></span></i></span>
+            </div>
+            <footer>
+              <span><b>{{ card.engagedViews }}</b><small>активных</small></span>
+              <span><b>{{ card.completedUsers }}</b><small>завершили</small></span>
+              <span v-if="card.videoSeconds"><b>{{ duration(card.videoSeconds) }}</b><small>видео</small></span>
+            </footer>
+          </button>
+        </div>
+      </section>
     </template>
 
     <template v-else>
@@ -117,6 +133,3 @@ watch(() => [props.from, props.to], load);
 </template>
 
 <style src="./adminLearningEngagement.css"></style>
-<style scoped>
-.admin-learning-assessment-summary{display:grid;gap:12px;margin:14px 0;padding:15px;border:1px solid rgba(49,221,185,.22);border-radius:19px;background:rgba(7,62,51,.48)}.admin-learning-assessment-summary>header{display:flex;align-items:center;gap:10px}.admin-learning-assessment-summary>header>svg{width:23px;color:#32ddba}.admin-learning-assessment-summary>header>div{display:grid;gap:2px}.admin-learning-assessment-summary small{color:#9eb5af}.admin-learning-assessment-summary>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.admin-learning-assessment-summary article{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:7px;padding:10px;border-radius:13px;background:rgba(0,0,0,.13)}.admin-learning-assessment-summary article svg{width:18px;color:#37d9b7}.admin-learning-assessment-summary article span{color:#b8cbc6;font-size:.76rem}.admin-learning-assessment-summary article strong{font-size:1rem}.admin-learning-assessment-summary>p{margin:0;color:#f3c979;font-size:.8rem}
-</style>

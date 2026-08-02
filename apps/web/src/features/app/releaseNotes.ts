@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Visual community analytics",
+  title: "Organized learning analytics",
   items: [
-    "Metrics, the hot topic, participant ranking, and the daily chart now live in five evenly spaced analytics blocks.",
-    "Participant rankings include comparison bars, so the most active people are visible without reading every number.",
-    "The dashboard keeps a consistent grid and spacing across phones, tablets, and wide screens."
+    "Learning metrics now live in one overview, while tests and homework have their own balanced summary block.",
+    "Materials share one consistent structure with compact outcome labels and a visual quick-exit indicator.",
+    "The new composition keeps readable spacing across phones, tablets, and wide screens."
   ]
 };
 

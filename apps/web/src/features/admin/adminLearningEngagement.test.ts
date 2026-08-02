@@ -25,7 +25,7 @@ describe("admin learning engagement dashboard", () => {
   });
 
   it("uses responsive grids without horizontal overflow", () => {
-    expect(styles).toMatch(/\.admin-learning-engagement-kpis\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+    expect(styles).toMatch(/\.admin-learning-overview-metrics\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
     expect(styles).toMatch(/\.admin-learning-engagement-card\s*\{[^}]*min-width:\s*0/s);
   });
 });
