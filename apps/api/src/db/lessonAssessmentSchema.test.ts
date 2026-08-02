@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { getTableColumns } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import migrationJournal from "../../drizzle/meta/_journal.json";
@@ -14,6 +14,7 @@ import {
   quizAttemptResets,
   quizAttempts
 } from "./schema";
+import * as databaseSchema from "./schema";
 
 const migration = readFileSync(new URL("../../drizzle/0065_lesson_assessments.sql", import.meta.url), "utf8");
 const resetMigration = readFileSync(new URL("../../drizzle/0066_homework_submission_resets.sql", import.meta.url), "utf8");
@@ -56,5 +57,15 @@ describe("lesson assessment persistence", () => {
     expect(resetMigration).toContain('CREATE UNIQUE INDEX "app_notifications_assessment_reset_unique"');
     expect(resetMigration).toContain('CREATE UNIQUE INDEX "admin_action_logs_homework_reset_unique"');
     expect(migrationJournal.entries.find((entry) => entry.tag === "0066_homework_submission_resets")).toMatchObject({ idx: 66, version: "7" });
+  });
+
+  it("persists each dismissed homework review per user and submission", () => {
+    const migrationUrl = new URL("../../drizzle/0068_homework_review_dismissals.sql", import.meta.url);
+    expect(existsSync(migrationUrl)).toBe(true);
+    expect("homeworkReviewDismissals" in databaseSchema).toBe(true);
+    expect(Object.keys(getTableColumns(databaseSchema.homeworkReviewDismissals))).toEqual(expect.arrayContaining([
+      "userId", "homeworkSubmissionId", "dismissedAt"
+    ]));
+    expect(migrationJournal.entries.find((entry) => entry.tag === "0068_homework_review_dismissals")).toMatchObject({ idx: 68, version: "7" });
   });
 });

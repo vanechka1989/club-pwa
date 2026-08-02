@@ -15,6 +15,7 @@
 - A new submission version can produce a new notice.
 - Every close control is at least 44×44 px and has an accessible name.
 - Existing learning continuation behavior remains unchanged.
+- The revision status label is `Домашнее задание не принято`; review text is introduced by `Комментарий модератора`.
 
 ---
 

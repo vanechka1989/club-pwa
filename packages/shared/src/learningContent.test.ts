@@ -154,26 +154,32 @@ describe("learningContentSchema", () => {
 });
 
 describe("learningHomeResponseSchema", () => {
-  it.each(["needs_revision", "accepted"] as const)("exposes the latest %s homework review on learning home", (status) => {
+  it.each(["needs_revision", "accepted"] as const)("exposes multiple %s homework reviews on learning home", (status) => {
     const parsed = learningProgressSummarySchema.parse({
       totalItems: 2,
       completedItems: 1,
       lastOpenedItem: null,
       lastOpenedAt: null,
       lastOpenedPlaybackPositionSeconds: 0,
-      latestHomeworkReview: {
+      homeworkReviewNotices: [{
+        submissionId: "submission-1",
         contentItemId: "lesson-homework",
         status,
         reviewComment: "Добавьте больше примеров",
         reviewedAt: "2026-08-02T16:40:00.000Z"
-      }
+      }, {
+        submissionId: "submission-2",
+        contentItemId: "lesson-homework-2",
+        status: "accepted",
+        reviewComment: "Отличная работа",
+        reviewedAt: "2026-08-02T17:40:00.000Z"
+      }]
     });
 
-    expect(parsed.latestHomeworkReview).toEqual({
-      contentItemId: "lesson-homework",
-      status,
-      reviewComment: "Добавьте больше примеров",
-      reviewedAt: "2026-08-02T16:40:00.000Z"
+    expect(parsed.homeworkReviewNotices).toHaveLength(2);
+    expect(parsed.homeworkReviewNotices?.[0]).toEqual({
+      submissionId: "submission-1", contentItemId: "lesson-homework", status,
+      reviewComment: "Добавьте больше примеров", reviewedAt: "2026-08-02T16:40:00.000Z"
     });
   });
 
@@ -184,12 +190,13 @@ describe("learningHomeResponseSchema", () => {
       lastOpenedItem: null,
       lastOpenedAt: null,
       lastOpenedPlaybackPositionSeconds: 0,
-      latestHomeworkReview: {
+      homeworkReviewNotices: [{
+        submissionId: "submission-1",
         contentItemId: "lesson-homework",
         status: "pending_review",
         reviewComment: null,
         reviewedAt: "2026-08-02T16:40:00.000Z"
-      }
+      }]
     })).toThrow();
   });
 

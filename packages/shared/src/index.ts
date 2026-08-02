@@ -535,7 +535,14 @@ export const learningProgressSummarySchema = z.object({
     status: z.enum(["needs_revision", "accepted"]),
     reviewComment: z.string().nullable(),
     reviewedAt: z.string().datetime()
-  }).nullable().optional()
+  }).nullable().optional(),
+  homeworkReviewNotices: z.array(z.object({
+    submissionId: z.string(),
+    contentItemId: z.string(),
+    status: z.enum(["needs_revision", "accepted"]),
+    reviewComment: z.string().nullable(),
+    reviewedAt: z.string().datetime()
+  })).optional()
 });
 export type LearningProgressSummary = z.infer<typeof learningProgressSummarySchema>;
 

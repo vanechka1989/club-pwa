@@ -1008,6 +1008,20 @@ export const assessmentReviews = pgTable(
   })
 );
 
+export const homeworkReviewDismissals = pgTable(
+  "homework_review_dismissals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    homeworkSubmissionId: uuid("homework_submission_id").notNull().references(() => homeworkSubmissions.id, { onDelete: "cascade" }),
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    userSubmissionIdx: uniqueIndex("homework_review_dismissals_user_submission_unique").on(table.userId, table.homeworkSubmissionId),
+    userDismissedIdx: index("homework_review_dismissals_user_dismissed_idx").on(table.userId, table.dismissedAt)
+  })
+);
+
 export const quizAttemptResets = pgTable(
   "quiz_attempt_resets",
   {
