@@ -154,6 +154,45 @@ describe("learningContentSchema", () => {
 });
 
 describe("learningHomeResponseSchema", () => {
+  it.each(["needs_revision", "accepted"] as const)("exposes the latest %s homework review on learning home", (status) => {
+    const parsed = learningProgressSummarySchema.parse({
+      totalItems: 2,
+      completedItems: 1,
+      lastOpenedItem: null,
+      lastOpenedAt: null,
+      lastOpenedPlaybackPositionSeconds: 0,
+      latestHomeworkReview: {
+        contentItemId: "lesson-homework",
+        status,
+        reviewComment: "Добавьте больше примеров",
+        reviewedAt: "2026-08-02T16:40:00.000Z"
+      }
+    });
+
+    expect(parsed.latestHomeworkReview).toEqual({
+      contentItemId: "lesson-homework",
+      status,
+      reviewComment: "Добавьте больше примеров",
+      reviewedAt: "2026-08-02T16:40:00.000Z"
+    });
+  });
+
+  it("rejects a homework notice that is not a completed review decision", () => {
+    expect(() => learningProgressSummarySchema.parse({
+      totalItems: 1,
+      completedItems: 0,
+      lastOpenedItem: null,
+      lastOpenedAt: null,
+      lastOpenedPlaybackPositionSeconds: 0,
+      latestHomeworkReview: {
+        contentItemId: "lesson-homework",
+        status: "pending_review",
+        reviewComment: null,
+        reviewedAt: "2026-08-02T16:40:00.000Z"
+      }
+    })).toThrow();
+  });
+
   it("keeps old progress responses compatible and exposes lesson status ids", () => {
     const parsed = learningProgressSummarySchema.parse({
       totalItems: 2,

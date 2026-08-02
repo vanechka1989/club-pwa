@@ -1,4 +1,5 @@
-import { and, asc, count, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, notExists, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
@@ -15,6 +16,7 @@ import { decodeModuleCategoryDefaultCardLayout, decodeModuleCategoryDescription,
 import { getFirstVisualLessonCoverUrl } from "../learning/lessonCover";
 import { mergeEngagementCounters } from "../learning/engagement";
 import { serializeLearningProgressRows } from "../learning/learningProgress";
+import { serializeHomeworkReviewNotice } from "../learning/homeworkReviewNotice";
 import { toPublicAssessment } from "../learning/assessmentConfig";
 import { scoreQuizAttempt } from "../learning/assessmentScoring";
 import { getQuizAttemptAllowance } from "../learning/assessmentAttemptPolicy";
@@ -263,6 +265,37 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
       : [];
     const lastOpenedProgress = lastOpenedRow?.progress ?? null;
     const lastOpenedItem = lastOpenedRow?.item ?? null;
+    const newerHomeworkSubmission = alias(homeworkSubmissions, "newer_homework_submission");
+    const [latestHomeworkReviewRow] = moduleContentWhere
+      ? await db
+          .select({
+            contentItemId: homeworkSubmissions.contentItemId,
+            status: homeworkSubmissions.status,
+            reviewedAt: homeworkSubmissions.reviewedAt,
+            reviewComment: assessmentReviews.comment
+          })
+          .from(homeworkSubmissions)
+          .innerJoin(contentItems, eq(contentItems.id, homeworkSubmissions.contentItemId))
+          .leftJoin(assessmentReviews, eq(assessmentReviews.homeworkSubmissionId, homeworkSubmissions.id))
+          .where(and(
+            eq(homeworkSubmissions.userId, userId),
+            moduleContentWhere,
+            inArray(homeworkSubmissions.status, ["needs_revision", "accepted"]),
+            isNotNull(homeworkSubmissions.reviewedAt),
+            notExists(
+              db
+                .select({ id: newerHomeworkSubmission.id })
+                .from(newerHomeworkSubmission)
+                .where(and(
+                  eq(newerHomeworkSubmission.userId, homeworkSubmissions.userId),
+                  eq(newerHomeworkSubmission.contentItemId, homeworkSubmissions.contentItemId),
+                  gt(newerHomeworkSubmission.version, homeworkSubmissions.version)
+                ))
+            )
+          ))
+          .orderBy(desc(homeworkSubmissions.reviewedAt))
+          .limit(1)
+      : [];
 
     return c.json({
       categories,
@@ -275,7 +308,8 @@ export const learningRoute = new Hono<{ Variables: AuthVariables }>()
         lastOpenedItem: lastOpenedItem ? await serializeContentItem(lastOpenedItem, true) : null,
         lastOpenedMaterialId: lastOpenedItem ? lastOpenedProgress?.lastOpenedMaterialId ?? null : null,
         lastOpenedAt: lastOpenedProgress?.lastOpenedAt.toISOString() ?? null,
-        lastOpenedPlaybackPositionSeconds: lastOpenedItem ? lastOpenedProgress?.playbackPositionSeconds ?? 0 : 0
+        lastOpenedPlaybackPositionSeconds: lastOpenedItem ? lastOpenedProgress?.playbackPositionSeconds ?? 0 : 0,
+        latestHomeworkReview: serializeHomeworkReviewNotice(latestHomeworkReviewRow)
       }
     });
   })

@@ -24,14 +24,15 @@
 - Modify: `packages/shared/src/index.ts`
 - Test: `packages/shared/src/learningContent.test.ts`
 - Modify: `apps/api/src/routes/learning.ts`
+- Create: `apps/api/src/learning/homeworkReviewNotice.ts`
 - Create: `apps/api/src/learning/homeworkReviewNotice.test.ts`
 
 **Interfaces:**
 - Produces: `LearningProgressSummary.latestHomeworkReview: { contentItemId: string; status: "needs_revision" | "accepted"; reviewComment: string | null; reviewedAt: string } | null`.
 
-- [ ] **Step 1: Write failing shared and API source-contract tests**
+- [ ] **Step 1: Write failing shared and API behavior tests**
 
-Assert that `learningHomeResponseSchema` parses `latestHomeworkReview` for both statuses and rejects another status. Assert that the learning route filters by the current user and published module content, orders by `reviewedAt` descending, and returns the associated review comment.
+Assert that `learningHomeResponseSchema` parses `latestHomeworkReview` for both statuses and rejects another status. Test `serializeHomeworkReviewNotice(row)` with literal fixtures so it returns the content item, narrowed status, ISO review time and the associated comment, while returning `null` for unsupported or unreviewed rows.
 
 - [ ] **Step 2: Run tests and verify RED**
 
@@ -41,7 +42,7 @@ Expected: FAIL because `latestHomeworkReview` is absent from the schema and rout
 
 - [ ] **Step 3: Implement the minimal contract and query**
 
-Add the nullable object to `learningProgressSummarySchema`. In `GET /learning`, query the newest reviewed homework submission for the authenticated user inside `moduleContentWhere`, left join its review, and serialize `contentItemId`, narrowed status, comment, and ISO review time.
+Add the nullable object to `learningProgressSummarySchema`. Implement and use `serializeHomeworkReviewNotice(row)`. In `GET /learning`, query the newest reviewed homework submission for the authenticated user inside `moduleContentWhere`, left join its review, and serialize `contentItemId`, narrowed status, comment, and ISO review time.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 

@@ -529,7 +529,13 @@ export const learningProgressSummarySchema = z.object({
   lastOpenedItem: learningContentSchema.nullable(),
   lastOpenedMaterialId: z.string().nullable().optional(),
   lastOpenedAt: z.string().datetime().nullable(),
-  lastOpenedPlaybackPositionSeconds: z.number().int().nonnegative()
+  lastOpenedPlaybackPositionSeconds: z.number().int().nonnegative(),
+  latestHomeworkReview: z.object({
+    contentItemId: z.string(),
+    status: z.enum(["needs_revision", "accepted"]),
+    reviewComment: z.string().nullable(),
+    reviewedAt: z.string().datetime()
+  }).nullable().optional()
 });
 export type LearningProgressSummary = z.infer<typeof learningProgressSummarySchema>;
 
