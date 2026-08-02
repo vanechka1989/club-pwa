@@ -33,19 +33,30 @@ describe("AdminFinanceAnalytics", () => {
   it("shows payment systems, products and lifetime retention in one dashboard", () => {
     render(AdminFinanceAnalytics, { props: { data, loading: false, error: false } });
 
+    expect(screen.getByRole("heading", { name: "Финансовый пульс" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Успешные оплаты: 80%. 12 из 15 попыток" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Активны сейчас: 64,9%. 179 из 276 клиентов" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Не продлили: 35,1%. 97 клиентов" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Ушли после продлений: 21,6%. 21 клиент" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Платёжные системы" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Продукты и тарифы" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Удержание клиентов" })).toBeTruthy();
     expect(screen.getByText("За всё время")).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Доля выручки Lava: 71,4%. 30.000 ₽/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Доля выручки Клуб Pro: 71,4%. 30.000 ₽/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Удержание: 64,9%. 179 активны из 276" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Купили один раз: 78,4%. 76 клиентов" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Продлевали, но ушли: 21,6%. 21 клиент" })).toBeTruthy();
+    expect(document.querySelectorAll(".admin-finance-stage-bar")).toHaveLength(3);
 
     const retention = screen.getByLabelText("Удержание платящих клиентов");
     expect(within(retention).getByText("276")).toBeTruthy();
     expect(within(retention).getByText("179")).toBeTruthy();
-    expect(within(retention).getByText("64,9%", { exact: true })).toBeTruthy();
+    expect(within(retention).getAllByText("64,9%", { exact: true }).length).toBeGreaterThan(0);
     expect(within(retention).getByText("97")).toBeTruthy();
-    expect(within(retention).getByText("35,1%", { exact: true })).toBeTruthy();
-    expect(within(retention).getByText("76")).toBeTruthy();
-    expect(within(retention).getByText("21")).toBeTruthy();
+    expect(within(retention).getAllByText("35,1%", { exact: true }).length).toBeGreaterThan(0);
+    expect(within(retention).getAllByText("76").length).toBeGreaterThan(0);
+    expect(within(retention).getAllByText("21").length).toBeGreaterThan(0);
     expect(within(retention).getByText("После 1 продления")).toBeTruthy();
     expect(screen.getAllByText("Lava").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Клуб Pro").length).toBeGreaterThan(0);
