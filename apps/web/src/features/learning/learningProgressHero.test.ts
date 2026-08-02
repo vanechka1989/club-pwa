@@ -11,7 +11,7 @@ describe("unified learning progress", () => {
     [33, "Продолжайте обучение", "Продолжить"],
     [100, "Обучение завершено", "Повторить последний урок"]
   ])("renders the %i%% state with one primary action", async (percent, state, action) => {
-    const { emitted } = render(LearningProgressHero, { props: { percent, completed: percent === 100 ? 3 : percent ? 1 : 0, total: 3, state, title: "Тестовая 1", context: "Обзорный", imageUrl: "/cover.jpg", actionLabel: action } });
+    const { emitted } = render(LearningProgressHero, { props: { percent, completed: percent === 100 ? 3 : percent ? 1 : 0, total: 3, state, title: "Тестовая 1", context: "Обзорный", imageUrl: "/cover.jpg", actionLabel: action, reviewCount: 0 } });
     expect(screen.getByRole("progressbar", { name: "Общий прогресс обучения" }).getAttribute("aria-valuenow")).toBe(String(percent));
     expect(screen.getByText(state)).toBeTruthy();
     const button = screen.getByRole("button", { name: new RegExp(action) });
@@ -26,5 +26,19 @@ describe("unified learning progress", () => {
     expect(screen.getByText("1 из 3 уроков")).toBeTruthy();
     expect(screen.getByText("33%")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Прогресс модуля Обзорный" }).getAttribute("aria-valuenow")).toBe("33");
+  });
+
+  it("opens the homework review inbox from one compact counted action", async () => {
+    const { emitted } = render(LearningProgressHero, { props: {
+      percent: 33, completed: 1, total: 3, state: "Продолжайте обучение",
+      title: "Тестовая 1", context: "Обзорный", imageUrl: "/cover.jpg", actionLabel: "Продолжить",
+      reviewCount: 2
+    } });
+
+    const launcher = screen.getByRole("button", { name: "Открыть результаты проверок ДЗ: 2" });
+    expect(screen.getByText("Проверки ДЗ")).toBeTruthy();
+    expect(screen.getByText("2")).toBeTruthy();
+    await fireEvent.click(launcher);
+    expect(emitted().openReviews).toHaveLength(1);
   });
 });

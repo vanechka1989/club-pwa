@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/vue";
 import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getLearningContent, getLearningHome, getLessonComments, saveLearningPlayback } from "@/api/client";
+import { dismissHomeworkReviewNotice, getLearningContent, getLearningHome, getLessonComments, saveLearningPlayback } from "@/api/client";
 import { useSessionStore } from "@/stores/session";
 import LearningSection from "./LearningSection.vue";
 
@@ -10,6 +10,7 @@ vi.mock("@/api/client", () => ({
   createAdminLearningMaterial: vi.fn(),
   deleteAdminLearningCategory: vi.fn(),
   deleteAdminLearningMaterial: vi.fn(),
+  dismissHomeworkReviewNotice: vi.fn(),
   getAdminLearning: vi.fn(),
   getLearningContent: vi.fn(),
   getLearningHome: vi.fn(),
@@ -118,6 +119,7 @@ describe("Learning section member content", () => {
       ok: true,
       playbackPositionSeconds: 252
     });
+    vi.mocked(dismissHomeworkReviewNotice).mockResolvedValue({ ok: true });
     vi.mocked(getLessonComments).mockResolvedValue({ comments: [], mutedUntil: null, mutedPermanently: false });
   });
 
@@ -151,29 +153,42 @@ describe("Learning section member content", () => {
     expect(await screen.findByText("Пройден")).toBeTruthy();
   });
 
-  it("shows a homework revision with the admin comment and opens that lesson", async () => {
+  it("opens all homework results and dismisses only the selected one", async () => {
     const home = await vi.mocked(getLearningHome)();
     vi.mocked(getLearningHome).mockResolvedValueOnce({
       ...home,
       progress: {
         ...home.progress,
-        latestHomeworkReview: {
+        homeworkReviewNotices: [{
+          submissionId: "submission-revision",
           contentItemId: "lesson-1",
           status: "needs_revision",
           reviewComment: "Добавьте пример и загрузите исправленный файл",
           reviewedAt: "2026-08-02T16:40:00.000Z"
-        }
+        }, {
+          submissionId: "submission-accepted",
+          contentItemId: "lesson-1",
+          status: "accepted",
+          reviewComment: "Отличная работа, всё принято",
+          reviewedAt: "2026-08-02T16:45:00.000Z"
+        }]
       }
     });
 
     renderAsMember();
 
-    expect(await screen.findByText("Нужна доработка")).toBeTruthy();
-    expect(screen.getByText("Добавьте пример и загрузите исправленный файл")).toBeTruthy();
-    const reviewAction = screen.getByRole("button", { name: "Исправить ДЗ: Урок с содержимым" });
-    await fireEvent.click(reviewAction);
+    await fireEvent.click(await screen.findByRole("button", { name: "Открыть результаты проверок ДЗ: 2" }));
+    expect(screen.getByRole("heading", { name: "Результаты ДЗ" })).toBeTruthy();
+    expect(screen.getByText("Домашнее задание не принято")).toBeTruthy();
+    expect(screen.getByText("ДЗ принято")).toBeTruthy();
 
-    await waitFor(() => expect(getLearningContent).toHaveBeenCalledWith("lesson-1"));
+    await fireEvent.click(screen.getAllByRole("button", { name: "Закрыть результат ДЗ Урок с содержимым" })[0]!);
+    await waitFor(() => expect(dismissHomeworkReviewNotice).toHaveBeenCalledWith("submission-revision"));
+    expect(screen.queryByText("Добавьте пример и загрузите исправленный файл")).toBeNull();
+    expect(screen.getByText("Отличная работа, всё принято")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    expect(screen.getByRole("button", { name: "Открыть результаты проверок ДЗ: 1" })).toBeTruthy();
   });
 
   it("shows an accepted homework comment without hiding the ordinary learning action", async () => {
@@ -182,21 +197,51 @@ describe("Learning section member content", () => {
       ...home,
       progress: {
         ...home.progress,
-        latestHomeworkReview: {
+        homeworkReviewNotices: [{
+          submissionId: "submission-accepted",
           contentItemId: "lesson-1",
           status: "accepted",
           reviewComment: "Отличная работа, всё принято",
           reviewedAt: "2026-08-02T16:45:00.000Z"
-        }
+        }]
       }
     });
 
     renderAsMember();
 
-    expect(await screen.findByText("ДЗ принято")).toBeTruthy();
-    expect(screen.getByText("Отличная работа, всё принято")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Открыть урок: Урок с содержимым" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Открыть результаты проверок ДЗ: 1" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Начать: Урок с содержимым" })).toBeTruthy();
+  });
+
+  it("hides the homework review launcher when there are no final decisions", async () => {
+    renderAsMember();
+    await screen.findByRole("progressbar", { name: "Общий прогресс обучения" });
+    expect(screen.queryByText("Проверки ДЗ")).toBeNull();
+  });
+
+  it("restores a result when persistent dismissal fails", async () => {
+    const home = await vi.mocked(getLearningHome)();
+    vi.mocked(getLearningHome).mockResolvedValueOnce({
+      ...home,
+      progress: {
+        ...home.progress,
+        homeworkReviewNotices: [{
+          submissionId: "submission-revision",
+          contentItemId: "lesson-1",
+          status: "needs_revision",
+          reviewComment: "Добавьте пример",
+          reviewedAt: "2026-08-02T16:40:00.000Z"
+        }]
+      }
+    });
+    vi.mocked(dismissHomeworkReviewNotice).mockRejectedValueOnce(new Error("offline"));
+
+    renderAsMember();
+    await fireEvent.click(await screen.findByRole("button", { name: "Открыть результаты проверок ДЗ: 1" }));
+    await fireEvent.click(screen.getByRole("button", { name: "Закрыть результат ДЗ Урок с содержимым" }));
+
+    expect(await screen.findByText("Добавьте пример")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Закрыть результат ДЗ Урок с содержимым" })).toBeTruthy();
   });
 
   it("opens discovery from the modules header instead of occupying the feed", async () => {

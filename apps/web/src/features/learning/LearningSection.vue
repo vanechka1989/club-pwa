@@ -61,6 +61,7 @@ import {
   createAdminLearningMaterialDirect,
   deleteAdminLearningCategory,
   deleteAdminLearningMaterial,
+  dismissHomeworkReviewNotice,
   getAdminLearning,
   getAdminLessonAssessment,
   getAdminLearningMaterialOperation,
@@ -123,6 +124,7 @@ import LessonAssessmentTaskPage from "./LessonAssessmentTaskPage.vue";
 import AdminAssessmentReviewQueue from "./AdminAssessmentReviewQueue.vue";
 import LearningProgressHero from "./LearningProgressHero.vue";
 import LearningModuleProgress from "./LearningModuleProgress.vue";
+import HomeworkReviewResultsTask, { type HomeworkReviewResultNotice } from "./HomeworkReviewResultsTask.vue";
 
 const lessonImageViewerUrl = ref<string | null>(null);
 const lessonImageViewerAlt = ref("");
@@ -221,6 +223,9 @@ const moduleCards = ref<ModuleCard[]>(useLearningTestFixtures ? cloneLearningTes
 const deletedModules = ref<ModuleCard[]>([]);
 const deletedLessons = ref<ModuleLesson[]>([]);
 const learningProgress = ref<LearningProgressSummary | null>(null);
+const showHomeworkReviewResults = ref(false);
+const dismissedHomeworkReviewIds = ref<string[]>([]);
+const dismissingHomeworkReviewIds = ref<string[]>([]);
 const learningFavoriteSourceIds = computed(() => learningProgress.value?.favoriteItemIds ?? []);
 const learningFavorites = useLearningFavorites(learningFavoriteSourceIds);
 const learningSearchQuery = ref("");
@@ -351,15 +356,14 @@ const progressHeroModule = computed(() => {
   const lesson = progressHeroLesson.value;
   return lesson ? moduleCards.value.find((module) => module.id === lesson.categoryId) ?? firstAvailableLessonModule.value : null;
 });
-const homeworkReviewNotice = computed(() => {
-  const review = learningProgress.value?.latestHomeworkReview;
-  if (!review) return null;
+const homeworkReviewNotices = computed<HomeworkReviewResultNotice[]>(() => (learningProgress.value?.homeworkReviewNotices ?? []).flatMap((review) => {
+  if (dismissedHomeworkReviewIds.value.includes(review.submissionId)) return [];
   for (const module of moduleCards.value) {
     const lesson = module.images.find((item) => item.id === review.contentItemId);
-    if (lesson) return { review, module, lesson };
+    if (lesson) return [{ ...review, lessonTitle: lesson.title }];
   }
-  return null;
-});
+  return [];
+}));
 const startedLessonIds = computed(() => new Set(learningProgress.value?.startedItemIds ?? []));
 const completedLessonIds = computed(() => new Set(learningProgress.value?.completedItemIds ?? []));
 const favoriteLessonIds = learningFavorites.favoriteIds;
@@ -453,9 +457,29 @@ function openProgressLesson() {
   const lesson = progressHeroLesson.value;
   if (module && lesson) openLessonModal(module, lesson);
 }
-function openHomeworkReviewLesson() {
-  const notice = homeworkReviewNotice.value;
-  if (notice) openLessonModal(notice.module, notice.lesson);
+function openHomeworkReviewLesson(contentItemId: string) {
+  for (const module of moduleCards.value) {
+    const lesson = module.images.find((item) => item.id === contentItemId);
+    if (lesson) {
+      showHomeworkReviewResults.value = false;
+      openLessonModal(module, lesson);
+      return;
+    }
+  }
+}
+
+async function dismissHomeworkReview(submissionId: string) {
+  if (dismissingHomeworkReviewIds.value.includes(submissionId)) return;
+  dismissedHomeworkReviewIds.value = [...dismissedHomeworkReviewIds.value, submissionId];
+  dismissingHomeworkReviewIds.value = [...dismissingHomeworkReviewIds.value, submissionId];
+  try {
+    await dismissHomeworkReviewNotice(submissionId);
+  } catch {
+    dismissedHomeworkReviewIds.value = dismissedHomeworkReviewIds.value.filter((id) => id !== submissionId);
+    notifications.showError("Не удалось закрыть результат ДЗ. Попробуйте ещё раз.");
+  } finally {
+    dismissingHomeworkReviewIds.value = dismissingHomeworkReviewIds.value.filter((id) => id !== submissionId);
+  }
 }
 const continueLessonKind = computed(() => lastOpenedMaterial.value?.kind ?? lastOpenedLesson.value?.kind ?? "text");
 const continueLessonContext = computed(() => {
@@ -3253,11 +3277,9 @@ watch(
       :context="lastOpenedMaterial ? continueLessonContext : progressHeroModule.title"
       :image-url="getContinueLessonImage(progressHeroModule, progressHeroLesson)"
       :action-label="overallProgressPercent === 100 ? 'Повторить последний урок' : lastOpenedLesson ? continueLessonProgressLabel : 'Начать'"
-      :review-status="homeworkReviewNotice?.review.status ?? null"
-      :review-lesson-title="homeworkReviewNotice?.lesson.title ?? null"
-      :review-comment="homeworkReviewNotice?.review.reviewComment ?? null"
+      :review-count="homeworkReviewNotices.length"
       @open="openProgressLesson"
-      @open-review="openHomeworkReviewLesson"
+      @open-reviews="showHomeworkReviewResults = true"
     />
 
     <section v-if="!canManageModules && learningDiscoveryActive && !visibleModuleCards.length" class="modules-state-card learning-discovery-empty ui-card">
@@ -3532,6 +3554,15 @@ watch(
         </div>
       </article>
     </div>
+
+    <HomeworkReviewResultsTask
+      v-if="showHomeworkReviewResults"
+      :notices="homeworkReviewNotices"
+      :dismissing-ids="dismissingHomeworkReviewIds"
+      @back="showHomeworkReviewResults = false"
+      @dismiss="dismissHomeworkReview"
+      @open-lesson="openHomeworkReviewLesson"
+    />
 
     <TaskScreen
       v-if="showModuleModal && canManageModules"

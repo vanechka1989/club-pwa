@@ -159,6 +159,12 @@ export function getLearningHome() {
   return api<LearningHomeResponse>("/learning");
 }
 
+export function dismissHomeworkReviewNotice(submissionId: string) {
+  return api<{ ok: true }>(`/learning/homework-reviews/${encodeURIComponent(submissionId)}/dismiss`, {
+    method: "POST"
+  });
+}
+
 export function getLearningContent(id: string) {
   return api<LearningContentResponse>(`/learning/items/${id}`);
 }

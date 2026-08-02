@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ArrowRight, CheckCircle2, CircleAlert, Play } from "lucide-vue-next";
+import { ArrowRight, CheckCircle2, ClipboardCheck, Play } from "lucide-vue-next";
 
-withDefaults(defineProps<{
+defineProps<{
   percent: number;
   completed: number;
   total: number;
@@ -10,16 +10,10 @@ withDefaults(defineProps<{
   context: string;
   imageUrl: string;
   actionLabel: string;
-  reviewStatus?: "needs_revision" | "accepted" | null | undefined;
-  reviewLessonTitle?: string | null | undefined;
-  reviewComment?: string | null | undefined;
-}>(), {
-  reviewStatus: null,
-  reviewLessonTitle: null,
-  reviewComment: null
-});
+  reviewCount: number;
+}>();
 
-defineEmits<{ open: []; openReview: [] }>();
+defineEmits<{ open: []; openReviews: [] }>();
 </script>
 
 <template>
@@ -45,24 +39,10 @@ defineEmits<{ open: []; openReview: [] }>();
       <CheckCircle2 v-if="percent === 100" class="learning-progress-hero__state-icon" aria-hidden="true" />
     </header>
 
-    <button
-      v-if="reviewStatus && reviewLessonTitle"
-      class="learning-progress-hero__review ui-button"
-      :class="`learning-progress-hero__review--${reviewStatus}`"
-      type="button"
-      :aria-label="`${reviewStatus === 'needs_revision' ? 'Исправить ДЗ' : 'Открыть урок'}: ${reviewLessonTitle}`"
-      @click="$emit('openReview')"
-    >
-      <span class="learning-progress-hero__review-icon">
-        <CircleAlert v-if="reviewStatus === 'needs_revision'" aria-hidden="true" />
-        <CheckCircle2 v-else aria-hidden="true" />
-      </span>
-      <span class="learning-progress-hero__review-copy">
-        <small>{{ reviewStatus === "needs_revision" ? "Нужна доработка" : "ДЗ принято" }}</small>
-        <strong>{{ reviewLessonTitle }}</strong>
-        <p v-if="reviewComment">{{ reviewComment }}</p>
-        <em>{{ reviewStatus === "needs_revision" ? "Исправить ДЗ" : "Открыть урок" }}</em>
-      </span>
+    <button v-if="reviewCount > 0" class="learning-progress-hero__reviews ui-button" type="button" :aria-label="`Открыть результаты проверок ДЗ: ${reviewCount}`" @click="$emit('openReviews')">
+      <span class="learning-progress-hero__reviews-icon"><ClipboardCheck aria-hidden="true" /></span>
+      <span><strong>Проверки ДЗ</strong><small>Результаты и комментарии модератора</small></span>
+      <em>{{ reviewCount > 9 ? "9+" : reviewCount }}</em>
       <ArrowRight aria-hidden="true" />
     </button>
 
