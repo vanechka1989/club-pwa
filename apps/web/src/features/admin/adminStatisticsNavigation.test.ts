@@ -64,6 +64,15 @@ describe("admin statistics navigation", () => {
     expect(styles).toContain(".admin-stat-attention");
   });
 
+  it("renders responsive rings with focus and reduced-motion support", () => {
+    expect(styles).toContain(".admin-stat-visual-grid");
+    expect(styles).toContain("grid-template-columns: repeat(3, minmax(0, 1fr))");
+    expect(styles).toContain("conic-gradient");
+    expect(styles).toContain(".admin-stat-visual-action:focus-visible");
+    expect(styles).toContain("@media (max-width: 359px)");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+
   it("turns each attention metric into a direct accessible drilldown", () => {
     expect(section).not.toContain('class="admin-stat-alert-line"');
     expect(section).toContain('class="admin-stat-attention"');

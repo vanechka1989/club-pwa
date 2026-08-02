@@ -23,9 +23,14 @@
 /* Statistics hub: compact overview plus focused drill-down screens. */
 .admin-stat-period-summary {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   padding: 0;
   overflow: hidden;
+}
+
+.admin-stat-summary-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .admin-stat-period-summary article {
@@ -40,6 +45,101 @@
 .admin-stat-period-summary small { color: var(--muted); }
 .admin-stat-period-summary strong { font-size: 1.3rem; line-height: 1.15; }
 .admin-stat-period-summary small { font-size: .76rem; }
+
+.admin-stat-visual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+}
+
+.admin-stat-visual-action {
+  --chart-color: var(--accent);
+  box-sizing: border-box;
+  display: grid;
+  min-width: 0;
+  min-height: 142px;
+  grid-template-rows: auto auto minmax(2.2em, auto);
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 12px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.admin-stat-visual-action + .admin-stat-visual-action { border-left: 1px solid var(--border); }
+.admin-stat-visual-action:hover { background: color-mix(in srgb, var(--chart-color) 7%, transparent); }
+.admin-stat-visual-action:active { transform: scale(.98); }
+.admin-stat-visual-action:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid color-mix(in srgb, var(--chart-color) 50%, transparent);
+  outline-offset: -3px;
+}
+
+.admin-stat-visual-clients { --chart-color: var(--success); }
+.admin-stat-visual-finance { --chart-color: var(--accent); }
+.admin-stat-visual-learning { --chart-color: var(--gold); }
+
+.admin-stat-ring {
+  position: relative;
+  display: grid;
+  width: clamp(64px, 18vw, 82px);
+  height: clamp(64px, 18vw, 82px);
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--chart-color) 0 var(--chart-value),
+    color-mix(in srgb, var(--border) 72%, transparent) var(--chart-value) 100%
+  );
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--chart-color) 13%, transparent);
+  animation: admin-stat-ring-in 240ms ease-out both;
+}
+
+.admin-stat-ring::before {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: inherit;
+  background: var(--surface);
+  content: "";
+}
+
+.admin-stat-ring b {
+  position: relative;
+  z-index: 1;
+  color: var(--text);
+  font-size: clamp(.82rem, 3.3vw, 1.05rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.admin-stat-visual-action > strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 840;
+  line-height: 1.1;
+}
+
+.admin-stat-visual-action > small {
+  min-width: 0;
+  color: var(--muted);
+  font-size: .64rem;
+  font-weight: 680;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+@keyframes admin-stat-ring-in {
+  from { opacity: 0; transform: scale(.88) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
 
 .admin-stat-attention {
   display: grid;
@@ -158,6 +258,19 @@
   .admin-stat-nav-icon { width: 38px; height: 38px; }
   .admin-stat-nav-value strong { max-width: 90px; font-size: .82rem; }
   .admin-stat-period-summary strong { font-size: 1.08rem; }
+}
+
+@media (max-width: 359px) {
+  .admin-stat-visual-action { min-height: 128px; gap: 4px; padding: 10px 3px; }
+  .admin-stat-ring { width: 58px; height: 58px; }
+  .admin-stat-ring::before { inset: 6px; }
+  .admin-stat-visual-action > strong { font-size: .7rem; }
+  .admin-stat-visual-action > small { font-size: .56rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-stat-visual-action,
+  .admin-stat-ring { animation: none; transition: none; }
 }
 
 .admin-stat-disclosure { padding: 0; overflow: hidden; }

@@ -2685,6 +2685,67 @@ test("opens actionable admin attention items without double-counting", async ({ 
   await expect(page.getByText("Ошибка уведомления", { exact: true })).toBeVisible();
 });
 
+test("renders visual admin analytics overview without viewport overflow", async ({ page }, testInfo) => {
+  const viewports = testInfo.project.name === "release-android"
+    ? [
+        { name: "320", width: 320, height: 720 },
+        { name: "390", width: 390, height: 844 },
+        { name: "768", width: 768, height: 1024 }
+      ]
+    : testInfo.project.name === "release-desktop"
+      ? [
+          { name: "1024", width: 1024, height: 768 },
+          { name: "1440", width: 1440, height: 900 }
+        ]
+      : [{ name: "default", width: 390, height: 844 }];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/admin");
+
+    const overview = page.locator(".admin-stat-period-summary");
+    const visualActions = overview.locator(".admin-stat-visual-action");
+    await expect(overview).toBeVisible();
+    await expect(visualActions).toHaveCount(3);
+    await expect(page.getByRole("button", { name: /Активные клиенты: \d+%/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Успешные оплаты: \d+%/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Средний прогресс обучения: \d+%/ })).toBeVisible();
+
+    const metrics = await overview.evaluate((element) => {
+      const rings = [...element.querySelectorAll<HTMLElement>(".admin-stat-ring")];
+      const actions = [...element.querySelectorAll<HTMLElement>(".admin-stat-visual-action")];
+      return {
+        overviewWidth: Math.round(element.getBoundingClientRect().width),
+        actionWidths: actions.map((item) => Math.round(item.getBoundingClientRect().width)),
+        ringSizes: rings.map((ring) => Math.round(ring.getBoundingClientRect().width)),
+        ringBackgrounds: rings.map((ring) => getComputedStyle(ring).backgroundImage)
+      };
+    });
+
+    expect(metrics.actionWidths.every((width) => width >= 72)).toBe(true);
+    expect(metrics.ringSizes.every((width) => width >= 58)).toBe(true);
+    expect(metrics.ringBackgrounds.every((value) => value.includes("conic-gradient"))).toBe(true);
+    await expectResponsiveLayoutIntegrity(page, "/admin");
+    await overview.screenshot({ path: testInfo.outputPath(`admin-visual-overview-${viewport.name}.png`), animations: "disabled" });
+  }
+
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+    document.documentElement.dataset.scheme = "graphite";
+  });
+  await expectResponsiveLayoutIntegrity(page, "/admin");
+  await page.locator(".admin-stat-period-summary").screenshot({
+    path: testInfo.outputPath("admin-visual-overview-graphite-dark.png"),
+    animations: "disabled"
+  });
+
+  await page.getByRole("button", { name: /Успешные оплаты: \d+%/ }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.getByRole("heading", { name: "Финансы", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Назад" }).click();
+  await expect(page.locator(".admin-stat-visual-grid")).toBeVisible();
+});
+
 test("keeps error tracker notification controls compact", async ({ page }, testInfo) => {
   test.skip(!["android-compact-320", "viewport-390-844"].includes(testInfo.project.name));
   await page.goto("/admin");
