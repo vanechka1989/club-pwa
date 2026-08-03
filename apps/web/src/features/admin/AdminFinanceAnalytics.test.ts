@@ -44,7 +44,10 @@ describe("AdminFinanceAnalytics", () => {
     expect(screen.getByText("За всё время")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Удержание: 64,9%. 179 активны из 276" })).toBeTruthy();
     expect(document.querySelectorAll(".admin-finance-ring")).toHaveLength(2);
-    expect(document.querySelectorAll(".admin-finance-share-bar")).toHaveLength(3);
+    expect(document.querySelectorAll(".admin-finance-donut")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: /Распределение выручки по платёжным системам: Lava 71,4%, Prodamus 28,6%/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Распределение выручки по продуктам: Клуб Pro 71,4%/ })).toBeTruthy();
+    expect(document.querySelectorAll(".admin-finance-share-bar")).toHaveLength(0);
     expect(document.querySelectorAll(".admin-finance-churn-bar")).toHaveLength(2);
     expect(document.querySelectorAll(".admin-finance-stage-bar")).toHaveLength(3);
 

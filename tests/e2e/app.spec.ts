@@ -2960,10 +2960,12 @@ test("renders visual admin analytics overview without viewport overflow", async 
   expect(financeRingMetrics.ringSizes.every((size) => size >= 76)).toBe(true);
   expect(financeRingMetrics.offsets).toEqual(["20"]);
   await expect(page.locator(".admin-finance-ring")).toHaveCount(2);
+  await expect(page.locator(".admin-finance-donut")).toHaveCount(2);
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await expectResponsiveLayoutIntegrity(page, "/admin");
     await expect(page.locator(".admin-finance-ring")).toHaveCount(2);
+    await expect(page.locator(".admin-finance-donut")).toHaveCount(2);
     if (testInfo.project.name === "release-android") {
       await financePulse.screenshot({ path: testInfo.outputPath(`admin-finance-pulse-${viewport.name}.png`), animations: "disabled" });
     }

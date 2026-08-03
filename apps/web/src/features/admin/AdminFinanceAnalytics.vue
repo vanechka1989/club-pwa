@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AdminFinanceAnalyticsResponse } from "@club/shared";
+import AdminFinanceDonut from "./AdminFinanceDonut.vue";
 import AdminFinanceRing from "./AdminFinanceRing.vue";
 
 defineProps<{
@@ -20,6 +21,10 @@ function valuePercent(value: number) {
 
 function progress(value: number) {
   return `${Math.max(0, Math.min(100, value))}%`;
+}
+
+function distributionLabel(title: string, rows: Array<{ title: string; revenuePercent: number }>) {
+  return `${title}: ${rows.map((row) => `${row.title} ${valuePercent(row.revenuePercent)}`).join(", ")}`;
 }
 
 </script>
@@ -61,8 +66,16 @@ function progress(value: number) {
       <header>
         <div><h4 id="finance-providers-title">Платёжные системы</h4><p>Кто проводит платежи стабильнее и приносит больше выручки.</p></div>
       </header>
-      <div v-if="data.providers.length" class="admin-finance-share-list">
-        <article v-for="provider in data.providers" :key="provider.provider" class="admin-finance-share-row">
+      <div v-if="data.providers.length" class="admin-finance-distribution">
+        <AdminFinanceDonut
+          :value="money(data.overview.revenueRub)"
+          label="выручка"
+          :accessible-label="distributionLabel('Распределение выручки по платёжным системам', data.providers)"
+          :segments="data.providers.map((provider) => ({ label: provider.title, percent: provider.revenuePercent }))"
+        />
+        <div class="admin-finance-share-list">
+          <article v-for="(provider, index) in data.providers" :key="provider.provider" class="admin-finance-share-row">
+          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 6}`" aria-hidden="true"></span>
           <div class="admin-finance-share-content">
             <div class="admin-finance-ranked-head"><strong>{{ provider.title }}</strong><span><b>{{ money(provider.revenueRub) }}</b><small>{{ valuePercent(provider.revenuePercent) }} выручки</small></span></div>
             <div class="admin-finance-share-metrics">
@@ -70,10 +83,10 @@ function progress(value: number) {
               <span><small>Клиенты</small><b>{{ provider.uniqueCustomers }}</b></span>
               <span><small>Успешность</small><b>{{ valuePercent(provider.successPercent) }}</b></span>
             </div>
-            <div class="admin-finance-progress admin-finance-share-bar" role="img" :aria-label="`Доля выручки ${provider.title}: ${valuePercent(provider.revenuePercent)}`"><span :style="{ width: progress(provider.revenuePercent) }"></span></div>
             <small>Средний чек {{ money(provider.averagePaidOrderRub) }}</small>
           </div>
-        </article>
+          </article>
+        </div>
       </div>
       <p v-else class="admin-empty">Оплат через подключённые системы за период не было.</p>
     </section>
@@ -82,8 +95,16 @@ function progress(value: number) {
       <header>
         <div><h4 id="finance-products-title">Продукты и тарифы</h4><p>Что покупают и какой продукт приносит выручку.</p></div>
       </header>
-      <div v-if="data.products.length" class="admin-finance-share-list">
-        <article v-for="product in data.products" :key="product.productId ?? `${product.kind}:${product.title}`" class="admin-finance-share-row">
+      <div v-if="data.products.length" class="admin-finance-distribution">
+        <AdminFinanceDonut
+          :value="money(data.overview.revenueRub)"
+          label="выручка"
+          :accessible-label="distributionLabel('Распределение выручки по продуктам', data.products)"
+          :segments="data.products.map((product) => ({ label: product.title, percent: product.revenuePercent }))"
+        />
+        <div class="admin-finance-share-list">
+        <article v-for="(product, index) in data.products" :key="product.productId ?? `${product.kind}:${product.title}`" class="admin-finance-share-row">
+          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 6}`" aria-hidden="true"></span>
           <div class="admin-finance-share-content">
             <div class="admin-finance-ranked-head"><strong>{{ product.title }}</strong><span><b>{{ money(product.revenueRub) }}</b><small>{{ valuePercent(product.revenuePercent) }} выручки</small></span></div>
             <span class="admin-finance-product-kind">{{ product.kind === 'recurrent' ? 'Автоподписка' : 'Разовая оплата' }}</span>
@@ -92,9 +113,9 @@ function progress(value: number) {
               <span><small>Клиенты</small><b>{{ product.uniqueCustomers }}</b></span>
               <span><small>Средний чек</small><b>{{ money(product.averagePaidOrderRub) }}</b></span>
             </div>
-            <div class="admin-finance-progress admin-finance-share-bar is-info" role="img" :aria-label="`Доля выручки ${product.title}: ${valuePercent(product.revenuePercent)}`"><span :style="{ width: progress(product.revenuePercent) }"></span></div>
           </div>
         </article>
+        </div>
       </div>
       <p v-else class="admin-empty">Успешных оплат продуктов за период не было.</p>
     </section>
