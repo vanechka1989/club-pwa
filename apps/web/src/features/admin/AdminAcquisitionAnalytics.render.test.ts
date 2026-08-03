@@ -10,6 +10,7 @@ describe("AdminAcquisitionAnalytics demo sources", () => {
       props: { demoSeed: 12_345, from: "2026-07-05", to: "2026-08-03" }
     });
 
+    expect(screen.queryByRole("button", { name: "Обновить" })).toBeNull();
     expect(await screen.findByRole("img", { name: /Распределение клиентов по рекламным каналам/ })).toBeTruthy();
     const rows = document.querySelectorAll(".acquisition-source-row");
     const segments = document.querySelectorAll(".acquisition-source-chart .admin-finance-donut-segment");

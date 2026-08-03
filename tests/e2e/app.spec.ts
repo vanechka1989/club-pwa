@@ -3148,6 +3148,15 @@ test("regenerates showcase analytics with visible feedback and the complete prod
   await expect(acquisitionTask.locator(".acquisition-source-chart .admin-finance-donut-segment")).toHaveCount(sourceCount);
   const sourceColors = await sourceRows.locator(".admin-finance-legend-dot").evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).backgroundColor));
   expect(new Set(sourceColors).size).toBe(sourceCount);
+  const firstSourceLayout = await sourceRows.first().evaluate((row) => {
+    const metrics = row.querySelector<HTMLElement>(".acquisition-source-metrics")!;
+    return {
+      height: Math.round(row.getBoundingClientRect().height),
+      metricColumns: getComputedStyle(metrics).gridTemplateColumns.split(" ").length
+    };
+  });
+  expect(firstSourceLayout.height).toBeLessThanOrEqual(104);
+  expect(firstSourceLayout.metricColumns).toBe(4);
   await expectNoHorizontalOverflow(page, ".acquisition-card:last-child");
   await acquisitionTask.getByRole("button", { name: /Метки и ссылки/ }).click();
   await expect(page.getByText(/Демо-канал:/)).toHaveCount(sourceCount);

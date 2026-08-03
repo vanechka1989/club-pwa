@@ -24,11 +24,10 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Advertising channels and large totals",
+  title: "Compact advertising sources",
   items: [
-    "Showcase acquisition analytics now generates four to eight internally consistent advertising channels and matching demo links.",
-    "A color-matched donut chart shows how registered clients are distributed across channels.",
-    "Million-scale chart totals use compact labels while exact amounts remain available to assistive technology."
+    "The redundant refresh control has been removed from the advertising links screen; demo regeneration remains in the main header.",
+    "Advertising source rows now show all four key metrics in a compact mobile-friendly layout without horizontal scrolling."
   ]
 };
 
