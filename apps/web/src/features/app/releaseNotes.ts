@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact headers and distinct tariff colors",
+  title: "Advertising channels and large totals",
   items: [
-    "The access state now sits beside the client name in a lower, cleaner header.",
-    "Finance demo mode uses an inline badge and a compact regenerate icon button.",
-    "Products and tariffs now use six clearly separated categorical colors."
+    "Showcase acquisition analytics now generates four to eight internally consistent advertising channels and matching demo links.",
+    "A color-matched donut chart shows how registered clients are distributed across channels.",
+    "Million-scale chart totals use compact labels while exact amounts remain available to assistive technology."
   ]
 };
 

@@ -45,8 +45,8 @@ describe("AdminFinanceAnalytics", () => {
     expect(screen.getByRole("img", { name: "Удержание: 64,9%. 179 активны из 276" })).toBeTruthy();
     expect(document.querySelectorAll(".admin-finance-ring")).toHaveLength(2);
     expect(document.querySelectorAll(".admin-finance-donut")).toHaveLength(2);
-    expect(screen.getByRole("img", { name: /Распределение выручки по платёжным системам: Lava 71,4%, Prodamus 28,6%/ })).toBeTruthy();
-    expect(screen.getByRole("img", { name: /Распределение выручки по продуктам: Клуб Pro 71,4%/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Распределение выручки по платёжным системам, общая выручка 42\s000 ₽: Lava 71,4%, Prodamus 28,6%/ })).toBeTruthy();
+    expect(screen.getByRole("img", { name: /Распределение выручки по продуктам, общая выручка 42\s000 ₽: Клуб Pro 71,4%/ })).toBeTruthy();
     expect(document.querySelectorAll(".admin-finance-share-bar")).toHaveLength(0);
     expect(screen.getByRole("img", { name: "Структура оттока: купили один раз — 76 клиентов, 78,4%; продлевали, но ушли — 21 клиент, 21,6%" })).toBeTruthy();
     expect(document.querySelectorAll(".admin-finance-churn-composition")).toHaveLength(1);
@@ -90,6 +90,24 @@ describe("AdminFinanceAnalytics", () => {
     expect(products.querySelectorAll(".admin-finance-share-row")).toHaveLength(2);
     expect(within(products).queryByText("Разовая оплата", { exact: true })).toBeNull();
     expect(within(products).queryByText("Автоподписка", { exact: true })).toBeNull();
+  });
+
+  it("shortens million-scale donut totals while keeping exact row amounts", () => {
+    render(AdminFinanceAnalytics, {
+      props: {
+        data: {
+          ...data,
+          overview: { ...data.overview, revenueRub: 1_250_000 },
+          providers: [{ ...data.providers[0]!, revenueRub: 1_250_000 }],
+          products: [{ ...data.products[0]!, revenueRub: 1_250_000 }]
+        },
+        loading: false,
+        error: false
+      }
+    });
+
+    expect(screen.getAllByText("1,25 млн ₽")).toHaveLength(2);
+    expect(screen.getAllByText("1 250 000 ₽")).toHaveLength(2);
   });
 
   it("keeps zero churn compact instead of rendering empty charts", () => {

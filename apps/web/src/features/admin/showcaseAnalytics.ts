@@ -33,6 +33,19 @@ function percent(value: number, total: number) {
   return total ? Math.round((value / total) * 1000) / 10 : 0;
 }
 
+function distributeTotal(total: number, weights: number[]) {
+  if (total <= 0) return weights.map(() => 0);
+  const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+  const effectiveWeights = weightTotal > 0 ? weights : weights.map(() => 1);
+  const effectiveWeightTotal = effectiveWeights.reduce((sum, weight) => sum + weight, 0);
+  const raw = effectiveWeights.map((weight) => total * weight / effectiveWeightTotal);
+  const values = raw.map(Math.floor);
+  let remainder = total - values.reduce((sum, value) => sum + value, 0);
+  const order = raw.map((value, index) => ({ index, fraction: value - Math.floor(value) })).sort((a, b) => b.fraction - a.fraction);
+  for (let index = 0; remainder > 0; index += 1, remainder -= 1) values[order[index % order.length]!.index]! += 1;
+  return values;
+}
+
 function dateKeys(range: DateRange) {
   const values: string[] = [];
   const cursor = new Date(`${range.from}T00:00:00.000Z`);
@@ -221,6 +234,57 @@ export function createShowcaseAnalytics(seed: number, range: DateRange, catalog?
     return { date, visits, registrations, paidUsers, revenueRub: paidUsers * integer(random, 900, 3500) };
   });
   const acquisitionTotals = timeline.reduce((sum, row) => ({ visits: sum.visits + row.visits, registrations: sum.registrations + row.registrations, paidUsers: sum.paidUsers + row.paidUsers, revenueRub: sum.revenueRub + row.revenueRub }), { visits: 0, registrations: 0, paidUsers: 0, revenueRub: 0 });
+  const channelCatalog = [
+    { key: "telegram", label: "Telegram" },
+    { key: "vk", label: "ВКонтакте" },
+    { key: "youtube", label: "YouTube" },
+    { key: "yandex", label: "Яндекс Директ" },
+    { key: "partners", label: "Партнёры" },
+    { key: "instagram", label: "Instagram" },
+    { key: "email", label: "Email-рассылка" },
+    { key: "recommendations", label: "Рекомендации" }
+  ];
+  for (let index = channelCatalog.length - 1; index > 0; index -= 1) {
+    const swapIndex = integer(random, 0, index);
+    [channelCatalog[index], channelCatalog[swapIndex]] = [channelCatalog[swapIndex]!, channelCatalog[index]!];
+  }
+  const channelCount = integer(random, 4, 8);
+  const channels = channelCatalog.slice(0, channelCount);
+  const channelWeights = channels.map(() => 0.65 + random());
+  const channelVisits = distributeTotal(acquisitionTotals.visits, channelWeights);
+  const channelRegistrations = distributeTotal(acquisitionTotals.registrations, channelWeights);
+  const channelPaidUsers = distributeTotal(acquisitionTotals.paidUsers, channelWeights);
+  const channelRevenueWeights = channelPaidUsers.map((paidUsers) => paidUsers > 0 ? paidUsers * (900 + random() * 2600) : 0);
+  const channelRevenue = distributeTotal(acquisitionTotals.revenueRub, channelRevenueWeights);
+  const acquisitionSources = channels.map((channel, index) => ({
+    ...channel,
+    visits: channelVisits[index]!,
+    registrations: channelRegistrations[index]!,
+    overlapRegistrations: 0,
+    paidUsers: channelPaidUsers[index]!,
+    revenueRub: channelRevenue[index]!
+  }));
+  const acquisitionLinks = acquisitionSources.map((source, index) => ({
+    id: uuid(7000 + index),
+    aid: `demo-${source.key}`,
+    name: `Демо-канал: ${source.label}`,
+    source: source.key,
+    medium: "demo",
+    campaign: "showcase",
+    content: null,
+    destination: { kind: "home" as const },
+    url: `https://club.example/?aid=demo-${source.key}`,
+    shortUrl: `https://club.example/go/demo-${source.key}`,
+    isActive: true,
+    visits: source.visits,
+    uniqueVisitors: Math.min(source.visits, Math.round(source.visits * 0.82)),
+    registrations: source.registrations,
+    paidUsers: source.paidUsers,
+    revenueRub: source.revenueRub,
+    createdBy: { id: uuid(7999), label: "Демо-владелец" },
+    createdAt: `${range.from}T09:00:00.000Z`,
+    updatedAt: `${range.to}T18:00:00.000Z`
+  }));
   const acquisition: AdminAcquisitionDashboard = {
     attribution: "last",
     period: range,
@@ -232,9 +296,9 @@ export function createShowcaseAnalytics(seed: number, range: DateRange, catalog?
       visitToPaidRate: percent(acquisitionTotals.paidUsers, acquisitionTotals.visits)
     },
     timeline,
-    sources: [{ key: "telegram", label: "Telegram", ...acquisitionTotals, overlapRegistrations: 0 }],
+    sources: acquisitionSources,
     campaigns: [{ key: "launch", label: "Запуск", ...acquisitionTotals, overlapRegistrations: 0 }],
-    topLinks: []
+    topLinks: acquisitionLinks
   };
 
   const cards = Array.from({ length: lessonCount }, (_, index) => {

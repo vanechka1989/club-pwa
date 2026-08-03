@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes compact headers and distinct tariff colors as version 6.24", () => {
-    expect(appVersion).toBe("6.24");
-    expect(releaseNotes[0]?.title).toBe("Компактные шапки и разные цвета тарифов");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/шапк/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/цвет/i);
+  it("publishes advertising channels and compact large totals as version 6.25", () => {
+    expect(appVersion).toBe("6.25");
+    expect(releaseNotes[0]?.title).toBe("Каналы рекламы и крупные суммы");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/канал/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/миллион/i);
+
+    const compactHeaders = releaseNotes.find((note) => note.version === "6.24");
+    expect(compactHeaders?.title).toBe("Компактные шапки и разные цвета тарифов");
 
     const retentionCharts = releaseNotes.find((note) => note.version === "6.23");
     expect(retentionCharts?.title).toBe("Компактные шапки и графики оттока");
@@ -354,7 +357,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact headers and distinct tariff colors");
+    expect(englishNotes[0]?.title).toBe("Advertising channels and large totals");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

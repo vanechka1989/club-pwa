@@ -119,7 +119,7 @@
 .admin-stat-ring-value b {
   max-width: calc(100% - 18px);
   font-size: clamp(.7rem, 3vw, .94rem);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .admin-stat-visual-action > strong {
@@ -1216,14 +1216,16 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .admin-finance-donut circle { fill: none; stroke-width: 12; }
 .admin-finance-donut-track { stroke: color-mix(in srgb, var(--border) 68%, transparent); }
 .admin-finance-donut-segment { stroke: #14b8a6; transition: stroke-dashoffset 220ms ease; }
-.admin-finance-donut-segment.is-segment-0, .admin-finance-legend-dot.is-segment-0 { stroke: #14b8a6; background: #14b8a6; }
+.admin-finance-donut-segment.is-segment-0, .admin-finance-legend-dot.is-segment-0 { stroke: #00c2a8; background: #00c2a8; }
 .admin-finance-donut-segment.is-segment-1, .admin-finance-legend-dot.is-segment-1 { stroke: #2563eb; background: #2563eb; }
-.admin-finance-donut-segment.is-segment-2, .admin-finance-legend-dot.is-segment-2 { stroke: #f59e0b; background: #f59e0b; }
-.admin-finance-donut-segment.is-segment-3, .admin-finance-legend-dot.is-segment-3 { stroke: #9333ea; background: #9333ea; }
-.admin-finance-donut-segment.is-segment-4, .admin-finance-legend-dot.is-segment-4 { stroke: #e11d48; background: #e11d48; }
-.admin-finance-donut-segment.is-segment-5, .admin-finance-legend-dot.is-segment-5 { stroke: #65a30d; background: #65a30d; }
+.admin-finance-donut-segment.is-segment-2, .admin-finance-legend-dot.is-segment-2 { stroke: #ffd23f; background: #ffd23f; }
+.admin-finance-donut-segment.is-segment-3, .admin-finance-legend-dot.is-segment-3 { stroke: #a855f7; background: #a855f7; }
+.admin-finance-donut-segment.is-segment-4, .admin-finance-legend-dot.is-segment-4 { stroke: #ff4d6d; background: #ff4d6d; }
+.admin-finance-donut-segment.is-segment-5, .admin-finance-legend-dot.is-segment-5 { stroke: #7cb518; background: #7cb518; }
+.admin-finance-donut-segment.is-segment-6, .admin-finance-legend-dot.is-segment-6 { stroke: #f97316; background: #f97316; }
+.admin-finance-donut-segment.is-segment-7, .admin-finance-legend-dot.is-segment-7 { stroke: #8b5e34; background: #8b5e34; }
 .admin-finance-donut-visual > div { position: relative; z-index: 1; display: grid; max-width: 78px; justify-items: center; gap: 3px; text-align: center; }
-.admin-finance-donut-visual strong { color: var(--text); font-size: .9rem; line-height: 1.05; overflow-wrap: anywhere; }
+.admin-finance-donut-visual strong { color: var(--text); font-size: .9rem; line-height: 1.05; white-space: nowrap; }
 .admin-finance-donut-visual small { color: var(--muted); font-size: .62rem; }
 .admin-finance-share-list { display: grid; min-width: 0; }
 .admin-finance-share-row { display: grid; min-width: 0; grid-template-columns: 10px minmax(0, 1fr); align-items: start; gap: 10px; padding: 14px 0; border-top: 1px solid var(--border); }

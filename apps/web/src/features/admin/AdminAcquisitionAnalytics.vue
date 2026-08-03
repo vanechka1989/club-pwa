@@ -4,6 +4,7 @@ import { BarChart3, Check, ChevronRight, Copy, Link2, MousePointerClick, Plus, R
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { createAdminAcquisitionLink, getAdminAcquisitionDashboard, getAdminAcquisitionDay, getAdminAcquisitionLinks, updateAdminAcquisitionLinkStatus } from "@/api/client";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import AdminFinanceDonut from "./AdminFinanceDonut.vue";
 import { createShowcaseAnalytics, type ShowcaseAnalyticsCatalog } from "./showcaseAnalytics";
 
 const props = defineProps<{ from?: string | undefined; to?: string | undefined; learningCategories?: LearningCategory[] | undefined; demoSeed?: number | undefined; demoCatalog?: ShowcaseAnalyticsCatalog | undefined }>();
@@ -29,6 +30,12 @@ const dateOptions = computed(() => ({
   ...(props.to ? { to: new Date(`${props.to}T23:59:59.999Z`).toISOString() } : {})
 }));
 const maxTimeline = computed(() => Math.max(1, ...(dashboard.value?.timeline.map((item) => Math.max(item.visits, item.registrations, item.paidUsers)) ?? [1])));
+const sourceClientTotal = computed(() => dashboard.value?.sources.reduce((sum, source) => sum + source.registrations, 0) ?? 0);
+const sourceSegments = computed(() => dashboard.value?.sources.map((source) => ({
+  label: source.label,
+  percent: sourceClientTotal.value ? source.registrations / sourceClientTotal.value * 100 : 0
+})) ?? []);
+const sourceDistributionLabel = computed(() => `Распределение клиентов по рекламным каналам: ${sourceSegments.value.map((source) => `${source.label} ${source.percent.toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%`).join(", ")}`);
 async function load() {
   loading.value = true;
   error.value = null;
@@ -36,8 +43,9 @@ async function load() {
     if (props.demoSeed !== undefined) {
       const to = props.to ?? new Date().toISOString().slice(0, 10);
       const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
-      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }, props.demoCatalog).acquisition;
-      links.value = [];
+      const acquisition = createShowcaseAnalytics(props.demoSeed, { from, to }, props.demoCatalog).acquisition;
+      dashboard.value = acquisition;
+      links.value = acquisition.topLinks;
       return;
     }
     const [nextDashboard, nextLinks] = await Promise.all([
@@ -198,16 +206,26 @@ onMounted(load);
 
     <section class="acquisition-card">
       <div class="acquisition-card-title"><div><strong>Источники</strong><small>Откуда пришли клиенты</small></div></div>
-      <div v-if="dashboard?.sources.length" class="acquisition-source-list">
-        <article v-for="source in dashboard.sources.slice(0, 8)" :key="source.key">
-          <header><strong>{{ source.label }}</strong><small>{{ source.visits }} переходов</small></header>
-          <div class="acquisition-source-metrics">
-            <span><small>Клиенты</small><b>{{ clients(source.registrations) }}</b></span>
-            <span><small>Конверсия</small><b>{{ conversion(source.registrations, source.visits) }}%</b></span>
-            <span><small>Оплатили</small><b>{{ source.paidUsers }}</b></span>
-            <span><small>Выручка</small><b>{{ money(source.revenueRub) }}</b></span>
-          </div>
-        </article>
+      <div v-if="dashboard?.sources.length" class="acquisition-source-content">
+        <div class="acquisition-source-chart">
+          <AdminFinanceDonut
+            :value="sourceClientTotal.toLocaleString('ru-RU')"
+            label="клиентов"
+            :accessible-label="sourceDistributionLabel"
+            :segments="sourceSegments"
+          />
+        </div>
+        <div class="acquisition-source-list">
+          <article v-for="(source, index) in dashboard.sources.slice(0, 8)" :key="source.key" class="acquisition-source-row">
+            <header><span class="acquisition-source-title"><i class="admin-finance-legend-dot" :class="`is-segment-${index}`" aria-hidden="true"></i><strong>{{ source.label }}</strong></span><small>{{ source.visits }} переходов</small></header>
+            <div class="acquisition-source-metrics">
+              <span><small>Клиенты</small><b>{{ clients(source.registrations) }}</b></span>
+              <span><small>Конверсия</small><b>{{ conversion(source.registrations, source.visits) }}%</b></span>
+              <span><small>Оплатили</small><b>{{ source.paidUsers }}</b></span>
+              <span><small>Выручка</small><b>{{ money(source.revenueRub) }}</b></span>
+            </div>
+          </article>
+        </div>
       </div>
       <p v-else class="acquisition-empty">Источников пока нет.</p>
     </section>
@@ -289,6 +307,7 @@ onMounted(load);
 .acquisition>*{min-width:0;max-width:100%}.acquisition-head,.acquisition-model,.acquisition-kpis,.acquisition-card,.acquisition-links-entry{width:100%;min-width:0}.acquisition-model button,.acquisition-kpis article,.acquisition-source-list article,.acquisition-source-list article>div,.acquisition-source-list article>span,.acquisition-links-entry>span{min-width:0}.acquisition-chart-scroll{width:100%;min-width:0;max-width:100%}.acquisition-source-list strong{overflow-wrap:anywhere}.acquisition-source-list article>div{overflow:hidden}.acquisition-links-entry small{overflow-wrap:anywhere}
 .acquisition-chart-scroll{min-height:128px;gap:10px}.acquisition-chart-day{min-width:42px;min-height:112px;padding:0;border:0;background:transparent;color:var(--text);font:inherit;cursor:pointer}.acquisition-chart-day:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:7px}.acquisition-chart-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;font-size:10px;line-height:1}.acquisition-chart-values b{min-width:12px;font-weight:900;text-align:center}.value-visits{color:var(--accent)}.value-regs{color:#78b2ff}.value-paid{color:#c99aff}
 .acquisition-source-list{display:grid;gap:10px;margin-top:12px}.acquisition-source-list article{display:grid;gap:10px;padding:12px 0;border-top:1px solid var(--border)}.acquisition-source-list article>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.acquisition-source-list article>header strong{min-width:0}.acquisition-source-list article>header small{flex:0 0 auto;color:var(--muted);font-size:10px}.acquisition-source-metrics{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important;overflow:visible!important}.acquisition-source-metrics>span{display:grid;min-width:0;gap:3px;padding:9px 10px;border-radius:11px;background:var(--surface-soft);text-align:left!important}.acquisition-source-metrics small{color:var(--muted);font-size:9px}.acquisition-source-metrics b{min-width:0;font-size:12px;line-height:1.2;overflow-wrap:anywhere}
+.acquisition-source-content{display:grid;gap:6px}.acquisition-source-chart{display:grid;place-items:center;padding:12px 0 2px}.acquisition-source-title{display:flex!important;min-width:0;align-items:center;gap:10px!important}.acquisition-source-title .admin-finance-legend-dot{flex:0 0 auto;margin:0}.acquisition-source-list{margin-top:0}
 .acquisition-day-screen{display:grid;gap:12px;padding:0 var(--page-pad,16px) calc(24px + env(safe-area-inset-bottom))}.acquisition-day-state{margin:0;padding:20px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--muted);text-align:center}.acquisition-day-group{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.acquisition-day-group>header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}.acquisition-day-group>header>span{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}.acquisition-day-group>header svg{width:19px}.acquisition-day-group>header>div{display:grid;gap:2px;min-width:0}.acquisition-day-group>header small{color:var(--muted);font-size:10px;line-height:1.3}.acquisition-day-group>header>b{min-width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--surface-soft);color:var(--accent)}.acquisition-day-list{display:grid}.acquisition-day-list>button{width:100%;min-height:58px;padding:8px 0;border:0;border-top:1px solid var(--border);background:transparent;color:var(--text);display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:9px;text-align:left}.acquisition-day-list>button:disabled{opacity:1}.acquisition-day-list>button:not(:disabled){cursor:pointer}.acquisition-day-list>button:not(:disabled):active{background:var(--surface-soft)}.acquisition-day-list>button>span:nth-child(2){display:grid;gap:2px;min-width:0}.acquisition-day-list>button small{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acquisition-day-list>button time{color:var(--muted);font-size:10px}.acquisition-day-list>button svg{width:16px;color:var(--muted)}.acquisition-day-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 16%,var(--surface-soft));color:var(--accent);font-weight:900}.acquisition-day-list>p{margin:0;padding:12px 0 2px;color:var(--muted);font-size:11px}
 .acquisition-utm-hint{margin:0;color:var(--muted);font-size:11px}.acquisition-utm-label{display:grid;min-width:0;gap:2px;line-height:1.2}.acquisition-utm-label>b{min-width:0;font:inherit;overflow-wrap:anywhere}.acquisition-utm-label>small{color:var(--accent);font-size:10px;font-weight:750;letter-spacing:.01em;white-space:nowrap}.acquisition-link-author{margin-top:3px;font-size:10px}
 .acquisition-slug-input{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;border:1px solid var(--border);border-radius:13px;background:var(--surface-soft);overflow:hidden}.acquisition-slug-input>b{padding-left:12px;color:var(--muted);font-size:12px}.acquisition-slug-input>input{border:0!important;background:transparent!important}.acquisition-link-variants{display:grid;gap:8px}.acquisition-link-variants>label{display:grid;gap:4px}.acquisition-link-variants>label>span{color:var(--muted);font-size:10px}

@@ -13,8 +13,8 @@ describe("AdminFinanceDonut", () => {
         accessibleLabel: "Распределение выручки: Lava 71,4%, Prodamus 28,6%",
         segments: [
           { label: "Lava", percent: 71.4 },
-          { label: "Prodamus", percent: 28.6 },
-          { label: "Другие", percent: 0 }
+          { label: "Другие", percent: 0 },
+          { label: "Prodamus", percent: 28.6 }
         ]
       }
     });
@@ -23,5 +23,6 @@ describe("AdminFinanceDonut", () => {
     expect(container.querySelectorAll(".admin-finance-donut-segment")).toHaveLength(2);
     expect(container.querySelectorAll(".admin-finance-donut-segment")[0]?.getAttribute("stroke-dasharray")).toBe("71.4 28.6");
     expect(container.querySelectorAll(".admin-finance-donut-segment")[1]?.getAttribute("stroke-dashoffset")).toBe("-71.4");
+    expect(container.querySelectorAll(".admin-finance-donut-segment")[1]?.classList.contains("is-segment-2")).toBe(true);
   });
 });

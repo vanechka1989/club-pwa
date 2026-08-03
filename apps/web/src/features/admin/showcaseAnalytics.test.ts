@@ -25,12 +25,41 @@ describe("showcase analytics", () => {
     expect(first.finance.overview.revenueRub).toBe(first.finance.providers.reduce((sum, row) => sum + row.revenueRub, 0));
     expect(first.finance.overview.revenueRub).toBe(first.paymentOrders.filter((order) => order.status === "paid").reduce((sum, order) => sum + (order.amountRub ?? 0), 0));
     expect(first.acquisition.summary.registrations).toBe(first.acquisition.timeline.reduce((sum, row) => sum + row.registrations, 0));
+    expect(first.acquisition.sources.length).toBeGreaterThanOrEqual(4);
+    expect(first.acquisition.sources.length).toBeLessThanOrEqual(8);
+    expect(new Set(first.acquisition.sources.map((source) => source.label)).size).toBe(first.acquisition.sources.length);
+    expect(first.acquisition.sources.reduce((sum, source) => sum + source.visits, 0)).toBe(first.acquisition.summary.visits);
+    expect(first.acquisition.sources.reduce((sum, source) => sum + source.registrations, 0)).toBe(first.acquisition.summary.registrations);
+    expect(first.acquisition.sources.reduce((sum, source) => sum + source.paidUsers, 0)).toBe(first.acquisition.summary.paidUsers);
+    expect(first.acquisition.sources.reduce((sum, source) => sum + source.revenueRub, 0)).toBe(first.acquisition.summary.revenueRub);
+    expect(first.acquisition.topLinks).toHaveLength(first.acquisition.sources.length);
+    expect(first.acquisition.topLinks.map((link) => link.source)).toEqual(first.acquisition.sources.map((source) => source.key));
     expect(first.learning.summary.views).toBe(first.learning.cards.reduce((sum, card) => sum + card.views, 0));
     expect(first.stats.users.every((user) => user.email === null && user.phone === null)).toBe(true);
   });
 
   it("changes the presentation story when the seed changes", () => {
-    expect(createShowcaseAnalytics(111, range)).not.toEqual(createShowcaseAnalytics(222, range));
+    const first = createShowcaseAnalytics(111, range);
+    const second = createShowcaseAnalytics(222, range);
+    expect(first).not.toEqual(second);
+    expect(first.acquisition.sources).not.toEqual(second.acquisition.sources);
+  });
+
+  it("keeps every generated advertising channel internally plausible across repeated regeneration", () => {
+    const snapshots = Array.from({ length: 100 }, (_, index) => createShowcaseAnalytics(index + 1, { from: "2026-08-03", to: "2026-08-03" }).acquisition);
+
+    expect(new Set(snapshots.map((snapshot) => snapshot.sources.length)).size).toBeGreaterThan(1);
+    for (const snapshot of snapshots) {
+      expect(snapshot.sources.length).toBeGreaterThanOrEqual(4);
+      expect(snapshot.sources.length).toBeLessThanOrEqual(8);
+      for (const source of snapshot.sources) {
+        expect(source.visits).toBeGreaterThanOrEqual(source.registrations);
+        expect(source.registrations).toBeGreaterThanOrEqual(source.paidUsers);
+        expect(source.revenueRub).toBeGreaterThanOrEqual(source.paidUsers);
+        if (source.paidUsers === 0) expect(source.revenueRub).toBe(0);
+        if (source.paidUsers > 0) expect(source.revenueRub).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("distributes demo payments across the club's configured products and providers", () => {

@@ -3135,6 +3135,26 @@ test("regenerates showcase analytics with visible feedback and the complete prod
   if (testInfo.project.name === "release-android") {
     await retention.screenshot({ path: testInfo.outputPath("admin-showcase-retention.png"), animations: "disabled" });
   }
+
+  await page.getByRole("button", { name: "Назад" }).click();
+  await page.getByRole("button", { name: /Рекламные ссылки/ }).click();
+  const acquisitionTask = page.locator(".admin-statistics-task-screen");
+  const sourceRows = acquisitionTask.locator(".acquisition-source-row");
+  const sourceDonut = acquisitionTask.getByRole("img", { name: /Распределение клиентов по рекламным каналам/ });
+  await expect(sourceDonut).toBeVisible();
+  await expect.poll(() => sourceRows.count()).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => sourceRows.count()).toBeLessThanOrEqual(8);
+  const sourceCount = await sourceRows.count();
+  await expect(acquisitionTask.locator(".acquisition-source-chart .admin-finance-donut-segment")).toHaveCount(sourceCount);
+  const sourceColors = await sourceRows.locator(".admin-finance-legend-dot").evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).backgroundColor));
+  expect(new Set(sourceColors).size).toBe(sourceCount);
+  await expectNoHorizontalOverflow(page, ".acquisition-card:last-child");
+  await acquisitionTask.getByRole("button", { name: /Метки и ссылки/ }).click();
+  await expect(page.getByText(/Демо-канал:/)).toHaveCount(sourceCount);
+  if (testInfo.project.name === "release-android") {
+    await page.locator(".task-screen").last().getByRole("button", { name: "Назад" }).click();
+    await acquisitionTask.locator(".acquisition-card").last().screenshot({ path: testInfo.outputPath("admin-showcase-acquisition-sources.png"), animations: "disabled" });
+  }
 });
 
 test("keeps compact admin navigation reachable on every release viewport", async ({ page }, testInfo) => {

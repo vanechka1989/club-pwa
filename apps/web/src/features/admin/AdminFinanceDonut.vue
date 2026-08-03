@@ -11,10 +11,11 @@ const props = defineProps<{
 const visibleSegments = computed(() => {
   let offset = 0;
   return props.segments
-    .filter((segment) => segment.percent > 0)
-    .map((segment, index) => {
+    .map((segment, index) => ({ segment, colorIndex: index % 8 }))
+    .filter(({ segment }) => segment.percent > 0)
+    .map(({ segment, colorIndex }) => {
       const percent = Number(Math.max(0, Math.min(100, segment.percent)).toFixed(1));
-      const result = { ...segment, percent, offset: Number(offset.toFixed(1)), colorIndex: index % 6 };
+      const result = { ...segment, percent, offset: Number(offset.toFixed(1)), colorIndex };
       offset += percent;
       return result;
     });

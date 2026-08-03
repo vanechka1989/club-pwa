@@ -2,6 +2,7 @@
 import type { AdminFinanceAnalyticsResponse } from "@club/shared";
 import AdminFinanceDonut from "./AdminFinanceDonut.vue";
 import AdminFinanceRing from "./AdminFinanceRing.vue";
+import { formatAdminCompactMoney } from "./adminCompactMoney";
 
 defineProps<{
   data: AdminFinanceAnalyticsResponse | null;
@@ -23,8 +24,8 @@ function progress(value: number) {
   return `${Math.max(0, Math.min(100, value))}%`;
 }
 
-function distributionLabel(title: string, rows: Array<{ title: string; revenuePercent: number }>) {
-  return `${title}: ${rows.map((row) => `${row.title} ${valuePercent(row.revenuePercent)}`).join(", ")}`;
+function distributionLabel(title: string, totalRub: number, rows: Array<{ title: string; revenuePercent: number }>) {
+  return `${title}, общая выручка ${money(totalRub)}: ${rows.map((row) => `${row.title} ${valuePercent(row.revenuePercent)}`).join(", ")}`;
 }
 
 function clientCountLabel(count: number) {
@@ -79,14 +80,14 @@ function clientCountLabel(count: number) {
       </header>
       <div v-if="data.providers.length" class="admin-finance-distribution">
         <AdminFinanceDonut
-          :value="money(data.overview.revenueRub)"
+          :value="formatAdminCompactMoney(data.overview.revenueRub)"
           label="выручка"
-          :accessible-label="distributionLabel('Распределение выручки по платёжным системам', data.providers)"
+          :accessible-label="distributionLabel('Распределение выручки по платёжным системам', data.overview.revenueRub, data.providers)"
           :segments="data.providers.map((provider) => ({ label: provider.title, percent: provider.revenuePercent }))"
         />
         <div class="admin-finance-share-list">
           <article v-for="(provider, index) in data.providers" :key="provider.provider" class="admin-finance-share-row">
-          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 6}`" aria-hidden="true"></span>
+          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 8}`" aria-hidden="true"></span>
           <div class="admin-finance-share-content">
             <div class="admin-finance-ranked-head"><strong>{{ provider.title }}</strong><span><b>{{ money(provider.revenueRub) }}</b><small>{{ valuePercent(provider.revenuePercent) }} выручки</small></span></div>
             <div class="admin-finance-share-metrics">
@@ -108,14 +109,14 @@ function clientCountLabel(count: number) {
       </header>
       <div v-if="data.products.length" class="admin-finance-distribution">
         <AdminFinanceDonut
-          :value="money(data.overview.revenueRub)"
+          :value="formatAdminCompactMoney(data.overview.revenueRub)"
           label="выручка"
-          :accessible-label="distributionLabel('Распределение выручки по продуктам', data.products)"
+          :accessible-label="distributionLabel('Распределение выручки по продуктам', data.overview.revenueRub, data.products)"
           :segments="data.products.map((product) => ({ label: product.title, percent: product.revenuePercent }))"
         />
         <div class="admin-finance-share-list">
         <article v-for="(product, index) in data.products" :key="product.productId ?? `${product.kind}:${product.title}`" class="admin-finance-share-row">
-          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 6}`" aria-hidden="true"></span>
+          <span class="admin-finance-legend-dot" :class="`is-segment-${index % 8}`" aria-hidden="true"></span>
           <div class="admin-finance-share-content">
             <div class="admin-finance-ranked-head"><strong>{{ product.title }}</strong><span><b>{{ money(product.revenueRub) }}</b><small>{{ valuePercent(product.revenuePercent) }} выручки</small></span></div>
             <div class="admin-finance-share-metrics">

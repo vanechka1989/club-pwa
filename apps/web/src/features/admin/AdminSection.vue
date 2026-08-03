@@ -130,6 +130,7 @@ import { paymentSuccessPercent } from "@/features/admin/adminAnalyticsOverview";
 import { createShowcaseAnalytics, type ShowcaseAnalyticsCatalog } from "@/features/admin/showcaseAnalytics";
 import { readShowcaseState, regenerateShowcaseSeed, writeShowcaseState } from "@/features/admin/showcaseMode";
 import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
+import { formatAdminCompactMoney } from "@/features/admin/adminCompactMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
 import { formatMembershipStatus } from "@/features/app/i18n";
 import { useOperationIndicator } from "@/features/app/useOperationIndicator";
@@ -3184,7 +3185,7 @@ onUnmounted(() => {
             :aria-label="`Выручка: ${adminStatistics.payments.revenueRub.toLocaleString('ru-RU')} рублей, ${adminStatistics.payments.paidOrders} оплат за выбранный период`"
             @click="openStatisticsDetail('finance')"
           >
-            <span class="admin-stat-ring admin-stat-ring-value" aria-hidden="true"><b>{{ adminStatistics.payments.revenueRub.toLocaleString("ru-RU") }} ₽</b></span>
+            <span class="admin-stat-ring admin-stat-ring-value" aria-hidden="true"><b>{{ formatAdminCompactMoney(adminStatistics.payments.revenueRub) }}</b></span>
             <strong>Выручка</strong>
             <small>{{ adminStatistics.payments.paidOrders }} оплат за период</small>
           </button>
