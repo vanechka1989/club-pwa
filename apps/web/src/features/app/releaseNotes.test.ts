@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes combined finance share charts as version 6.16", () => {
-    expect(appVersion).toBe("6.16");
-    expect(releaseNotes[0]?.title).toBe("Единые диаграммы выручки");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/платёжн/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/продукт/i);
+  it("publishes rich lesson text editing as version 6.17", () => {
+    expect(appVersion).toBe("6.17");
+    expect(releaseNotes[0]?.title).toBe("Форматирование текста в уроках");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/HTML/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/телефон/i);
+
+    const unifiedRevenue = releaseNotes.find((note) => note.version === "6.16");
+    expect(unifiedRevenue?.title).toBe("Единые диаграммы выручки");
 
     const compactFinance = releaseNotes.find((note) => note.version === "6.15");
     expect(compactFinance?.title).toBe("Спокойная финансовая аналитика");
@@ -330,7 +333,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Unified revenue charts");
+    expect(englishNotes[0]?.title).toBe("Rich text editing for lessons");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

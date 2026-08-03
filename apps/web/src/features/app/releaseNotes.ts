@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Unified revenue charts",
+  title: "Rich text editing for lessons",
   items: [
-    "All payment providers are combined into one segmented ring that shows each provider's share of total revenue.",
-    "Products and plans have their own unified chart for comparing revenue distribution at a glance.",
-    "Compact color legends retain percentages, totals, payments, customers, and average order value while zero entries create no empty segments."
+    "Lesson cards now include a visual editor for bold and italic text, headings, quotes, lists, and links.",
+    "An HTML mode is available for precise formatting, with unsafe tags and scripts removed automatically on save.",
+    "The editor is optimized for phones with a wrapping toolbar and touch-friendly controls."
   ]
 };
 
