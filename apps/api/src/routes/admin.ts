@@ -44,6 +44,7 @@ import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
 import { buildClientPaymentFacetMaps, type ClientPaymentFacets } from "../admin/clientPaymentFacets";
 import { buildAdminFinanceAnalytics, parseAdminFinanceRange } from "../admin/financeAnalytics";
+import { deleteClientAccount } from "../admin/clientDeletion";
 import { getLearningEngagementDashboard, getLearningEngagementUsers, resolveLearningEngagementRange } from "../admin/learningEngagement";
 import { buildAdminHomeworkResult, buildAdminQuizResult, recordBelongsToUser, resetBelongsToAttempt } from "../admin/assessmentResult";
 import { buildMessageAuthor } from "../community/messageMetadata";
@@ -77,6 +78,7 @@ import {
   homeworkSubmissions,
   lessonComments,
   learningEngagementSessions,
+  individualPaymentOffers,
   paymentOrders,
   paymentProducts,
   subscriptions,
@@ -85,6 +87,7 @@ import {
   quizAttemptResets,
   quizAttempts,
   supportTicketAttachments,
+  supportTickets,
   userRecurrentSubscriptions,
   userContentProgress,
   userAcquisitionAttributions,
@@ -2728,6 +2731,92 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     }
 
     return c.json(await buildUserDetail(user));
+  })
+  .delete("/stats/users/:telegramId", async (c) => {
+    const result = await deleteClientAccount({
+      actorTelegramId: c.get("telegramUser").id,
+      targetTelegramId: c.req.param("telegramId"),
+      previewRole: c.get("previewRole")
+    }, {
+      isOwnerTelegramId,
+      findTarget: async (telegramId) => {
+        const user = await db.query.users.findFirst({ where: eq(users.telegramId, telegramId) });
+        return user ?? null;
+      },
+      isAdminTelegramId: async (telegramId) => Boolean(
+        await db.query.adminUsers.findFirst({ where: eq(adminUsers.telegramId, telegramId) })
+      ),
+      collectObjectKeys: async (target) => {
+        const [homeworkRows, communityRows, supportRows, notificationRows] = await Promise.all([
+          db
+            .select({ objectKey: homeworkAttachments.objectKey })
+            .from(homeworkAttachments)
+            .innerJoin(homeworkSubmissions, eq(homeworkAttachments.submissionId, homeworkSubmissions.id))
+            .where(eq(homeworkSubmissions.userId, target.id)),
+          db
+            .select({ objectKey: clubMessageAttachments.objectKey })
+            .from(clubMessageAttachments)
+            .innerJoin(clubChatMessages, eq(clubMessageAttachments.messageId, clubChatMessages.id))
+            .where(eq(clubChatMessages.userId, target.id)),
+          db
+            .select({ objectKey: supportTicketAttachments.objectKey })
+            .from(supportTicketAttachments)
+            .innerJoin(supportTickets, eq(supportTicketAttachments.ticketId, supportTickets.id))
+            .where(eq(supportTickets.userId, target.id)),
+          db
+            .select({ objectKey: appNotifications.attachmentObjectKey })
+            .from(appNotifications)
+            .where(eq(appNotifications.userId, target.id))
+        ]);
+        return [
+          target.avatarObjectKey,
+          ...homeworkRows.map((row) => row.objectKey),
+          ...communityRows.map((row) => row.objectKey),
+          ...supportRows.map((row) => row.objectKey),
+          ...notificationRows.map((row) => row.objectKey)
+        ];
+      },
+      deleteDatabaseRecords: async ({ actorTelegramId, target }) => {
+        await db.transaction(async (tx) => {
+          await tx.insert(adminActionLogs).values({
+            actorUserId: c.get("userId"),
+            actorTelegramId,
+            action: "client.deleted",
+            entityType: "user",
+            entityId: target.id,
+            targetUserId: target.id,
+            targetTelegramId: target.telegramId,
+            summary: `Полностью удалил клиента ${target.displayName || target.firstName || target.username || target.telegramId}`,
+            metadata: {
+              telegramId: target.telegramId,
+              displayName: target.displayName,
+              firstName: target.firstName,
+              username: target.username
+            }
+          });
+          await tx.delete(userRecurrentSubscriptions).where(eq(userRecurrentSubscriptions.userId, target.id));
+          await tx.delete(paymentOrders).where(eq(paymentOrders.userId, target.id));
+          await tx.delete(individualPaymentOffers).where(eq(individualPaymentOffers.userId, target.id));
+          const deleted = await tx.delete(users).where(eq(users.id, target.id)).returning({ id: users.id });
+          if (!deleted.length) throw new Error("Client disappeared during deletion");
+        });
+      },
+      deleteObject: async (key, storageTarget) => {
+        try {
+          await deleteObject(key, storageTarget);
+        } catch (error) {
+          logger.warn({ error, key, storageTarget }, "Unable to remove deleted client object");
+          throw error;
+        }
+      }
+    });
+
+    if (result.status === "forbidden-actor" || result.status === "protected-target") {
+      return c.json({ error: "Only the owner can delete regular clients" }, 403);
+    }
+    if (result.status === "not-found") return c.json({ error: "User not found" }, 404);
+    if (result.status === "conflict") return c.json({ error: "Unable to delete all client data" }, 409);
+    return c.json({ ok: true, deletedTelegramId: result.deletedTelegramId });
   })
   .patch("/stats/users/:telegramId/display-name", async (c) => {
     const permissionError = await rejectIfNotOwner(c, "users");
