@@ -176,6 +176,17 @@ describe("AdminClientsPanel", () => {
     expect(panel).not.toContain("useSessionStore");
   });
 
+  it("shows the owner deletion action for an ordinary selected client", async () => {
+    const { emitted } = render(AdminClientsPanel, {
+      props: createProps({ selectedUser: client, selectedUserDetail: clientDetail, canDeleteSelectedUser: true })
+    });
+
+    const deleteButton = screen.getByRole("button", { name: "Удалить клиента" });
+    expect(deleteButton).toBeTruthy();
+    await fireEvent.click(deleteButton);
+    expect(emitted()["request-client-delete"]).toEqual([[client]]);
+  });
+
   it("emits a cloned filter update without mutating the filter prop", async () => {
     const props = createProps();
     const { emitted } = render(AdminClientsPanel, { props });
