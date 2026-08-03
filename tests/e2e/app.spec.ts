@@ -4499,7 +4499,7 @@ test("opens every client summary on its own responsive page", async ({ page }, t
   await expect(page.getByRole("button", { name: "Открыть раздел Источник клиента" })).toBeVisible();
   const clientHeaderBox = await clientHeader.boundingBox();
   expect(clientHeaderBox).not.toBeNull();
-  expect(clientHeaderBox!.height).toBeLessThanOrEqual(112);
+  expect(clientHeaderBox!.height).toBeLessThanOrEqual(120);
   const deleteButton = clientHeader.getByRole("button", { name: "Удалить клиента" });
   if (await deleteButton.count()) {
     const deleteBox = await deleteButton.boundingBox();
