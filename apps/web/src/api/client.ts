@@ -867,6 +867,12 @@ export function getAdminUserDetail(telegramId: string) {
   return api<AdminUserDetailResponse>(`/admin/stats/users/${telegramId}/detail`);
 }
 
+export function deleteAdminClient(telegramId: string) {
+  return api<{ ok: true; deletedTelegramId: string }>(`/admin/stats/users/${encodeURIComponent(telegramId)}`, {
+    method: "DELETE"
+  });
+}
+
 export function updateAdminUserDisplayName(telegramId: string, displayName: string) {
   return api<AdminStatsUser>(`/admin/stats/users/${telegramId}/display-name`, { method: "PATCH", body: { displayName } });
 }

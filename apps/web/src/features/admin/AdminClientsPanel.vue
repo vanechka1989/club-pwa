@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLoginIp, AdminStatsUser, AdminUserDetailResponse, PaymentOrderLog } from "@club/shared";
-import { Activity, BookOpen, ChevronRight, CircleDollarSign, CreditCard, Lock, LockOpen, MessageCircle, MessageCircleOff, Network, Paperclip, Route, ShieldAlert, SlidersHorizontal, Smartphone, UserRoundPlus, X } from "lucide-vue-next";
+import { Activity, BookOpen, ChevronRight, CircleDollarSign, CreditCard, Lock, LockOpen, MessageCircle, MessageCircleOff, Network, Paperclip, Route, ShieldAlert, SlidersHorizontal, Smartphone, Trash2, UserRoundPlus, X } from "lucide-vue-next";
 import { ref } from "vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -78,6 +78,8 @@ const props = defineProps<{
   clientAccessBusy: boolean;
   canGrantClientAccess: boolean;
   canManageSelectedUser: boolean;
+  canDeleteSelectedUser: boolean;
+  deletingClient: boolean;
   canManageClientLearning: boolean;
   canManageSelectedUserAccess: boolean;
   canViewLoginIps: boolean;
@@ -105,6 +107,7 @@ const emit = defineEmits<{
   "reset-filters": [];
   "select-user": [user: AdminStatsUser];
   "client-card-close": [];
+  "request-client-delete": [user: AdminStatsUser];
   "update:access-expires-at": [value: string];
   "open-access": [];
   "close-access": [];
@@ -230,6 +233,18 @@ function updateClientMessageFiles(event: Event) {
     </div></div>
 
     <TaskScreen v-if="selectedUser" class="admin-task-screen admin-client-task-screen" :title="userTitle(selectedUser)" :subtitle="selectedUserMeta(selectedUser)" portal @back="emit('client-card-close')">
+      <template v-if="canDeleteSelectedUser" #actions>
+        <button
+          class="admin-client-delete-button"
+          type="button"
+          aria-label="Удалить клиента"
+          title="Удалить клиента"
+          :disabled="deletingClient"
+          @click="emit('request-client-delete', selectedUser)"
+        >
+          <Trash2 aria-hidden="true" />
+        </button>
+      </template>
       <div class="admin-client-workspace">
         <header class="admin-client-identity admin-detail ui-card"><div class="admin-client-card-head"><span class="admin-client-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span><div class="admin-client-card-title"><div class="admin-client-title-row"><h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3></div><p>{{ selectedUserMeta(selectedUser) }}</p><span class="admin-client-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span></div></div><div class="admin-client-status-row"><span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span><span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span><span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span><span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span></div></header>
 
@@ -254,3 +269,61 @@ function updateClientMessageFiles(event: Event) {
     <Teleport to="body"><div v-if="clientMessage.open && selectedUser" class="admin-client-message-layer" @click.self="emit('close-message')"><form class="admin-client-message-modal" role="dialog" aria-modal="true" aria-labelledby="admin-client-message-title" @submit.prevent="emit('submit-message')"><header class="admin-client-message-head"><div><h3 id="admin-client-message-title">Сообщение клиенту</h3><p>{{ userTitle(selectedUser) }} · ID {{ selectedUser.telegramId }}</p></div><button class="icon-button ui-icon-button" type="button" aria-label="Закрыть сообщение клиенту" @click="emit('close-message')"><X class="h-4 w-4" aria-hidden="true" /></button></header><div class="admin-client-message-body"><div class="admin-client-message-row"><label class="support-file-icon-button ui-icon-button admin-client-file-button" title="Добавить файл" aria-label="Добавить файл"><Paperclip class="h-4 w-4" aria-hidden="true" /><input type="file" accept="image/*,video/*" multiple @change="updateClientMessageFiles" /></label><textarea ref="clientMessageInput" :value="clientMessage.text" rows="3" placeholder="Напишите сообщение клиенту" @input="emit('update:client-message-text', ($event.target as HTMLTextAreaElement).value)" /></div><div v-if="clientMessage.files.length" class="admin-client-file-list"><span v-for="file in clientMessage.files" :key="file.name">{{ file.name }}</span></div></div><button class="primary-button ui-button" type="submit" :disabled="clientMessage.sending">{{ clientMessage.sending ? 'Отправляем...' : 'Отправить' }}</button></form></div></Teleport>
   </section>
 </template>
+
+<style scoped>
+.admin-client-delete-button {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px !important;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #ff6b82;
+  border-radius: 13px;
+  background: #ff2d55;
+  color: #fff;
+  box-shadow: 0 8px 20px rgb(255 45 85 / 30%);
+  cursor: pointer;
+  transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-client-delete-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 10px 24px rgb(255 45 85 / 40%);
+}
+
+.admin-client-delete-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.admin-client-delete-button:focus-visible {
+  outline: 3px solid rgb(255 45 85 / 34%);
+  outline-offset: 3px;
+}
+
+.admin-client-delete-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admin-client-delete-button svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 2.25;
+}
+
+.admin-client-task-screen :deep(.task-screen-actions),
+.admin-client-task-screen :deep(.ui-page-header__actions) {
+  width: auto;
+  min-width: 44px;
+}
+
+@media (max-width: 480px) {
+  .admin-client-task-screen :deep(.task-screen-actions > *),
+  .admin-client-task-screen :deep(.ui-page-header__actions > *) {
+    width: 44px !important;
+  }
+}
+</style>

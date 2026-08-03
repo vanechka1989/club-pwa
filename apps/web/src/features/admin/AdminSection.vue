@@ -61,6 +61,7 @@ import {
   createAdminMailing,
   createAdminClientSupportTicket,
   createUserMute,
+  deleteAdminClient,
   deleteAdminS3Object,
   getAdminActionLogs,
   getAdminLearning,
@@ -365,6 +366,7 @@ const clientMessageFiles = ref<File[]>([]);
 const clientMessageInputRef = ref<HTMLTextAreaElement | null>(null);
 const clientsPanelRef = ref<AdminClientsPanelExpose | null>(null);
 const sendingClientMessage = ref(false);
+const deletingClient = ref(false);
 const adminSearchQuery = ref("");
 const selectedAdminAccess = ref<AdminUser | null>(null);
 const transferOwnerTelegramId = ref("");
@@ -489,6 +491,7 @@ const canViewLoginIps = computed(() => hasCurrentAdminPermission("login_ips"));
 const canGrantClientAccess = computed(() => hasCurrentAdminPermission("accesses"));
 const canManageClientLearning = computed(() => hasCurrentAdminPermission("materials"));
 const canManageSelectedUser = computed(() => isOwner.value || selectedUser.value?.role === "member");
+const canDeleteSelectedUser = computed(() => isOwner.value && selectedUser.value?.role === "member");
 const canManageSelectedUserAccess = computed(() => canGrantClientAccess.value && canManageSelectedUser.value);
 const clientAccessBusy = computed(() => Boolean(pendingClientAccessAction.value));
 const totalUsers = computed(() => users.value.length);
@@ -2389,6 +2392,39 @@ async function handleQuickMute(user: AdminStatsUser) {
   }
 }
 
+async function handleDeleteClient(user: AdminStatsUser) {
+  if (!canDeleteSelectedUser.value || !selectedUser.value) {
+    setError("Полностью удалить клиента может только владелец клуба.");
+    return;
+  }
+  if (selectedUser.value.telegramId !== user.telegramId) return;
+
+  const confirmed = await appDialogs.confirm({
+    title: `Удалить клиента «${userTitle(user)}»?`,
+    description: "Аккаунт, доступы, оплаты, обучение, сообщения и связанные файлы будут удалены навсегда. Это действие нельзя отменить.",
+    confirmLabel: "Удалить навсегда",
+    cancelLabel: "Отмена",
+    tone: "danger"
+  });
+  if (!confirmed) return;
+  if (!canDeleteSelectedUser.value || !selectedUser.value) return;
+  if (selectedUser.value.telegramId !== user.telegramId) return;
+
+  const telegramId = user.telegramId;
+  deletingClient.value = true;
+  try {
+    await deleteAdminClient(telegramId);
+    closeSelectedUser();
+    await loadAll();
+    setStatus("Клиент полностью удалён.");
+  } catch (requestError) {
+    const errorPayload = requestError as { data?: { error?: string } };
+    setError(errorPayload.data?.error ?? "Не удалось полностью удалить клиента.");
+  } finally {
+    deletingClient.value = false;
+  }
+}
+
 async function handleRevokeMute(id: string) {
   if (!selectedUser.value) {
     return;
@@ -3341,6 +3377,8 @@ onUnmounted(() => {
       :client-access-busy="clientAccessBusy"
       :can-grant-client-access="canGrantClientAccess"
       :can-manage-selected-user="canManageSelectedUser"
+      :can-delete-selected-user="canDeleteSelectedUser"
+      :deleting-client="deletingClient"
       :can-manage-client-learning="canManageClientLearning"
       :can-manage-selected-user-access="canManageSelectedUserAccess"
       :can-view-login-ips="canViewLoginIps"
@@ -3365,6 +3403,7 @@ onUnmounted(() => {
       @reset-filters="resetClientFilters"
       @select-user="selectUser"
       @client-card-close="closeSelectedUser"
+      @request-client-delete="handleDeleteClient"
       @update:access-expires-at="accessExpiresAt = $event"
       @open-access="handleOpenAccess"
       @close-access="handleCloseAccess"

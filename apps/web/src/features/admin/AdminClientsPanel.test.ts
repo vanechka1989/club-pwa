@@ -133,6 +133,8 @@ function createProps(overrides: Record<string, unknown> = {}) {
     clientAccessBusy: false,
     canGrantClientAccess: true,
     canManageSelectedUser: true,
+    canDeleteSelectedUser: false,
+    deletingClient: false,
     canManageClientLearning: true,
     canManageSelectedUserAccess: true,
     canViewLoginIps: false,
