@@ -161,9 +161,32 @@ export function createShowcaseAnalytics(seed: number, range: DateRange, catalog?
       revenuePercent: percent(productRevenue, revenueRub)
     };
   });
-  const totalPayingCustomers = new Set(paidBlueprints.map((order) => order.customerIndex)).size;
-  const retained = integer(random, Math.ceil(totalPayingCustomers * 0.55), totalPayingCustomers);
+  const payingCustomerIndexes = Array.from(new Set(paidBlueprints.map((order) => order.customerIndex)));
+  const totalPayingCustomers = payingCustomerIndexes.length;
+  const retained = totalPayingCustomers > 1
+    ? integer(random, Math.ceil(totalPayingCustomers * 0.55), totalPayingCustomers - 1)
+    : totalPayingCustomers;
   const churned = totalPayingCustomers - retained;
+  const randomizedCustomerIndexes = [...payingCustomerIndexes];
+  for (let index = randomizedCustomerIndexes.length - 1; index > 0; index -= 1) {
+    const swapIndex = integer(random, 0, index);
+    [randomizedCustomerIndexes[index], randomizedCustomerIndexes[swapIndex]] = [randomizedCustomerIndexes[swapIndex]!, randomizedCustomerIndexes[index]!];
+  }
+  const retainedCustomerIndexes = new Set(randomizedCustomerIndexes.slice(0, retained));
+  const lastPaidByCustomer = new Map<number, (typeof paidBlueprints)[number]>();
+  for (const order of paidBlueprints) lastPaidByCustomer.set(order.customerIndex, order);
+  const providerRetention = providers.map((provider) => {
+    const customerIndexes = Array.from(lastPaidByCustomer.entries()).filter(([, order]) => order.provider.code === provider.code).map(([customerIndex]) => customerIndex);
+    const activeCustomers = customerIndexes.filter((customerIndex) => retainedCustomerIndexes.has(customerIndex)).length;
+    const churnedCustomers = customerIndexes.length - activeCustomers;
+    return { key: provider.code, title: provider.title, totalCustomers: customerIndexes.length, activeCustomers, churnedCustomers, churnedPercent: percent(churnedCustomers, customerIndexes.length) };
+  });
+  const productRetention = products.map((product) => {
+    const customerIndexes = Array.from(lastPaidByCustomer.entries()).filter(([, order]) => order.product.id === product.id).map(([customerIndex]) => customerIndex);
+    const activeCustomers = customerIndexes.filter((customerIndex) => retainedCustomerIndexes.has(customerIndex)).length;
+    const churnedCustomers = customerIndexes.length - activeCustomers;
+    return { key: product.id, title: product.title, totalCustomers: customerIndexes.length, activeCustomers, churnedCustomers, churnedPercent: percent(churnedCustomers, customerIndexes.length) };
+  });
   const finance: AdminFinanceAnalyticsResponse = {
     overview: {
       revenueRub,
@@ -186,15 +209,8 @@ export function createShowcaseAnalytics(seed: number, range: DateRange, catalog?
       repeatPurchaseChurned: Math.ceil(churned / 2),
       repeatPurchaseChurnedPercent: percent(Math.ceil(churned / 2), churned),
       exitStages: [{ renewals: 1, label: "После первого продления", customers: churned, percentOfRepeatChurned: churned ? 100 : 0 }],
-      byProviders: providerRows.map((row) => ({ key: row.provider, title: row.title, totalCustomers: row.uniqueCustomers, activeCustomers: Math.min(row.uniqueCustomers, retained), churnedCustomers: Math.max(0, row.uniqueCustomers - retained), churnedPercent: percent(Math.max(0, row.uniqueCustomers - retained), row.uniqueCustomers) })),
-      byProducts: productRows.map((row) => ({
-        key: row.productId,
-        title: row.title,
-        totalCustomers: row.uniqueCustomers,
-        activeCustomers: Math.min(row.uniqueCustomers, retained),
-        churnedCustomers: Math.max(0, row.uniqueCustomers - retained),
-        churnedPercent: percent(Math.max(0, row.uniqueCustomers - retained), row.uniqueCustomers)
-      }))
+      byProviders: providerRetention,
+      byProducts: productRetention
     }
   };
 

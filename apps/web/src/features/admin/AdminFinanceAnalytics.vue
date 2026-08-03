@@ -107,7 +107,6 @@ function distributionLabel(title: string, rows: Array<{ title: string; revenuePe
           <span class="admin-finance-legend-dot" :class="`is-segment-${index % 6}`" aria-hidden="true"></span>
           <div class="admin-finance-share-content">
             <div class="admin-finance-ranked-head"><strong>{{ product.title }}</strong><span><b>{{ money(product.revenueRub) }}</b><small>{{ valuePercent(product.revenuePercent) }} выручки</small></span></div>
-            <span class="admin-finance-product-kind">{{ product.kind === 'recurrent' ? 'Автоподписка' : 'Разовая оплата' }}</span>
             <div class="admin-finance-share-metrics">
               <span><small>Оплаты</small><b>{{ product.paidOrders }}</b></span>
               <span><small>Клиенты</small><b>{{ product.uniqueCustomers }}</b></span>
@@ -171,19 +170,23 @@ function distributionLabel(title: string, rows: Array<{ title: string; revenuePe
         <div v-if="data.retention.byProducts.length || data.retention.byProviders.length" class="admin-finance-retention-breakdowns">
           <div v-if="data.retention.byProducts.length" class="admin-finance-retention-group">
             <h5>Отток по последнему продукту</h5>
-            <article v-for="row in data.retention.byProducts" :key="row.key" class="admin-finance-churn-row">
-              <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
-              <div class="admin-finance-progress admin-finance-churn-bar" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
-              <small>{{ row.churnedCustomers }} не продлили из {{ row.totalCustomers }}</small>
-            </article>
+            <div class="admin-finance-churn-grid">
+              <article v-for="row in data.retention.byProducts" :key="row.key" class="admin-finance-churn-row">
+                <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
+                <small><b>{{ row.churnedCustomers }}</b> из {{ row.totalCustomers }} не продлили</small>
+                <div class="admin-finance-progress admin-finance-churn-bar" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+              </article>
+            </div>
           </div>
           <div v-if="data.retention.byProviders.length" class="admin-finance-retention-group">
             <h5>Отток по платёжной системе</h5>
-            <article v-for="row in data.retention.byProviders" :key="row.key" class="admin-finance-churn-row">
-              <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
-              <div class="admin-finance-progress admin-finance-churn-bar" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
-              <small>{{ row.churnedCustomers }} не продлили из {{ row.totalCustomers }}</small>
-            </article>
+            <div class="admin-finance-churn-grid">
+              <article v-for="row in data.retention.byProviders" :key="row.key" class="admin-finance-churn-row admin-finance-churn-row-provider">
+                <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
+                <small><b>{{ row.churnedCustomers }}</b> из {{ row.totalCustomers }} не продлили</small>
+                <div class="admin-finance-progress admin-finance-churn-bar is-info" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+              </article>
+            </div>
           </div>
         </div>
         </template>

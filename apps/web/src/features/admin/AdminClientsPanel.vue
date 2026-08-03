@@ -236,7 +236,22 @@ async function copyContact(value: string) {
       </button>
     </div></div>
 
-    <TaskScreen v-if="selectedUser" class="admin-task-screen admin-client-task-screen" :title="userTitle(selectedUser)" :subtitle="selectedUserMeta(selectedUser)" portal @back="emit('client-card-close')">
+    <TaskScreen v-if="selectedUser" class="admin-task-screen admin-client-task-screen" :title="userTitle(selectedUser)" portal @back="emit('client-card-close')">
+      <template #heading>
+        <div class="admin-client-task-heading">
+          <span class="admin-client-task-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span>
+          <div class="admin-client-task-identity">
+            <h2 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h2>
+            <span class="admin-client-task-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span>
+            <div class="admin-client-task-statuses">
+              <span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span>
+              <span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span>
+              <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span>
+              <span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
       <template v-if="canDeleteSelectedUser" #actions>
         <button
           class="admin-client-delete-button"
@@ -250,8 +265,6 @@ async function copyContact(value: string) {
         </button>
       </template>
       <div class="admin-client-workspace">
-        <header class="admin-client-identity admin-detail ui-card"><div class="admin-client-card-head"><span class="admin-client-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span><div class="admin-client-card-title"><div class="admin-client-title-row"><h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3></div><p>{{ selectedUserMeta(selectedUser) }}</p><span class="admin-client-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span></div></div><div class="admin-client-status-row"><span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span><span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span><span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span><span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span></div></header>
-
         <section class="admin-client-contact-card admin-detail ui-card" aria-labelledby="admin-client-contact-title">
           <header><div><strong id="admin-client-contact-title">Контактные данные</strong><small>Почта и телефон клиента</small></div><LockKeyhole v-if="selectedUser.personalDataRestricted" aria-hidden="true" /></header>
           <div v-if="selectedUser.personalDataRestricted" class="admin-client-contact-locked"><Lock aria-hidden="true" /><span><strong>Скрыто владельцем</strong><small>Нет права на персональные данные</small></span></div>
@@ -301,6 +314,34 @@ async function copyContact(value: string) {
   cursor: pointer;
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
+
+.admin-client-task-heading {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-client-task-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 50%;
+  background: var(--surface-soft);
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.admin-client-task-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.admin-client-task-identity { display: grid; min-width: 0; gap: 3px; }
+.admin-client-task-identity h2 { margin: 0; overflow: hidden; color: var(--text); font-size: var(--app-header-title-size); font-weight: 900; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-task-last-login { overflow: hidden; color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-task-statuses { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; }
+.admin-client-task-statuses :is(.admin-status-pill, .admin-email-opt-out-badge) { min-height: 22px; padding: 3px 7px; font-size: 10px; line-height: 1.1; }
 
 .admin-client-contact-card { display: grid; gap: 12px; padding: 14px; }
 .admin-client-contact-card > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

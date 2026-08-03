@@ -703,7 +703,12 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           completedItems: 4,
           totalItems: 18,
           users: [adminStatsUser, inactiveStatsUser, closedStatsUser],
-          paymentProductOptions: [{ id: "product-pro", title: "Клуб Pro", kind: "recurrent" }],
+          paymentProductOptions: [
+            { id: "product-start", title: "Старт", kind: "one_time" },
+            { id: "product-club", title: "Клуб", kind: "recurrent" },
+            { id: "product-club-once", title: "Клуб", kind: "one_time" },
+            { id: "product-vip", title: "VIP", kind: "recurrent" }
+          ],
           paymentProviderOptions: [{ code: "lava", title: "Lava" }, { code: "prodamus", title: "Prodamus" }],
           communityMessages: [
             {
@@ -3071,6 +3076,38 @@ test("renders visual admin analytics overview without viewport overflow", async 
   }
 });
 
+test("regenerates showcase analytics with visible feedback and the complete product catalog", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/admin");
+
+  await page.getByText("Демонстрационные данные", { exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: "Демонстрационные данные" })).toBeChecked();
+  const regenerate = page.getByRole("button", { name: "Сгенерировать заново" });
+  const seedBefore = await page.evaluate(() => localStorage.getItem("club-analytics-showcase-seed"));
+  await regenerate.click();
+  await expect(page.getByRole("status")).toHaveText("Данные обновлены");
+  await expect(page.getByRole("button", { name: "Данные обновлены" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("club-analytics-showcase-seed"))).not.toBe(seedBefore);
+
+  await page.getByRole("button", { name: /Выручка: .* рублей/ }).click();
+  const products = page.getByRole("region", { name: "Продукты и тарифы" });
+  await expect(products.locator(".admin-finance-share-row")).toHaveCount(4);
+  await expect(products.getByText("Клуб", { exact: true })).toHaveCount(2);
+  await expect(products.locator(".admin-finance-product-kind")).toHaveCount(0);
+
+  const retention = page.locator('[aria-label="Удержание платящих клиентов"]');
+  await expect(retention).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Отток по последнему продукту" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Отток по платёжной системе" })).toBeVisible();
+  await expect(page.locator(".admin-finance-churn-row")).toHaveCount(6);
+  const percentages = await page.locator(".admin-finance-churn-row > div:first-child > b").allTextContents();
+  expect(percentages.some((value) => value !== "0%")).toBe(true);
+  await expectResponsiveLayoutIntegrity(page, "/admin showcase finance");
+  if (testInfo.project.name === "release-android") {
+    await retention.screenshot({ path: testInfo.outputPath("admin-showcase-retention.png"), animations: "disabled" });
+  }
+});
+
 test("keeps compact admin navigation reachable on every release viewport", async ({ page }, testInfo) => {
   const viewports = testInfo.project.name === "release-android"
     ? [
@@ -3128,7 +3165,11 @@ test("keeps compact admin navigation reachable on every release viewport", async
     (element as HTMLDetailsElement).open = true;
   });
   await expect(page.getByLabel("Платёжная система")).toContainText("Lava");
-  await expect(page.getByLabel("Продукт")).toContainText("Клуб Pro");
+  const productFilter = page.getByLabel("Продукт");
+  await expect(productFilter.locator("option")).toHaveCount(5);
+  await expect(productFilter).toContainText("Старт");
+  await expect(productFilter).toContainText("Клуб");
+  await expect(productFilter).toContainText("VIP");
 
   const modeTrigger = page.getByRole("button", { name: /^Режим просмотра:/ });
   await modeTrigger.click();
@@ -4437,6 +4478,13 @@ test("opens a client's complete quiz result from the unified learning section", 
 
 test("opens every client summary on its own responsive page", async ({ page }, testInfo) => {
   await page.goto("/admin/clients/593677751");
+  const clientHeader = page.locator(".admin-client-task-screen .task-screen-header");
+  await expect(clientHeader.getByRole("img", { name: /Екатерина С Очень Длинной Фамилией/ })).toBeVisible();
+  await expect(clientHeader.getByText(/Последний вход:/)).toBeVisible();
+  await expect(clientHeader.getByText("Доступ открыт", { exact: true })).toBeVisible();
+  await expect(clientHeader.getByText(adminStatsUser.email, { exact: true })).toHaveCount(0);
+  await expect(page.locator(".admin-client-identity")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Контактные данные" })).toContainText(adminStatsUser.email);
   await expect(page.getByRole("button", { name: "Открыть раздел Источник клиента" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("admin-client-source-row.png"), fullPage: false, animations: "disabled" });
 

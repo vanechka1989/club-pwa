@@ -45,6 +45,9 @@ onBeforeUnmount(() => {
     <UiPageContainer ref="routeLayer" :class="[$attrs.class, { 'task-screen-route-layer': portal }]" task>
       <section class="task-screen ui-task-screen">
         <UiPageHeader class="task-screen-header" :title="title" :subtitle="subtitle" back :back-label="backLabel || 'Назад'" @back="$emit('back')">
+          <template v-if="$slots.heading" #heading>
+            <slot name="heading" />
+          </template>
           <template v-if="$slots.actions" #actions>
             <div class="task-screen-actions">
               <slot name="actions" />

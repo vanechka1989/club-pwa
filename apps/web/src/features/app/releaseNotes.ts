@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Real tariffs in showcase analytics",
+  title: "Compact client details and lively showcase analytics",
   items: [
-    "Showcase analytics now uses the real names and kinds of payment products configured for the club.",
-    "Fictional payments, customers and revenue are distributed across the club's configured payment providers with consistent totals.",
-    "Every analytics detail screen replaces the period chip with a Generate button while showcase mode is active."
+    "The client avatar, name, last login and statuses now share one compact header while protected contact details remain in their dedicated card.",
+    "Showcase regeneration confirms each update visually and keeps every configured product as a separate finance row.",
+    "Product and payment-provider churn now uses each customer's latest purchase and renders as compact, realistic breakdown cards."
   ]
 };
 

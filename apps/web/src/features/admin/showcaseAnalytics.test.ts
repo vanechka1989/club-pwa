@@ -5,7 +5,7 @@ describe("showcase analytics", () => {
   const range = { from: "2026-07-05", to: "2026-08-03" };
   const catalog = {
     products: [
-      { id: "product-start", title: "Старт", kind: "one_time" as const },
+      { id: "product-start", title: "Клуб", kind: "one_time" as const },
       { id: "product-club", title: "Клуб", kind: "recurrent" as const },
       { id: "product-vip", title: "VIP", kind: "recurrent" as const }
     ],
@@ -42,5 +42,13 @@ describe("showcase analytics", () => {
     expect(new Set(snapshot.paymentOrders.map((order) => order.provider))).toEqual(new Set(catalog.providers.map((provider) => provider.code)));
     expect(snapshot.finance.products.reduce((sum, product) => sum + product.revenueRub, 0)).toBe(snapshot.finance.overview.revenueRub);
     expect(snapshot.finance.providers.reduce((sum, provider) => sum + provider.revenueRub, 0)).toBe(snapshot.finance.overview.revenueRub);
+    expect(snapshot.finance.products.map((product) => product.productId)).toEqual(catalog.products.map((product) => product.id));
+
+    for (const breakdown of [snapshot.finance.retention.byProducts, snapshot.finance.retention.byProviders]) {
+      expect(breakdown.reduce((sum, row) => sum + row.totalCustomers, 0)).toBe(snapshot.finance.retention.totalPayingCustomers);
+      expect(breakdown.reduce((sum, row) => sum + row.activeCustomers, 0)).toBe(snapshot.finance.retention.activeCustomers);
+      expect(breakdown.reduce((sum, row) => sum + row.churnedCustomers, 0)).toBe(snapshot.finance.retention.churnedCustomers);
+      expect(breakdown.some((row) => row.churnedPercent > 0)).toBe(true);
+    }
   });
 });

@@ -1241,7 +1241,6 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .admin-finance-share-metrics > span { display: grid; min-width: 0; gap: 2px; }
 .admin-finance-share-metrics small { min-width: 0; overflow-wrap: anywhere; color: var(--muted); font-size: .63rem; }
 .admin-finance-share-metrics b { min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: .76rem; }
-.admin-finance-product-kind { width: fit-content; padding: 4px 7px; border-radius: 999px; background: color-mix(in srgb, var(--info, #55a8f5) 11%, transparent); color: var(--info, #55a8f5); font-size: .65rem; font-weight: 750; }
 .admin-finance-progress { height: 6px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--border) 70%, transparent); }
 .admin-finance-progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 180ms ease; }
 .admin-finance-progress.is-info > span { background: linear-gradient(90deg, var(--info, #55a8f5), var(--accent)); }
@@ -1273,12 +1272,18 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .admin-finance-stage-list small { color: var(--muted); font-size: .65rem; }
 .admin-finance-stage-bar { height: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--border) 74%, transparent); }
 .admin-finance-stage-bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--warning, #d59b2a), var(--danger, #df6c76)); transition: width 180ms ease; }
-.admin-finance-retention-breakdowns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.admin-finance-churn-row { display: grid; min-width: 0; gap: 7px; padding: 12px 0; border-top: 1px solid var(--border); }
-.admin-finance-churn-row:first-of-type { border-top: 0; }
+.admin-finance-retention-breakdowns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; }
+.admin-finance-retention-breakdowns > .admin-finance-retention-group { padding: 14px; border-radius: 16px; background: color-mix(in srgb, var(--surface-soft) 88%, transparent); }
+.admin-finance-retention-group h5 { display: flex; align-items: center; gap: 8px; }
+.admin-finance-retention-group h5::before { width: 4px; height: 18px; flex: 0 0 4px; border-radius: 999px; background: linear-gradient(180deg, var(--accent), var(--danger, #df6c76)); content: ""; }
+.admin-finance-retention-group + .admin-finance-retention-group h5::before { background: linear-gradient(180deg, var(--info, #55a8f5), var(--accent)); }
+.admin-finance-churn-grid { display: grid; gap: 8px; }
+.admin-finance-churn-row { display: grid; min-width: 0; gap: 6px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--danger, #df6c76) 14%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--surface) 78%, transparent); }
+.admin-finance-churn-row-provider { border-color: color-mix(in srgb, var(--info, #55a8f5) 16%, var(--border)); }
 .admin-finance-churn-row > div:first-child { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 12px; }
 .admin-finance-churn-bar > span { background: linear-gradient(90deg, color-mix(in srgb, var(--danger, #df6c76) 72%, var(--accent)), var(--danger, #df6c76)); }
 .admin-finance-churn-row small { min-width: 0; overflow-wrap: anywhere; color: var(--muted); font-size: .68rem; }
+.admin-finance-churn-row small b { color: var(--text); }
 .admin-finance-no-churn { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--success) 24%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--success) 7%, transparent); }
 .admin-finance-no-churn > span { display: grid; width: 34px; height: 34px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); font-weight: 900; }
 .admin-finance-no-churn > div { display: grid; gap: 2px; }

@@ -294,6 +294,33 @@ describe("AdminClientsPanel", () => {
     expect(screen.getByText("Последний вход: Не входил", { exact: true })).toBeTruthy();
   });
 
+  it("keeps client identity in the task header without duplicating the contact card", () => {
+    const visibleClient: AdminStatsUser = {
+      ...client,
+      email: "anna@example.com",
+      phone: "+79991234567",
+      photoUrl: "https://example.com/anna.jpg",
+      membershipExpiresAt: "2026-09-06T00:00:00.000Z",
+      personalDataRestricted: false
+    };
+    render(AdminClientsPanel, { props: createProps({ selectedUser: visibleClient }) });
+
+    const header = document.querySelector<HTMLElement>(".admin-client-task-screen .task-screen-header");
+    expect(header).toBeTruthy();
+    expect(within(header!).getByRole("img", { name: "Анна" })).toBeTruthy();
+    expect(within(header!).getByRole("heading", { name: "Анна" })).toBeTruthy();
+    expect(within(header!).getByText("Последний вход: 27.07", { exact: true })).toBeTruthy();
+    expect(within(header!).getByText("Доступ открыт", { exact: true })).toBeTruthy();
+    expect(within(header!).getByText("до 27.07", { exact: true })).toBeTruthy();
+    expect(within(header!).getByText("Ручной доступ", { exact: true })).toBeTruthy();
+    expect(within(header!).queryByText("anna@example.com", { exact: true })).toBeNull();
+    expect(document.querySelector(".admin-client-identity")).toBeNull();
+
+    const contacts = screen.getByRole("region", { name: "Контактные данные" });
+    expect(within(contacts).getByText("anna@example.com", { exact: true })).toBeTruthy();
+    expect(within(contacts).getByText("+79991234567", { exact: true })).toBeTruthy();
+  });
+
   it("shows available contacts and replaces restricted personal data with an owner lock", async () => {
     const visibleClient: AdminStatsUser = {
       ...client,

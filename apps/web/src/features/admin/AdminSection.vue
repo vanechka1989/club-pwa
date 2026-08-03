@@ -356,6 +356,7 @@ const utmValueFilter = ref("");
 const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
 const showcaseAnalyticsEnabled = ref(initialShowcaseState.enabled);
 const showcaseAnalyticsSeed = ref(initialShowcaseState.seed);
+const showcaseRegenerationConfirmed = ref(false);
 const statisticsCustomFrom = ref("");
 const statisticsCustomTo = ref("");
 const accessStatus = ref<"active" | "inactive">("active");
@@ -415,6 +416,7 @@ const storageForm = ref({
 });
 let accessSaveTimer: number | null = null;
 let mailingPreviewTimer: number | null = null;
+let showcaseRegenerationTimer: number | null = null;
 
 const isOwner = computed(() => session.user?.realRole === "owner");
 const isPaymentsPanel = computed(() => activePanel.value === "payments");
@@ -752,12 +754,20 @@ const adminStatistics = computed(() =>
 
 function setShowcaseAnalytics(enabled: boolean) {
   showcaseAnalyticsEnabled.value = enabled;
+  if (!enabled) showcaseRegenerationConfirmed.value = false;
   writeShowcaseState(window.localStorage, { enabled, seed: showcaseAnalyticsSeed.value });
 }
 
 function regenerateShowcaseAnalytics() {
   showcaseAnalyticsSeed.value = regenerateShowcaseSeed(showcaseAnalyticsSeed.value);
   writeShowcaseState(window.localStorage, { enabled: showcaseAnalyticsEnabled.value, seed: showcaseAnalyticsSeed.value });
+  showcaseRegenerationConfirmed.value = true;
+  if (showcaseRegenerationTimer) window.clearTimeout(showcaseRegenerationTimer);
+  showcaseRegenerationTimer = window.setTimeout(() => {
+    showcaseRegenerationConfirmed.value = false;
+    showcaseRegenerationTimer = null;
+  }, 1400);
+  window.navigator.vibrate?.(12);
 }
 const paymentOutcomeCount = computed(
   () =>
@@ -2944,6 +2954,7 @@ onUnmounted(() => {
     window.clearTimeout(mailingPreviewTimer);
     mailingPreviewTimer = null;
   }
+  if (showcaseRegenerationTimer) window.clearTimeout(showcaseRegenerationTimer);
 });
 </script>
 
@@ -3136,7 +3147,8 @@ onUnmounted(() => {
             <b>Демонстрационные данные</b>
             <em v-if="showcaseAnalyticsEnabled">Демо</em>
           </label>
-          <button v-if="showcaseAnalyticsEnabled" class="admin-showcase-regenerate ui-button" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />Сгенерировать заново</button>
+          <button v-if="showcaseAnalyticsEnabled" class="admin-showcase-regenerate ui-button" :class="{ 'is-confirmed': showcaseRegenerationConfirmed }" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />{{ showcaseRegenerationConfirmed ? 'Данные обновлены' : 'Сгенерировать заново' }}</button>
+          <span class="sr-only" role="status" aria-live="polite">{{ showcaseRegenerationConfirmed ? 'Данные обновлены' : '' }}</span>
         </div>
         <div class="admin-stat-period-control">
           <div class="admin-stat-periods" aria-label="Период статистики">
@@ -3302,7 +3314,7 @@ onUnmounted(() => {
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
         <template #actions>
           <span v-if="showcaseAnalyticsEnabled" class="admin-stat-task-demo">Демо</span>
-          <button v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate ui-button" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />Сгенерировать</button>
+          <button v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate ui-button" :class="{ 'is-confirmed': showcaseRegenerationConfirmed }" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />{{ showcaseRegenerationConfirmed ? 'Обновлено' : 'Сгенерировать' }}</button>
           <span v-else class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
         </template>
         <AdminAcquisitionAnalytics

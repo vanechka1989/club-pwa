@@ -73,7 +73,9 @@ describe("compact admin statistics and clients", () => {
   it("balances the separate client screen between a summary and access controls", () => {
     expect(source).toContain('class="admin-task-screen admin-client-task-screen"');
     expect(source).toContain('class="admin-client-workspace"');
-    expect(source).toContain('class="admin-client-identity admin-detail ui-card"');
+    expect(source).toContain('class="admin-client-task-heading"');
+    expect(source).toContain('class="admin-client-contact-card admin-detail ui-card"');
+    expect(source).not.toContain('class="admin-client-identity admin-detail ui-card"');
     expect(source).toContain('class="admin-client-kpi-grid"');
     expect(source).toContain('class="admin-client-primary-actions"');
     expect(source.match(/class="admin-client-kpi"/g)?.length).toBe(4);
@@ -86,7 +88,7 @@ describe("compact admin statistics and clients", () => {
   });
 
   it("renders client sections as compact navigation rows instead of disclosures", () => {
-    expect(source).toContain('class="admin-client-identity admin-detail ui-card"');
+    expect(source).toContain('class="admin-client-contact-card admin-detail ui-card"');
     expect(source).toContain('class="admin-client-action-panel admin-detail ui-card"');
     expect(source).toContain('class="admin-client-section admin-client-compact-link admin-detail ui-card"');
     expect(source).not.toContain('details class="admin-client-section');

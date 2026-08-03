@@ -64,6 +64,28 @@ describe("AdminFinanceAnalytics", () => {
     expect(screen.getAllByText("Клуб Pro").length).toBeGreaterThan(0);
   });
 
+  it("keeps every product row by id without repeating payment type badges", () => {
+    render(AdminFinanceAnalytics, {
+      props: {
+        data: {
+          ...data,
+          products: [
+            { productId: "club-one", title: "Клуб", kind: "one_time", paidOrders: 4, uniqueCustomers: 4, revenueRub: 14_000, averagePaidOrderRub: 3_500, revenuePercent: 33.3 },
+            { productId: "club-rec", title: "Клуб", kind: "recurrent", paidOrders: 8, uniqueCustomers: 6, revenueRub: 28_000, averagePaidOrderRub: 3_500, revenuePercent: 66.7 }
+          ]
+        },
+        loading: false,
+        error: false
+      }
+    });
+
+    const products = screen.getByRole("region", { name: "Продукты и тарифы" });
+    expect(within(products).getAllByText("Клуб", { exact: true })).toHaveLength(2);
+    expect(products.querySelectorAll(".admin-finance-share-row")).toHaveLength(2);
+    expect(within(products).queryByText("Разовая оплата", { exact: true })).toBeNull();
+    expect(within(products).queryByText("Автоподписка", { exact: true })).toBeNull();
+  });
+
   it("keeps zero churn compact instead of rendering empty charts", () => {
     render(AdminFinanceAnalytics, {
       props: {

@@ -62,8 +62,8 @@ describe("admin client card helpers", () => {
   it("keeps bot status out of the PWA client card header", () => {
     const source = readFileSync(resolve(__dirname, "AdminClientsPanel.vue"), "utf8");
 
-    expect(source).toContain("admin-client-title-row");
-    expect(source).toContain("admin-client-card-head");
+    expect(source).toContain("admin-client-task-heading");
+    expect(source).toContain("admin-client-task-identity");
     expect(source).not.toContain("Бот {{");
     expect(source).not.toContain("getTelegramBotStatusLabel");
     expect(source).not.toContain("admin-contact-health");

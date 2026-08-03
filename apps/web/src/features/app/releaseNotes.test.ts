@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes real demo tariffs and in-screen regeneration as version 6.21", () => {
-    expect(appVersion).toBe("6.21");
-    expect(releaseNotes[0]?.title).toBe("Реальные тарифы в демо-аналитике");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/тариф/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сгенерировать/i);
+  it("publishes the compact client header and realistic showcase retention as version 6.22", () => {
+    expect(appVersion).toBe("6.22");
+    expect(releaseNotes[0]?.title).toBe("Компактная карточка и живая демо-аналитика");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/шапк/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/отток/i);
+
+    const realCatalog = releaseNotes.find((note) => note.version === "6.21");
+    expect(realCatalog?.title).toBe("Реальные тарифы в демо-аналитике");
 
     const protectedShowcase = releaseNotes.find((note) => note.version === "6.20");
     expect(protectedShowcase?.title).toBe("Защита контактов и демо-аналитика");
@@ -345,7 +348,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Real tariffs in showcase analytics");
+    expect(englishNotes[0]?.title).toBe("Compact client details and lively showcase analytics");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

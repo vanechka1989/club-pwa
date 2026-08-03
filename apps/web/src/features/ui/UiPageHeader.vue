@@ -27,8 +27,10 @@ defineEmits<{ back: [] }>();
     </button>
 
     <div class="ui-page-header__text">
-      <h2 class="ui-page-header__title">{{ title }}</h2>
-      <p v-if="subtitle" class="ui-page-header__subtitle">{{ subtitle }}</p>
+      <slot name="heading">
+        <h2 class="ui-page-header__title">{{ title }}</h2>
+        <p v-if="subtitle" class="ui-page-header__subtitle">{{ subtitle }}</p>
+      </slot>
     </div>
 
     <div v-if="$slots.actions" class="ui-page-header__actions">
