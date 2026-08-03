@@ -2950,7 +2950,7 @@ test("renders visual admin analytics overview without viewport overflow", async 
   await expect(page.getByRole("heading", { name: "Удержание клиентов", exact: true })).toBeVisible();
   await expect(page.locator('[aria-label="Удержание платящих клиентов"]')).toContainText("276");
   const financePulse = page.locator(".admin-finance-pulse");
-  await expect(financePulse.locator(".admin-finance-ring")).toHaveCount(4);
+  await expect(financePulse.locator(".admin-finance-ring")).toHaveCount(1);
   const financeRingMetrics = await financePulse.evaluate((element) => ({
     ringSizes: [...element.querySelectorAll<HTMLElement>(".admin-finance-ring-visual")]
       .map((ring) => Math.round(ring.getBoundingClientRect().width)),
@@ -2958,10 +2958,18 @@ test("renders visual admin analytics overview without viewport overflow", async 
       .map((ring) => ring.getAttribute("stroke-dashoffset"))
   }));
   expect(financeRingMetrics.ringSizes.every((size) => size >= 76)).toBe(true);
-  expect(financeRingMetrics.offsets).toEqual(["20", "35.1", "64.9", "78.4"]);
-  await expectResponsiveLayoutIntegrity(page, "/admin");
+  expect(financeRingMetrics.offsets).toEqual(["20"]);
+  await expect(page.locator(".admin-finance-ring")).toHaveCount(2);
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await expectResponsiveLayoutIntegrity(page, "/admin");
+    await expect(page.locator(".admin-finance-ring")).toHaveCount(2);
+    if (testInfo.project.name === "release-android") {
+      await financePulse.screenshot({ path: testInfo.outputPath(`admin-finance-pulse-${viewport.name}.png`), animations: "disabled" });
+    }
+  }
   if (testInfo.project.name === "release-android") {
-    await financePulse.screenshot({ path: testInfo.outputPath("admin-finance-pulse.png"), animations: "disabled" });
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.locator(".admin-finance-insight").nth(1).screenshot({ path: testInfo.outputPath("admin-finance-providers.png"), animations: "disabled" });
     await page.locator(".admin-finance-insight").nth(2).screenshot({ path: testInfo.outputPath("admin-finance-products.png"), animations: "disabled" });
     await page.locator('[aria-label="Удержание платящих клиентов"]').screenshot({ path: testInfo.outputPath("admin-finance-retention.png"), animations: "disabled" });

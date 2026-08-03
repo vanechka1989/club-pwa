@@ -35,18 +35,17 @@ describe("AdminFinanceAnalytics", () => {
 
     expect(screen.getByRole("heading", { name: "Финансовый пульс" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "Успешные оплаты: 80%. 12 из 15 попыток" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Активны сейчас: 64,9%. 179 из 276 клиентов" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Не продлили: 35,1%. 97 клиентов" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Ушли после продлений: 21,6%. 21 клиент" })).toBeTruthy();
+    expect(screen.getAllByText("Активны сейчас").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Не продлили").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ушли после продлений").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Платёжные системы" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Продукты и тарифы" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Удержание клиентов" })).toBeTruthy();
     expect(screen.getByText("За всё время")).toBeTruthy();
-    expect(screen.getByRole("img", { name: /Доля выручки Lava: 71,4%. 30.000 ₽/ })).toBeTruthy();
-    expect(screen.getByRole("img", { name: /Доля выручки Клуб Pro: 71,4%. 30.000 ₽/ })).toBeTruthy();
     expect(screen.getByRole("img", { name: "Удержание: 64,9%. 179 активны из 276" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Купили один раз: 78,4%. 76 клиентов" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "Продлевали, но ушли: 21,6%. 21 клиент" })).toBeTruthy();
+    expect(document.querySelectorAll(".admin-finance-ring")).toHaveLength(2);
+    expect(document.querySelectorAll(".admin-finance-share-bar")).toHaveLength(3);
+    expect(document.querySelectorAll(".admin-finance-churn-bar")).toHaveLength(2);
     expect(document.querySelectorAll(".admin-finance-stage-bar")).toHaveLength(3);
 
     const retention = screen.getByLabelText("Удержание платящих клиентов");
@@ -60,6 +59,34 @@ describe("AdminFinanceAnalytics", () => {
     expect(within(retention).getByText("После 1 продления")).toBeTruthy();
     expect(screen.getAllByText("Lava").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Клуб Pro").length).toBeGreaterThan(0);
+  });
+
+  it("keeps zero churn compact instead of rendering empty charts", () => {
+    render(AdminFinanceAnalytics, {
+      props: {
+        data: {
+          ...data,
+          retention: {
+            ...data.retention,
+            activeCustomers: 276,
+            activePercent: 100,
+            churnedCustomers: 0,
+            churnedPercent: 0,
+            onePurchaseChurned: 0,
+            onePurchaseChurnedPercent: 0,
+            repeatPurchaseChurned: 0,
+            repeatPurchaseChurnedPercent: 0
+          }
+        },
+        loading: false,
+        error: false
+      }
+    });
+
+    expect(screen.getByText("Оттока пока нет")).toBeTruthy();
+    expect(screen.queryByText("Отток по последнему продукту")).toBeNull();
+    expect(screen.queryByText("Отток по платёжной системе")).toBeNull();
+    expect(document.querySelectorAll(".admin-finance-ring")).toHaveLength(2);
   });
 
   it("renders loading and a useful empty state", async () => {
