@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the visual finance dashboard as version 6.14", () => {
-    expect(appVersion).toBe("6.14");
-    expect(releaseNotes[0]?.title).toBe("Визуальный финансовый дашборд");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/кругов/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/удержан/i);
+  it("publishes the compact finance dashboard as version 6.15", () => {
+    expect(appVersion).toBe("6.15");
+    expect(releaseNotes[0]?.title).toBe("Спокойная финансовая аналитика");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/компактн/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/нулев/i);
+
+    const visualFinance = releaseNotes.find((note) => note.version === "6.14");
+    expect(visualFinance?.title).toBe("Визуальный финансовый дашборд");
 
     const extendedFinance = releaseNotes.find((note) => note.version === "6.13");
     expect(extendedFinance?.title).toBe("Расширенная аналитика финансов");
@@ -324,7 +327,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Visual finance dashboard");
+    expect(englishNotes[0]?.title).toBe("Calmer finance analytics");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Visual finance dashboard",
+  title: "Calmer finance analytics",
   items: [
-    "The finance pulse presents payment success, active customers, and churn as four clear circular metrics.",
-    "Payment providers and products now combine revenue-share rings with exact totals, customers, average order value, and success rate.",
-    "Retention and churn are easier to compare with a large overview ring, renewal exit stages, and product and provider breakdowns."
+    "The finance pulse now uses one primary ring and three compact metrics instead of four equally prominent charts.",
+    "Payment providers, products, and churn use concise comparison bars with exact values and fewer repeated visuals.",
+    "When churn is zero, empty charts and breakdowns are replaced by one clear status message."
   ]
 };
 
