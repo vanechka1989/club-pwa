@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the compact client header and realistic showcase retention as version 6.22", () => {
-    expect(appVersion).toBe("6.22");
-    expect(releaseNotes[0]?.title).toBe("Компактная карточка и живая демо-аналитика");
+  it("publishes compact headers and retention charts as version 6.23", () => {
+    expect(appVersion).toBe("6.23");
+    expect(releaseNotes[0]?.title).toBe("Компактные шапки и графики оттока");
     expect(releaseNotes[0]?.items.join(" ")).toMatch(/шапк/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/отток/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/график/i);
+
+    const compactShowcase = releaseNotes.find((note) => note.version === "6.22");
+    expect(compactShowcase?.title).toBe("Компактная карточка и живая демо-аналитика");
 
     const realCatalog = releaseNotes.find((note) => note.version === "6.21");
     expect(realCatalog?.title).toBe("Реальные тарифы в демо-аналитике");
@@ -348,7 +351,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact client details and lively showcase analytics");
+    expect(englishNotes[0]?.title).toBe("Compact headers and churn charts");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

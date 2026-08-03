@@ -115,6 +115,8 @@ describe("admin statistics navigation", () => {
     expect(section).toContain('v-else class="admin-stat-task-period"');
     expect(styles).toContain(".admin-stat-task-period");
     expect(styles).toContain(".admin-stat-task-regenerate");
+    expect(styles).toMatch(/\.admin-statistics-task-screen \.ui-page-header__actions\s*\{[^}]*display:\s*grid;[^}]*width:\s*clamp\(138px, 40vw, 180px\);/s);
+    expect(styles).toMatch(/\.admin-stat-task-demo,\s*\.admin-stat-task-regenerate\s*\{[^}]*width:\s*100%;[^}]*height:\s*44px;/s);
   });
 
   it("shows visual dynamics inside client, finance, and community dashboards", () => {

@@ -27,6 +27,17 @@ function distributionLabel(title: string, rows: Array<{ title: string; revenuePe
   return `${title}: ${rows.map((row) => `${row.title} ${valuePercent(row.revenuePercent)}`).join(", ")}`;
 }
 
+function clientCountLabel(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const noun = mod10 === 1 && mod100 !== 11
+    ? "клиент"
+    : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+      ? "клиента"
+      : "клиентов";
+  return `${count} ${noun}`;
+}
+
 </script>
 
 <template>
@@ -143,17 +154,19 @@ function distributionLabel(title: string, rows: Array<{ title: string; revenuePe
         </div>
 
         <template v-if="data.retention.churnedCustomers > 0">
-        <div class="admin-finance-churn-split">
-          <article>
-            <div><span>Купили один раз</span><small>и больше не вернулись</small></div>
-            <strong>{{ data.retention.onePurchaseChurned }}</strong>
-            <b>{{ valuePercent(data.retention.onePurchaseChurnedPercent) }}</b>
-          </article>
-          <article>
-            <div><span>Продлевали, но ушли</span><small>от не продливших</small></div>
-            <strong>{{ data.retention.repeatPurchaseChurned }}</strong>
-            <b>{{ valuePercent(data.retention.repeatPurchaseChurnedPercent) }}</b>
-          </article>
+        <div
+          class="admin-finance-churn-composition"
+          role="img"
+          :aria-label="`Структура оттока: купили один раз — ${clientCountLabel(data.retention.onePurchaseChurned)}, ${valuePercent(data.retention.onePurchaseChurnedPercent)}; продлевали, но ушли — ${clientCountLabel(data.retention.repeatPurchaseChurned)}, ${valuePercent(data.retention.repeatPurchaseChurnedPercent)}`"
+        >
+          <div class="admin-finance-churn-composition-bar" aria-hidden="true">
+            <span class="is-first-purchase" :style="{ width: progress(data.retention.onePurchaseChurnedPercent) }"></span>
+            <span class="is-repeat-purchase" :style="{ width: progress(data.retention.repeatPurchaseChurnedPercent) }"></span>
+          </div>
+          <div class="admin-finance-churn-composition-legend">
+            <article><i class="is-first-purchase" aria-hidden="true"></i><span><strong>Купили один раз</strong><small>и больше не вернулись</small></span><b>{{ data.retention.onePurchaseChurned }}</b><em>{{ valuePercent(data.retention.onePurchaseChurnedPercent) }}</em></article>
+            <article><i class="is-repeat-purchase" aria-hidden="true"></i><span><strong>Продлевали, но ушли</strong><small>от не продливших</small></span><b>{{ data.retention.repeatPurchaseChurned }}</b><em>{{ valuePercent(data.retention.repeatPurchaseChurnedPercent) }}</em></article>
+          </div>
         </div>
 
         <div v-if="data.retention.exitStages.length" class="admin-finance-retention-group admin-finance-stage-group">
@@ -170,21 +183,21 @@ function distributionLabel(title: string, rows: Array<{ title: string; revenuePe
         <div v-if="data.retention.byProducts.length || data.retention.byProviders.length" class="admin-finance-retention-breakdowns">
           <div v-if="data.retention.byProducts.length" class="admin-finance-retention-group">
             <h5>Отток по последнему продукту</h5>
-            <div class="admin-finance-churn-grid">
-              <article v-for="row in data.retention.byProducts" :key="row.key" class="admin-finance-churn-row">
+            <div class="admin-finance-breakdown-chart">
+              <article v-for="row in data.retention.byProducts" :key="row.key" class="admin-finance-breakdown-row" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}. ${row.churnedCustomers} из ${row.totalCustomers} клиентов не продлили`">
                 <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
-                <small><b>{{ row.churnedCustomers }}</b> из {{ row.totalCustomers }} не продлили</small>
-                <div class="admin-finance-progress admin-finance-churn-bar" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+                <div class="admin-finance-progress admin-finance-churn-bar" aria-hidden="true"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+                <small>{{ row.churnedCustomers }} из {{ row.totalCustomers }} клиентов</small>
               </article>
             </div>
           </div>
           <div v-if="data.retention.byProviders.length" class="admin-finance-retention-group">
             <h5>Отток по платёжной системе</h5>
-            <div class="admin-finance-churn-grid">
-              <article v-for="row in data.retention.byProviders" :key="row.key" class="admin-finance-churn-row admin-finance-churn-row-provider">
+            <div class="admin-finance-breakdown-chart is-provider-chart">
+              <article v-for="row in data.retention.byProviders" :key="row.key" class="admin-finance-breakdown-row" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}. ${row.churnedCustomers} из ${row.totalCustomers} клиентов не продлили`">
                 <div><strong>{{ row.title }}</strong><b>{{ valuePercent(row.churnedPercent) }}</b></div>
-                <small><b>{{ row.churnedCustomers }}</b> из {{ row.totalCustomers }} не продлили</small>
-                <div class="admin-finance-progress admin-finance-churn-bar is-info" role="img" :aria-label="`Отток ${row.title}: ${valuePercent(row.churnedPercent)}`"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+                <div class="admin-finance-progress admin-finance-churn-bar is-info" aria-hidden="true"><span :style="{ width: progress(row.churnedPercent) }"></span></div>
+                <small>{{ row.churnedCustomers }} из {{ row.totalCustomers }} клиентов</small>
               </article>
             </div>
           </div>

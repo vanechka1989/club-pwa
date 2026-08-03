@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact client details and lively showcase analytics",
+  title: "Compact headers and churn charts",
   items: [
-    "The client avatar, name, last login and statuses now share one compact header while protected contact details remain in their dedicated card.",
-    "Showcase regeneration confirms each update visually and keeps every configured product as a separate finance row.",
-    "Product and payment-provider churn now uses each customer's latest purchase and renders as compact, realistic breakdown cards."
+    "The client header and bright-red delete action are visually smaller while retaining accessible touch targets.",
+    "Demo and regenerate actions now share the same stable dimensions.",
+    "Customer churn, product churn and payment-provider churn are presented as compact comparative charts."
   ]
 };
 

@@ -48,7 +48,11 @@ describe("AdminFinanceAnalytics", () => {
     expect(screen.getByRole("img", { name: /Распределение выручки по платёжным системам: Lava 71,4%, Prodamus 28,6%/ })).toBeTruthy();
     expect(screen.getByRole("img", { name: /Распределение выручки по продуктам: Клуб Pro 71,4%/ })).toBeTruthy();
     expect(document.querySelectorAll(".admin-finance-share-bar")).toHaveLength(0);
-    expect(document.querySelectorAll(".admin-finance-churn-bar")).toHaveLength(2);
+    expect(screen.getByRole("img", { name: "Структура оттока: купили один раз — 76 клиентов, 78,4%; продлевали, но ушли — 21 клиент, 21,6%" })).toBeTruthy();
+    expect(document.querySelectorAll(".admin-finance-churn-composition")).toHaveLength(1);
+    expect(document.querySelectorAll(".admin-finance-breakdown-chart")).toHaveLength(2);
+    expect(document.querySelectorAll(".admin-finance-breakdown-row")).toHaveLength(2);
+    expect(document.querySelectorAll(".admin-finance-churn-row")).toHaveLength(0);
     expect(document.querySelectorAll(".admin-finance-stage-bar")).toHaveLength(3);
 
     const retention = screen.getByLabelText("Удержание платящих клиентов");
@@ -62,6 +66,8 @@ describe("AdminFinanceAnalytics", () => {
     expect(within(retention).getByText("После 1 продления")).toBeTruthy();
     expect(screen.getAllByText("Lava").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Клуб Pro").length).toBeGreaterThan(0);
+    expect(screen.getByRole("img", { name: "Отток Клуб Pro: 30%. 30 из 100 клиентов не продлили" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Отток Lava: 30%. 30 из 100 клиентов не продлили" })).toBeTruthy();
   });
 
   it("keeps every product row by id without repeating payment type badges", () => {

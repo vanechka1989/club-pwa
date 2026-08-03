@@ -19,7 +19,8 @@ describe("owner client deletion", () => {
     expect(panelSource).toContain('<template v-if="canDeleteSelectedUser" #actions>');
     expect(panelSource).toContain('aria-label="Удалить клиента"');
     expect(panelSource).toContain("admin-client-delete-button");
-    expect(panelSource).toMatch(/\.admin-client-delete-button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;[^}]*background:\s*#ff2d55;[^}]*color:\s*#fff;/s);
+    expect(panelSource).toMatch(/\.admin-client-delete-button\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;[^}]*background:\s*transparent;/s);
+    expect(panelSource).toMatch(/\.admin-client-delete-button::before\s*\{[^}]*width:\s*36px;[^}]*height:\s*36px;[^}]*background:\s*#ff2d55;/s);
   });
 
   it("guards the action by real owner role and ordinary client role", () => {

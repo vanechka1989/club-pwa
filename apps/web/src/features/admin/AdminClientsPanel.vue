@@ -298,6 +298,7 @@ async function copyContact(value: string) {
 
 <style scoped>
 .admin-client-delete-button {
+  position: relative;
   display: grid;
   flex: 0 0 44px;
   width: 44px !important;
@@ -306,27 +307,45 @@ async function copyContact(value: string) {
   min-height: 44px;
   padding: 0;
   place-items: center;
-  border: 1px solid #ff6b82;
-  border-radius: 13px;
-  background: #ff2d55;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
   color: #fff;
-  box-shadow: 0 8px 20px rgb(255 45 85 / 30%);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-client-delete-button::before {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ff6b82;
+  border-radius: 10px;
+  background: #ff2d55;
+  box-shadow: 0 5px 12px rgb(255 45 85 / 22%);
+  content: "";
+}
+
+.admin-client-task-screen :deep(.task-screen-header) {
+  min-height: 0;
+  gap: 8px;
+  padding-block: 10px;
+  padding-inline: 12px;
 }
 
 .admin-client-task-heading {
   display: grid;
   min-width: 0;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 40px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
 
 .admin-client-task-avatar {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
@@ -337,11 +356,11 @@ async function copyContact(value: string) {
 }
 
 .admin-client-task-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.admin-client-task-identity { display: grid; min-width: 0; gap: 3px; }
-.admin-client-task-identity h2 { margin: 0; overflow: hidden; color: var(--text); font-size: var(--app-header-title-size); font-weight: 900; line-height: 1.12; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-task-identity { display: grid; min-width: 0; gap: 2px; }
+.admin-client-task-identity h2 { margin: 0; overflow: hidden; color: var(--text); font-size: calc(var(--app-header-title-size) * .9); font-weight: 900; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
 .admin-client-task-last-login { overflow: hidden; color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .admin-client-task-statuses { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; }
-.admin-client-task-statuses :is(.admin-status-pill, .admin-email-opt-out-badge) { min-height: 22px; padding: 3px 7px; font-size: 10px; line-height: 1.1; }
+.admin-client-task-statuses :is(.admin-status-pill, .admin-email-opt-out-badge) { min-height: 20px; padding: 2px 6px; font-size: 9px; line-height: 1.1; }
 
 .admin-client-contact-card { display: grid; gap: 12px; padding: 14px; }
 .admin-client-contact-card > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -364,7 +383,7 @@ async function copyContact(value: string) {
 
 .admin-client-delete-button:hover:not(:disabled) {
   filter: brightness(1.08);
-  box-shadow: 0 10px 24px rgb(255 45 85 / 40%);
+  box-shadow: none;
 }
 
 .admin-client-delete-button:active:not(:disabled) {
@@ -382,8 +401,10 @@ async function copyContact(value: string) {
 }
 
 .admin-client-delete-button svg {
-  width: 21px;
-  height: 21px;
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
   stroke-width: 2.25;
 }
 

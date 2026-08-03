@@ -3090,6 +3090,15 @@ test("regenerates showcase analytics with visible feedback and the complete prod
   await expect.poll(() => page.evaluate(() => localStorage.getItem("club-analytics-showcase-seed"))).not.toBe(seedBefore);
 
   await page.getByRole("button", { name: /Выручка: .* рублей/ }).click();
+  const financeTask = page.locator(".admin-statistics-task-screen");
+  const demoAction = financeTask.locator(".admin-stat-task-demo");
+  const generateAction = financeTask.locator(".admin-stat-task-regenerate");
+  const [demoBox, generateBox] = await Promise.all([demoAction.boundingBox(), generateAction.boundingBox()]);
+  expect(demoBox).not.toBeNull();
+  expect(generateBox).not.toBeNull();
+  expect(Math.abs(demoBox!.width - generateBox!.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(demoBox!.height - generateBox!.height)).toBeLessThanOrEqual(1);
+  expect(demoBox!.height).toBe(44);
   const products = page.getByRole("region", { name: "Продукты и тарифы" });
   await expect(products.locator(".admin-finance-share-row")).toHaveCount(4);
   await expect(products.getByText("Клуб", { exact: true })).toHaveCount(2);
@@ -3099,8 +3108,10 @@ test("regenerates showcase analytics with visible feedback and the complete prod
   await expect(retention).toBeVisible();
   await expect(page.getByRole("heading", { name: "Отток по последнему продукту" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Отток по платёжной системе" })).toBeVisible();
-  await expect(page.locator(".admin-finance-churn-row")).toHaveCount(6);
-  const percentages = await page.locator(".admin-finance-churn-row > div:first-child > b").allTextContents();
+  await expect(page.locator(".admin-finance-churn-composition")).toHaveCount(1);
+  await expect(page.locator(".admin-finance-breakdown-chart")).toHaveCount(2);
+  await expect(page.locator(".admin-finance-breakdown-row")).toHaveCount(6);
+  const percentages = await page.locator(".admin-finance-breakdown-row > div:first-child > b").allTextContents();
   expect(percentages.some((value) => value !== "0%")).toBe(true);
   await expectResponsiveLayoutIntegrity(page, "/admin showcase finance");
   if (testInfo.project.name === "release-android") {
@@ -4486,6 +4497,16 @@ test("opens every client summary on its own responsive page", async ({ page }, t
   await expect(page.locator(".admin-client-identity")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Контактные данные" })).toContainText(adminStatsUser.email);
   await expect(page.getByRole("button", { name: "Открыть раздел Источник клиента" })).toBeVisible();
+  const clientHeaderBox = await clientHeader.boundingBox();
+  expect(clientHeaderBox).not.toBeNull();
+  expect(clientHeaderBox!.height).toBeLessThanOrEqual(112);
+  const deleteButton = clientHeader.getByRole("button", { name: "Удалить клиента" });
+  if (await deleteButton.count()) {
+    const deleteBox = await deleteButton.boundingBox();
+    expect(deleteBox).not.toBeNull();
+    expect(deleteBox!.width).toBe(44);
+    expect(deleteBox!.height).toBe(44);
+  }
   await page.screenshot({ path: testInfo.outputPath("admin-client-source-row.png"), fullPage: false, animations: "disabled" });
 
   const pages = [
