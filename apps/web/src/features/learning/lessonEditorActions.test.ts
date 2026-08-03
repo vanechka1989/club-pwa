@@ -20,7 +20,7 @@ describe("lesson editor actions", () => {
   it("places knowledge-check settings directly after cover controls and before lesson content", () => {
     const coverStart = componentSource.indexOf('class="lesson-cover-mode-buttons"');
     const assessmentStart = componentSource.indexOf('class="lesson-assessment-settings-link"');
-    const contentStart = componentSource.indexOf('aria-label="Содержимое урока"', coverStart);
+    const contentStart = componentSource.indexOf('label="Содержимое урока"', coverStart);
 
     expect(coverStart).toBeGreaterThan(-1);
     expect(assessmentStart).toBeGreaterThan(coverStart);

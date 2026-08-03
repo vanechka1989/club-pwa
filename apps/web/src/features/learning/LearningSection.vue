@@ -84,6 +84,8 @@ import { formatArchiveDeletionLabel } from "@/features/app/archiveCountdown";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { UiPageHeader } from "@/features/ui";
 import LessonImageViewer from "./LessonImageViewer.vue";
+import LearningRichTextEditor from "./LearningRichTextEditor.vue";
+import { prepareLearningHtml } from "./learningRichText";
 import { useI18n } from "@/features/app/i18n";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useAppDialogsStore } from "@/stores/appDialogs";
@@ -3815,7 +3817,11 @@ watch(
                 @pause="persistLessonVideoPlayback(true)"
                 @seeked="persistLessonVideoPlayback(true)"
               />
-              <p v-if="!isLoadingLessonContent && !lessonViewerError && selectedLessonItem.content">{{ selectedLessonItem.content }}</p>
+              <div
+                v-if="!isLoadingLessonContent && !lessonViewerError && selectedLessonItem.content"
+                class="lesson-rich-content"
+                v-html="prepareLearningHtml(selectedLessonItem.content)"
+              ></div>
               <p v-else-if="!isLoadingLessonContent && !lessonViewerError && !selectedLessonItem.mediaUrl" class="lesson-viewer-empty">
                 Содержимое урока пока не добавлено.
               </p>
@@ -3875,7 +3881,7 @@ watch(
                     @pause="persistLessonMaterialPlayback(material, $event, true)"
                     @seeked="persistLessonMaterialPlayback(material, $event, true)"
                   />
-                  <p v-if="material.body">{{ material.body }}</p>
+                  <div v-if="material.body" class="lesson-rich-content" v-html="prepareLearningHtml(material.body)"></div>
                 </div>
               </section>
               <LessonAssessmentEntryCard
@@ -4037,10 +4043,12 @@ watch(
                 <span v-if="selectedLessonItem?.isPersisted" class="lesson-assessment-settings-link__action">Настроить <ChevronRight aria-hidden="true" /></span>
               </button>
 
-              <label class="admin-field">
-                <span>Содержимое урока</span>
-                <textarea v-model="lessonContent" class="text-input lesson-content-input" placeholder="Текст урока или описание вложений" aria-label="Содержимое урока"></textarea>
-              </label>
+              <LearningRichTextEditor
+                v-model="lessonContent"
+                class="admin-field lesson-content-input"
+                label="Содержимое урока"
+                placeholder="Текст урока или описание вложений"
+              />
 
               <label class="learning-publish-switch">
                 <span class="learning-publish-switch__copy">
@@ -4213,10 +4221,12 @@ watch(
                       preload="metadata"
                     ></audio>
                   </section>
-                  <label class="admin-field">
-                    <span>Текст / заметка <small>(не обязательно)</small></span>
-                    <textarea v-model="material.body" class="text-input lesson-extra-body" placeholder="Можно добавить текст или комментарий к файлу" aria-label="Необязательный текст дополнительного материала"></textarea>
-                  </label>
+                  <LearningRichTextEditor
+                    v-model="material.body"
+                    class="admin-field lesson-extra-body"
+                    label="Необязательный текст дополнительного материала"
+                    placeholder="Можно добавить текст или комментарий к файлу"
+                  />
                 </article>
 
                 <button class="secondary-button ui-button lesson-extra-add" type="button" @click="addLessonMaterialDraft">

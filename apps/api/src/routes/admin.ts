@@ -50,6 +50,7 @@ import { buildMessageAuthor } from "../community/messageMetadata";
 import { resolvePollEndedAt } from "../community/pollStats";
 import { getCommunityRealtimeSubscriberCount, publishCommunityChange } from "../community/realtime";
 import { verifyUploadedObjectMetadata } from "../learning/directUploadVerification";
+import { sanitizeLearningBodies, sanitizeLearningHtml } from "../learning/html";
 import { db } from "../db/client";
 import {
   acquisitionLinks,
@@ -594,6 +595,7 @@ async function replaceDirectLessonMaterials(
   contentItemId: string,
   materials: z.infer<typeof directLearningMaterialPayloadSchema>["materials"]
 ) {
+  const safeMaterials = sanitizeLearningBodies({ body: "", materials }).materials ?? [];
   const existingMaterials = await db.query.lessonMaterials.findMany({
     where: eq(lessonMaterials.contentItemId, contentItemId)
   });
@@ -611,7 +613,7 @@ async function replaceDirectLessonMaterials(
     verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null;
   }> = [];
 
-  for (const [materialIndex, material] of materials.entries()) {
+  for (const [materialIndex, material] of safeMaterials.entries()) {
     let verifiedMedia: Awaited<ReturnType<typeof verifyDirectUploadedObject>> | null = null;
     const mediaUrl = material.mediaUrl ?? null;
     const internalTitle = getInternalLessonMaterialTitle(material.kind, material.title, materialIndex);
@@ -621,7 +623,7 @@ async function replaceDirectLessonMaterials(
         kind: material.kind,
         title: internalTitle,
         description: normalizeOptionalText(material.description),
-        body: normalizeOptionalText(material.body),
+        body: material.body,
         mediaUrl: null,
         mediaObjectKey: null,
         mediaContentType: null,
@@ -636,7 +638,7 @@ async function replaceDirectLessonMaterials(
         kind: material.kind,
         title: internalTitle,
         description: normalizeOptionalText(material.description),
-        body: normalizeOptionalText(material.body),
+        body: material.body,
         mediaUrl,
         mediaObjectKey: null,
         mediaContentType: null,
@@ -661,7 +663,7 @@ async function replaceDirectLessonMaterials(
         kind: material.kind,
         title: internalTitle,
         description: normalizeOptionalText(material.description),
-        body: normalizeOptionalText(material.body),
+        body: material.body,
         mediaUrl: existing.mediaUrl,
         mediaObjectKey: existing.mediaObjectKey,
         mediaContentType: existing.mediaContentType,
@@ -675,7 +677,7 @@ async function replaceDirectLessonMaterials(
       kind: material.kind,
       title: internalTitle,
       description: normalizeOptionalText(material.description),
-      body: normalizeOptionalText(material.body),
+      body: material.body,
       mediaUrl: null,
       mediaObjectKey: verifiedMedia?.objectKey ?? null,
       mediaContentType: verifiedMedia?.contentType ?? null,
@@ -3889,7 +3891,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const { categoryId, kind, title, cardLayout, coverMode, isPublished } = body.data;
     const summary = normalizeOptionalText(body.data.summary);
-    const materialBody = normalizeOptionalText(body.data.body);
+    const materialBody = sanitizeLearningHtml(body.data.body);
     const category = await db.query.contentCategories.findFirst({
       where: eq(contentCategories.id, categoryId)
     });
@@ -4094,7 +4096,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const kind = getFormValue(form, "kind") as ContentKind;
     const title = getFormValue(form, "title");
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
-    const body = normalizeOptionalText(getFormValue(form, "body"));
+    const body = sanitizeLearningHtml(getFormValue(form, "body"));
     const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
     const rawCoverMode = getFormValue(form, "coverMode");
     const coverMode = rawCoverMode === "custom" || rawCoverMode === "first_material" ? rawCoverMode : "default";
@@ -4210,7 +4212,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     const { categoryId, kind, title, cardLayout, coverMode, isPublished, removeThumbnail } = body.data;
     const summary = normalizeOptionalText(body.data.summary);
-    const materialBody = normalizeOptionalText(body.data.body);
+    const materialBody = sanitizeLearningHtml(body.data.body);
     const category = await db.query.contentCategories.findFirst({
       where: eq(contentCategories.id, categoryId)
     });
@@ -4357,7 +4359,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     const kind = getFormValue(form, "kind") as ContentKind;
     const title = getFormValue(form, "title");
     const summary = normalizeOptionalText(getFormValue(form, "summary"));
-    const body = normalizeOptionalText(getFormValue(form, "body"));
+    const body = sanitizeLearningHtml(getFormValue(form, "body"));
     const cardLayout = getFormValue(form, "cardLayout") === "horizontal" ? "horizontal" : "vertical";
     const rawCoverMode = getFormValue(form, "coverMode");
     const coverMode = rawCoverMode === "custom" || rawCoverMode === "first_material" ? rawCoverMode : "default";

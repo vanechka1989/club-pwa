@@ -603,6 +603,34 @@ describe("Learning section modules", () => {
     expect(screen.getByText("Здесь будет содержимое урока: текст, фото, видео, аудио или голосовое сообщение.")).toBeTruthy();
   });
 
+  it("renders sanitized rich text in the lesson body and additional notes", async () => {
+    const modules = structuredClone(learningTestModules) as unknown as Array<{
+      images: Array<{ content: string; materials: Array<Record<string, unknown>> }>;
+    }>;
+    modules[0]!.images[0]!.content = '<p><strong>Важный текст</strong><script>alert(1)</script></p>';
+    modules[0]!.images[0]!.materials = [{
+      id: "note-1",
+      kind: "text",
+      title: "Материал 1",
+      description: null,
+      body: '<blockquote>Полезная заметка</blockquote><img src="x" onerror="alert(2)">',
+      mediaUrl: null,
+      mediaSource: null,
+      mediaContentType: null,
+      mediaSizeBytes: null
+    }];
+    (globalThis as typeof globalThis & { __CLUB_LEARNING_TEST_MODULES__?: unknown }).__CLUB_LEARNING_TEST_MODULES__ = modules;
+    renderAsMember();
+
+    await expandModuleOne();
+    await fireEvent.click(screen.getByRole("button", { name: /Вариант 1\. Плеер и очередь/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Вариант 1. Плеер и очередь" });
+    expect(dialog.querySelector(".lesson-rich-content strong")?.textContent).toBe("Важный текст");
+    expect(dialog.querySelector(".lesson-material-block .lesson-rich-content blockquote")?.textContent).toBe("Полезная заметка");
+    expect(dialog.querySelector("script, img[onerror]")).toBeNull();
+  });
+
   it("uses a custom lesson video player with fullscreen control", () => {
     const styles = readAppStyles("learning");
     const source = readFileSync(resolve(__dirname, "LearningSection.vue"), "utf8");
@@ -686,7 +714,16 @@ describe("Learning section modules", () => {
 
     expect(material.queryByLabelText("Название дополнительного материала")).toBeNull();
     expect(material.queryByLabelText("Описание дополнительного материала")).toBeNull();
-    expect(material.getByLabelText("Необязательный текст дополнительного материала")).toBeTruthy();
+    expect(material.getByRole("textbox", { name: "Необязательный текст дополнительного материала" }).getAttribute("contenteditable")).toBe("true");
+  });
+
+  it("uses the rich text editor for the main lesson content", async () => {
+    renderAsOwner();
+
+    await openLessonCreator("Модуль 1");
+
+    expect(screen.getByRole("textbox", { name: "Содержимое урока" }).getAttribute("contenteditable")).toBe("true");
+    expect(screen.getByRole("toolbar", { name: "Форматирование: Содержимое урока" })).toBeTruthy();
   });
 
   it("keeps the add material action after the last additional material", async () => {

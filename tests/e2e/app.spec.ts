@@ -4831,7 +4831,8 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
 
   const coverControls = page.locator(".lesson-cover-mode-buttons");
   const assessmentSettings = page.locator(".lesson-assessment-settings-link");
-  const lessonContent = page.getByLabel("Содержимое урока");
+  const lessonContent = page.getByRole("textbox", { name: "Содержимое урока" });
+  const richTextToolbar = page.getByRole("toolbar", { name: "Форматирование: Содержимое урока" });
   const publishInput = page.getByLabel("Опубликовать урок");
   const publishControl = page.locator(".learning-publish-switch__control");
   const [coverBox, assessmentBox, contentBox, publishInputBox, publishControlBox] = await Promise.all([
@@ -4847,6 +4848,15 @@ test("keeps lesson editor task screen inside the mobile viewport", async ({ page
   expect(publishInputBox?.height ?? 999).toBeLessThanOrEqual(1);
   expect(publishControlBox?.width).toBe(44);
   expect(publishControlBox?.height).toBe(26);
+  await expect(richTextToolbar).toBeVisible();
+  const toolbarMetrics = await richTextToolbar.locator(":scope > button").evaluateAll((buttons) => ({
+    widths: buttons.map((button) => button.getBoundingClientRect().width),
+    heights: buttons.map((button) => button.getBoundingClientRect().height),
+    minWidths: buttons.map((button) => getComputedStyle(button).minWidth),
+    flexShrink: buttons.map((button) => getComputedStyle(button).flexShrink)
+  }));
+  expect(Math.min(...toolbarMetrics.widths), JSON.stringify(toolbarMetrics)).toBeGreaterThanOrEqual(44);
+  expect(Math.min(...toolbarMetrics.heights), JSON.stringify(toolbarMetrics)).toBeGreaterThanOrEqual(44);
 
   if (testInfo.project.name === "pixel-7") {
     await page.screenshot({ path: testInfo.outputPath("lesson-editor-task.png"), fullPage: false });
