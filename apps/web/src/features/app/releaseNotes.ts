@@ -24,12 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Protected contacts and showcase analytics",
+  title: "Real tariffs in showcase analytics",
   items: [
-    "The owner can explicitly grant administrators access to client personal data; otherwise the API withholds email and phone values.",
-    "Verified Prodamus and Lava payment callbacks can now save a valid customer phone number.",
-    "Club analytics now includes an isolated showcase mode with coherent fictional metrics for customer demonstrations.",
-    "Regeneration creates a new presentation snapshot, while disabling showcase mode immediately restores real analytics."
+    "Showcase analytics now uses the real names and kinds of payment products configured for the club.",
+    "Fictional payments, customers and revenue are distributed across the club's configured payment providers with consistent totals.",
+    "Every analytics detail screen replaces the period chip with a Generate button while showcase mode is active."
   ]
 };
 

@@ -3,9 +3,9 @@ import { onMounted, ref, watch } from "vue";
 import type { LearningEngagementResponse, LearningEngagementUsersResponse } from "@club/shared";
 import { ArrowLeft, CheckCircle2, ChevronRight, ClipboardCheck, Clock3, Eye, FileCheck2, Users, Zap } from "lucide-vue-next";
 import { getAdminLearningEngagement, getAdminLearningEngagementUsers } from "@/api/client";
-import { createShowcaseAnalytics } from "./showcaseAnalytics";
+import { createShowcaseAnalytics, type ShowcaseAnalyticsCatalog } from "./showcaseAnalytics";
 
-const props = defineProps<{ from?: string; to?: string; demoSeed?: number | undefined }>();
+const props = defineProps<{ from?: string; to?: string; demoSeed?: number | undefined; demoCatalog?: ShowcaseAnalyticsCatalog | undefined }>();
 const emit = defineEmits<{ client: [telegramId: string] }>();
 
 const dashboard = ref<LearningEngagementResponse | null>(null);
@@ -37,7 +37,7 @@ async function load() {
     if (props.demoSeed !== undefined) {
       const to = props.to ?? new Date().toISOString().slice(0, 10);
       const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
-      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }).learning;
+      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }, props.demoCatalog).learning;
     } else {
       dashboard.value = await getAdminLearningEngagement(options());
     }
@@ -55,7 +55,7 @@ async function loadUsers(card: LearningEngagementResponse["cards"][number]) {
     if (props.demoSeed !== undefined) {
       const to = props.to ?? new Date().toISOString().slice(0, 10);
       const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
-      const snapshot = createShowcaseAnalytics(props.demoSeed, { from, to });
+      const snapshot = createShowcaseAnalytics(props.demoSeed, { from, to }, props.demoCatalog);
       drilldown.value = {
         item: { id: card.contentItemId, title: card.title, categoryTitle: card.categoryTitle },
         users: snapshot.stats.users.slice(0, card.viewers).map((user, index) => ({
@@ -83,7 +83,7 @@ async function loadUsers(card: LearningEngagementResponse["cards"][number]) {
 }
 
 onMounted(load);
-watch(() => [props.from, props.to, props.demoSeed], load);
+watch(() => [props.from, props.to, props.demoSeed, props.demoCatalog], load);
 </script>
 
 <template>

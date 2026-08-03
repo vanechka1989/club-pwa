@@ -4516,6 +4516,24 @@ body.club-mobile-device .admin-panel-head {
   gap: 8px;
 }
 
+.admin-stat-task-regenerate {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--warning) 62%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+  color: var(--text);
+  font-size: var(--app-type-meta-size);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.admin-stat-task-regenerate svg { width: 16px; }
+
 .admin-showcase-controls {
   grid-column: 1 / -1;
   display: flex;

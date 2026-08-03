@@ -9,6 +9,10 @@ import type {
 import type { AdminStatistics } from "./adminStatistics";
 
 type DateRange = { from: string; to: string };
+export type ShowcaseAnalyticsCatalog = {
+  products: NonNullable<AdminStatsResponse["paymentProductOptions"]>;
+  providers: NonNullable<AdminStatsResponse["paymentProviderOptions"]>;
+};
 
 function randomFactory(seed: number) {
   let state = seed >>> 0;
@@ -44,7 +48,7 @@ function uuid(index: number) {
   return `10000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
-export function createShowcaseAnalytics(seed: number, range: DateRange): {
+export function createShowcaseAnalytics(seed: number, range: DateRange, catalog?: ShowcaseAnalyticsCatalog): {
   stats: AdminStatsResponse;
   finance: AdminFinanceAnalyticsResponse;
   acquisition: AdminAcquisitionDashboard;
@@ -58,7 +62,11 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
   const activeCount = integer(random, Math.ceil(userCount * 0.48), Math.ceil(userCount * 0.82));
   const lessonCount = integer(random, 6, 14);
   const names = ["Анна", "Мария", "Елена", "Алексей", "Ольга", "Ирина", "Дмитрий", "Наталья", "Сергей", "Виктория"];
-  const tariffs = ["prodamus_recurrent", "prodamus", "lava_recurrent", "lava", "manual", null] as const;
+  const products = catalog?.products.length ? catalog.products : [{ id: uuid(9001), title: "Основная подписка", kind: "recurrent" as const }];
+  const providers = catalog?.providers.length ? catalog.providers : [
+    { code: "prodamus" as const, title: "Prodamus" },
+    { code: "lava" as const, title: "Lava" }
+  ];
   const users: AdminStatsUser[] = Array.from({ length: userCount }, (_, index) => {
     const active = index < activeCount;
     const createdDate = dates[integer(random, 0, dates.length - 1)]!;
@@ -80,7 +88,7 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
       role: "member",
       membershipStatus: active ? "active" : "inactive",
       membershipExpiresAt: active ? `${range.to}T12:00:00.000Z` : null,
-      tariff: active ? (tariffs[integer(random, 0, tariffs.length - 2)] ?? null) : null,
+      tariff: null,
       paymentProductIds: [],
       paymentProviders: [],
       recurrentPaymentStatus: active && random() > 0.5 ? "active" : null,
@@ -98,26 +106,62 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
     };
   });
 
-  const providerRevenue = {
-    prodamus: integer(random, 90, 260) * 1000,
-    lava: integer(random, 45, 180) * 1000
-  };
-  const revenueRub = providerRevenue.prodamus + providerRevenue.lava;
-  const providerPaid = { prodamus: integer(random, 18, 48), lava: integer(random, 9, 31) };
-  const paidOrders = providerPaid.prodamus + providerPaid.lava;
+  const paidOrders = Math.max(integer(random, 28, 64), products.length, providers.length);
   const attempts = paidOrders + integer(random, 4, 17);
-  const providerRows = (["prodamus", "lava"] as const).map((provider) => ({
-    provider,
-    title: provider === "prodamus" ? "Prodamus" : "Lava",
-    attempts: providerPaid[provider] + integer(random, 1, 8),
-    paidOrders: providerPaid[provider],
-    uniqueCustomers: Math.min(providerPaid[provider], integer(random, 8, 30)),
-    revenueRub: providerRevenue[provider],
-    averagePaidOrderRub: Math.round(providerRevenue[provider] / providerPaid[provider]),
-    revenuePercent: percent(providerRevenue[provider], revenueRub),
-    successPercent: 0
-  })).map((row) => ({ ...row, successPercent: percent(row.paidOrders, row.attempts) }));
-  const totalPayingCustomers = integer(random, 22, Math.min(userCount, 58));
+  const orderBlueprints = Array.from({ length: attempts }, (_, index) => {
+    const paid = index < paidOrders;
+    const provider = providers[index < providers.length ? index : integer(random, 0, providers.length - 1)]!;
+    const product = products[index < products.length ? index : integer(random, 0, products.length - 1)]!;
+    return {
+      paid,
+      failed: !paid && index % 2 === 0,
+      provider,
+      product,
+      customerIndex: paid ? index % activeCount : index % userCount,
+      date: dates[index % dates.length]!,
+      amountRub: integer(random, product.kind === "recurrent" ? 1200 : 800, product.kind === "recurrent" ? 6900 : 4900)
+    };
+  });
+  const paidBlueprints = orderBlueprints.filter((order) => order.paid);
+  for (const order of paidBlueprints) {
+    const user = users[order.customerIndex]!;
+    user.tariff = order.product.title;
+    user.paymentProductIds = Array.from(new Set([...(user.paymentProductIds ?? []), order.product.id]));
+    user.paymentProviders = Array.from(new Set([...(user.paymentProviders ?? []), order.provider.code]));
+  }
+  const revenueRub = paidBlueprints.reduce((sum, order) => sum + order.amountRub, 0);
+  const providerRows = providers.map((provider) => {
+    const providerOrders = orderBlueprints.filter((order) => order.provider.code === provider.code);
+    const providerPaidOrders = providerOrders.filter((order) => order.paid);
+    const providerRevenue = providerPaidOrders.reduce((sum, order) => sum + order.amountRub, 0);
+    const uniqueCustomers = new Set(providerPaidOrders.map((order) => order.customerIndex)).size;
+    return {
+      provider: provider.code,
+      title: provider.title,
+      attempts: providerOrders.length,
+      paidOrders: providerPaidOrders.length,
+      uniqueCustomers,
+      revenueRub: providerRevenue,
+      averagePaidOrderRub: providerPaidOrders.length ? Math.round(providerRevenue / providerPaidOrders.length) : 0,
+      revenuePercent: percent(providerRevenue, revenueRub),
+      successPercent: percent(providerPaidOrders.length, providerOrders.length)
+    };
+  });
+  const productRows = products.map((product) => {
+    const productPaidOrders = paidBlueprints.filter((order) => order.product.id === product.id);
+    const productRevenue = productPaidOrders.reduce((sum, order) => sum + order.amountRub, 0);
+    return {
+      productId: product.id,
+      title: product.title,
+      kind: product.kind,
+      paidOrders: productPaidOrders.length,
+      uniqueCustomers: new Set(productPaidOrders.map((order) => order.customerIndex)).size,
+      revenueRub: productRevenue,
+      averagePaidOrderRub: productPaidOrders.length ? Math.round(productRevenue / productPaidOrders.length) : 0,
+      revenuePercent: percent(productRevenue, revenueRub)
+    };
+  });
+  const totalPayingCustomers = new Set(paidBlueprints.map((order) => order.customerIndex)).size;
   const retained = integer(random, Math.ceil(totalPayingCustomers * 0.55), totalPayingCustomers);
   const churned = totalPayingCustomers - retained;
   const finance: AdminFinanceAnalyticsResponse = {
@@ -130,10 +174,7 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
       successPercent: percent(paidOrders, attempts)
     },
     providers: providerRows,
-    products: [{
-      productId: uuid(9001), title: "Основная подписка", kind: "recurrent", paidOrders,
-      uniqueCustomers: totalPayingCustomers, revenueRub, averagePaidOrderRub: Math.round(revenueRub / paidOrders), revenuePercent: 100
-    }],
+    products: productRows,
     retention: {
       totalPayingCustomers,
       activeCustomers: retained,
@@ -146,7 +187,14 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
       repeatPurchaseChurnedPercent: percent(Math.ceil(churned / 2), churned),
       exitStages: [{ renewals: 1, label: "После первого продления", customers: churned, percentOfRepeatChurned: churned ? 100 : 0 }],
       byProviders: providerRows.map((row) => ({ key: row.provider, title: row.title, totalCustomers: row.uniqueCustomers, activeCustomers: Math.min(row.uniqueCustomers, retained), churnedCustomers: Math.max(0, row.uniqueCustomers - retained), churnedPercent: percent(Math.max(0, row.uniqueCustomers - retained), row.uniqueCustomers) })),
-      byProducts: []
+      byProducts: productRows.map((row) => ({
+        key: row.productId,
+        title: row.title,
+        totalCustomers: row.uniqueCustomers,
+        activeCustomers: Math.min(row.uniqueCustomers, retained),
+        churnedCustomers: Math.max(0, row.uniqueCustomers - retained),
+        churnedPercent: percent(Math.max(0, row.uniqueCustomers - retained), row.uniqueCustomers)
+      }))
     }
   };
 
@@ -207,47 +255,32 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
     completedItems: users.reduce((sum, user) => sum + user.completedItems, 0),
     totalItems: lessonCount,
     users,
-    paymentProductOptions: [], paymentProviderOptions: [], communityMessages: [],
+    paymentProductOptions: products, paymentProviderOptions: providers, communityMessages: [],
     pollStats: { totalPolls: integer(random, 3, 9), activePolls: 2, closedPolls: 3, uniqueParticipants: integer(random, 10, userCount), totalVotes: integer(random, 25, 140), participationPercent: integer(random, 25, 75), polls: [] }
   };
   stats.pollStats.closedPolls = Math.max(0, stats.pollStats.totalPolls - stats.pollStats.activePolls);
-  const paymentOrders: PaymentOrderLog[] = Array.from({ length: attempts }, (_, index) => {
-    const paid = index < paidOrders;
-    const failed = !paid && index % 2 === 0;
-    const customer = users[index % users.length]!;
-    const date = dates[index % dates.length]!;
-    const provider = paid
-      ? index < providerPaid.prodamus ? "prodamus" : "lava"
-      : index % 2 ? "lava" : "prodamus";
-    const providerPaidIndex = provider === "prodamus" ? index : index - providerPaid.prodamus;
-    const providerPaidTotal = providerPaid[provider];
-    const providerRevenueTotal = providerRevenue[provider];
-    const basePaidAmount = Math.floor(providerRevenueTotal / providerPaidTotal);
-    const amount = paid
-      ? providerPaidIndex === providerPaidTotal - 1
-        ? providerRevenueTotal - basePaidAmount * (providerPaidTotal - 1)
-        : basePaidAmount
-      : integer(random, 900, 4900);
+  const paymentOrders: PaymentOrderLog[] = orderBlueprints.map((order, index) => {
+    const customer = users[order.customerIndex]!;
     return {
       id: `demo-order-${seed}-${index}`,
-      provider,
-      status: paid ? "paid" : failed ? "failed" : "pending",
-      amountRub: amount,
+      provider: order.provider.code,
+      status: order.paid ? "paid" : order.failed ? "failed" : "pending",
+      amountRub: order.amountRub,
       currency: "RUB",
-      amountMinor: amount * 100,
+      amountMinor: order.amountRub * 100,
       providerOrderId: `demo-${index + 1}`,
-      providerPaymentId: paid ? `demo-payment-${index + 1}` : null,
-      productTitle: index % 4 ? "Основная подписка" : "Разовый доступ",
-      productKind: index % 4 ? "recurrent" : "one_time",
+      providerPaymentId: order.paid ? `demo-payment-${index + 1}` : null,
+      productTitle: order.product.title,
+      productKind: order.product.kind,
       customer: {
         id: customer.id, telegramId: customer.telegramId, firstName: customer.firstName, username: null,
         displayName: null, photoUrl: null, avatarPositionX: 50, avatarPositionY: 50, avatarScale: 1
       },
-      webhook: { isValid: true, createdAt: `${date}T12:00:00.000Z` },
-      paidAt: paid ? `${date}T12:00:00.000Z` : null,
-      createdAt: `${date}T11:55:00.000Z`,
-      updatedAt: `${date}T12:00:00.000Z`,
-      diagnostic: { state: paid ? "paid" : failed ? "failed" : "awaiting_payment", reason: "Демонстрационная операция", severity: paid ? "success" : failed ? "danger" : "info" }
+      webhook: { isValid: true, createdAt: `${order.date}T12:00:00.000Z` },
+      paidAt: order.paid ? `${order.date}T12:00:00.000Z` : null,
+      createdAt: `${order.date}T11:55:00.000Z`,
+      updatedAt: `${order.date}T12:00:00.000Z`,
+      diagnostic: { state: order.paid ? "paid" : order.failed ? "failed" : "awaiting_payment", reason: "Демонстрационная операция", severity: order.paid ? "success" : order.failed ? "danger" : "info" }
     };
   });
   const activeUsers = users.filter((user) => user.membershipStatus === "active");
@@ -260,6 +293,8 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
   });
   const pendingOrders = paymentOrders.filter((order) => order.status === "pending").length;
   const failedOrders = paymentOrders.filter((order) => order.status === "failed").length;
+  const oneTimePaidOrders = paidBlueprints.filter((order) => order.product.kind === "one_time").length;
+  const recurrentPaidOrders = paidOrders - oneTimePaidOrders;
   const restricted = users.filter((user) => user.hasRestrictions).length;
   const overview: AdminStatistics = {
     clients: {
@@ -275,12 +310,12 @@ export function createShowcaseAnalytics(seed: number, range: DateRange): {
     payments: {
       paidOrders, pendingOrders, failedOrders, failedWebhookOrders: 0, problemOrders: failedOrders,
       revenueRub, averagePaidOrderRub: Math.round(revenueRub / paidOrders),
-      oneTimePaidOrders: Math.floor(paidOrders / 4), recurrentPaidOrders: paidOrders - Math.floor(paidOrders / 4),
+      oneTimePaidOrders, recurrentPaidOrders,
       timeline: paymentTimeline,
       breakdown: [
         { key: "paid", label: "Всего оплат", value: paidOrders },
-        { key: "one_time", label: "Разовые", value: Math.floor(paidOrders / 4) },
-        { key: "recurrent", label: "Рекуррент", value: paidOrders - Math.floor(paidOrders / 4) },
+        { key: "one_time", label: "Разовые", value: oneTimePaidOrders },
+        { key: "recurrent", label: "Рекуррент", value: recurrentPaidOrders },
         { key: "pending", label: "Ожидают", value: pendingOrders },
         { key: "webhook_failed", label: "Ошибки webhook", value: 0 },
         { key: "failed", label: "Ошибки оплат", value: failedOrders }

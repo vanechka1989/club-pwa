@@ -127,7 +127,7 @@ import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from
 import { resolveAdminPollStats } from "@/features/admin/adminStatsFallback";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { paymentSuccessPercent } from "@/features/admin/adminAnalyticsOverview";
-import { createShowcaseAnalytics } from "@/features/admin/showcaseAnalytics";
+import { createShowcaseAnalytics, type ShowcaseAnalyticsCatalog } from "@/features/admin/showcaseAnalytics";
 import { readShowcaseState, regenerateShowcaseSeed, writeShowcaseState } from "@/features/admin/showcaseMode";
 import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
@@ -677,7 +677,11 @@ const statisticsAcquisitionRange = computed(() => {
   return { from: formatDateInput(from), to: formatDateInput(to) };
 });
 const statisticsFinanceRange = computed(() => statisticsPeriod.value === "all" ? {} : statisticsEngagementRange.value);
-const showcaseSnapshot = computed(() => createShowcaseAnalytics(showcaseAnalyticsSeed.value, statisticsEngagementRange.value));
+const showcaseCatalog = computed<ShowcaseAnalyticsCatalog>(() => ({
+  products: paymentProductOptions.value,
+  providers: paymentProviderOptions.value
+}));
+const showcaseSnapshot = computed(() => createShowcaseAnalytics(showcaseAnalyticsSeed.value, statisticsEngagementRange.value, showcaseCatalog.value));
 const analyticsUsers = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.stats.users : users.value);
 const analyticsPaymentOrders = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.paymentOrders : paymentOrders.value);
 const displayedPollStats = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.stats.pollStats : pollStats.value);
@@ -3298,7 +3302,8 @@ onUnmounted(() => {
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
         <template #actions>
           <span v-if="showcaseAnalyticsEnabled" class="admin-stat-task-demo">Демо</span>
-          <span class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
+          <button v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate ui-button" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />Сгенерировать</button>
+          <span v-else class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
         </template>
         <AdminAcquisitionAnalytics
           v-if="activeStatisticsDetail === 'acquisition'"
@@ -3306,6 +3311,7 @@ onUnmounted(() => {
           :to="statisticsAcquisitionRange?.to"
           :learning-categories="learningCategories"
           :demo-seed="showcaseAnalyticsEnabled ? showcaseAnalyticsSeed : undefined"
+          :demo-catalog="showcaseAnalyticsEnabled ? showcaseCatalog : undefined"
           @client="openAcquisitionClient"
         />
         <AdminLearningEngagement
@@ -3313,6 +3319,7 @@ onUnmounted(() => {
           :from="statisticsEngagementRange.from"
           :to="statisticsEngagementRange.to"
           :demo-seed="showcaseAnalyticsEnabled ? showcaseAnalyticsSeed : undefined"
+          :demo-catalog="showcaseAnalyticsEnabled ? showcaseCatalog : undefined"
           @client="openAcquisitionClient"
         />
         <AdminStatisticsDetail

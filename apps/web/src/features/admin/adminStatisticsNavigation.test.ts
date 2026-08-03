@@ -107,11 +107,14 @@ describe("admin statistics navigation", () => {
     expect(styles).toMatch(/\.admin-statistics-panel \.admin-stat-period-control\s*\{[^}]*width:\s*100%/s);
   });
 
-  it("keeps the selected period visible inside every analytics detail", () => {
+  it("replaces the selected period with regeneration inside demo analytics details", () => {
     expect(section).toContain('<template #actions>');
-    expect(section).toContain('class="admin-stat-task-period"');
-    expect(section).toContain("statisticsPeriodShortLabel");
+    expect(section).toContain('v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate');
+    expect(section).toContain('@click="regenerateShowcaseAnalytics"');
+    expect(section).toContain("Сгенерировать");
+    expect(section).toContain('v-else class="admin-stat-task-period"');
     expect(styles).toContain(".admin-stat-task-period");
+    expect(styles).toContain(".admin-stat-task-regenerate");
   });
 
   it("shows visual dynamics inside client, finance, and community dashboards", () => {

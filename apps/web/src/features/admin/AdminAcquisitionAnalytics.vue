@@ -4,9 +4,9 @@ import { BarChart3, Check, ChevronRight, Copy, Link2, MousePointerClick, Plus, R
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { createAdminAcquisitionLink, getAdminAcquisitionDashboard, getAdminAcquisitionDay, getAdminAcquisitionLinks, updateAdminAcquisitionLinkStatus } from "@/api/client";
 import TaskScreen from "@/features/app/TaskScreen.vue";
-import { createShowcaseAnalytics } from "./showcaseAnalytics";
+import { createShowcaseAnalytics, type ShowcaseAnalyticsCatalog } from "./showcaseAnalytics";
 
-const props = defineProps<{ from?: string | undefined; to?: string | undefined; learningCategories?: LearningCategory[] | undefined; demoSeed?: number | undefined }>();
+const props = defineProps<{ from?: string | undefined; to?: string | undefined; learningCategories?: LearningCategory[] | undefined; demoSeed?: number | undefined; demoCatalog?: ShowcaseAnalyticsCatalog | undefined }>();
 const emit = defineEmits<{ client: [telegramId: string] }>();
 const dashboard = ref<AdminAcquisitionDashboard | null>(null);
 const links = ref<AdminAcquisitionLink[]>([]);
@@ -36,7 +36,7 @@ async function load() {
     if (props.demoSeed !== undefined) {
       const to = props.to ?? new Date().toISOString().slice(0, 10);
       const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
-      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }).acquisition;
+      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }, props.demoCatalog).acquisition;
       links.value = [];
       return;
     }
@@ -95,7 +95,7 @@ async function openDay(date: string) {
   dayLoading.value = true;
   try {
     if (props.demoSeed !== undefined) {
-      const snapshot = createShowcaseAnalytics(props.demoSeed, { from: props.from ?? date, to: props.to ?? date });
+      const snapshot = createShowcaseAnalytics(props.demoSeed, { from: props.from ?? date, to: props.to ?? date }, props.demoCatalog);
       const point = snapshot.acquisition.timeline.find((entry) => entry.date === date);
       const people = snapshot.stats.users;
       const person = (index: number): AdminAcquisitionPerson => ({
@@ -149,7 +149,7 @@ function formatLinkCreatedAt(value: string) { return new Date(value).toLocaleDat
 function linkUtmSummary(link: AdminAcquisitionLink) { return [link.source, link.medium, link.campaign, link.content].filter(Boolean).join(" / "); }
 function personInitial(person: AdminAcquisitionPerson | null, fallback: string) { return (person?.label || fallback).trim().charAt(0).toUpperCase() || "•"; }
 
-watch([() => props.from, () => props.to, () => props.demoSeed], load);
+watch([() => props.from, () => props.to, () => props.demoSeed, () => props.demoCatalog], load);
 onMounted(load);
 </script>
 
