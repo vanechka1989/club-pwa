@@ -3093,16 +3093,34 @@ test("regenerates showcase analytics with visible feedback and the complete prod
   const financeTask = page.locator(".admin-statistics-task-screen");
   const demoAction = financeTask.locator(".admin-stat-task-demo");
   const generateAction = financeTask.locator(".admin-stat-task-regenerate");
-  const [demoBox, generateBox] = await Promise.all([demoAction.boundingBox(), generateAction.boundingBox()]);
+  const financeHeader = financeTask.locator(".task-screen-header");
+  const [demoBox, generateBox, financeHeaderBox] = await Promise.all([demoAction.boundingBox(), generateAction.boundingBox(), financeHeader.boundingBox()]);
   expect(demoBox).not.toBeNull();
   expect(generateBox).not.toBeNull();
-  expect(Math.abs(demoBox!.width - generateBox!.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(demoBox!.height - generateBox!.height)).toBeLessThanOrEqual(1);
-  expect(demoBox!.height).toBe(44);
+  expect(financeHeaderBox).not.toBeNull();
+  expect(demoBox!.height).toBeLessThanOrEqual(24);
+  expect(generateBox!.width).toBe(44);
+  expect(generateBox!.height).toBe(44);
+  expect(financeHeaderBox!.height).toBeLessThanOrEqual(96);
   const products = page.getByRole("region", { name: "Продукты и тарифы" });
   await expect(products.locator(".admin-finance-share-row")).toHaveCount(4);
   await expect(products.getByText("Клуб", { exact: true })).toHaveCount(2);
   await expect(products.locator(".admin-finance-product-kind")).toHaveCount(0);
+  const productColors = await products.locator(".admin-finance-legend-dot").evaluateAll((dots) => dots.map((dot) => getComputedStyle(dot).backgroundColor));
+  expect(new Set(productColors).size).toBe(4);
+  const rgb = productColors.map((color) => color.match(/\d+(?:\.\d+)?/g)!.slice(0, 3).map(Number));
+  const colorDistances = rgb.flatMap((left, leftIndex) => rgb.slice(leftIndex + 1).map((right) => Math.hypot(left[0]! - right[0]!, left[1]! - right[1]!, left[2]! - right[2]!)));
+  expect(Math.min(...colorDistances)).toBeGreaterThanOrEqual(100);
+  if (testInfo.project.name === "release-android") {
+    await financeHeader.screenshot({ path: testInfo.outputPath("admin-showcase-finance-header.png"), animations: "disabled" });
+    await products.screenshot({ path: testInfo.outputPath("admin-showcase-products.png"), animations: "disabled" });
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "dark";
+      document.documentElement.dataset.scheme = "graphite";
+    });
+    await financeHeader.screenshot({ path: testInfo.outputPath("admin-showcase-finance-header-dark.png"), animations: "disabled" });
+    await products.screenshot({ path: testInfo.outputPath("admin-showcase-products-dark.png"), animations: "disabled" });
+  }
 
   const retention = page.locator('[aria-label="Удержание платящих клиентов"]');
   await expect(retention).toBeVisible();
@@ -4493,13 +4511,14 @@ test("opens every client summary on its own responsive page", async ({ page }, t
   await expect(clientHeader.getByRole("img", { name: /Екатерина С Очень Длинной Фамилией/ })).toBeVisible();
   await expect(clientHeader.getByText(/Последний вход:/)).toBeVisible();
   await expect(clientHeader.getByText("Доступ открыт", { exact: true })).toBeVisible();
+  await expect(clientHeader.locator(".admin-client-task-title-line")).toContainText("Доступ открыт");
   await expect(clientHeader.getByText(adminStatsUser.email, { exact: true })).toHaveCount(0);
   await expect(page.locator(".admin-client-identity")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Контактные данные" })).toContainText(adminStatsUser.email);
   await expect(page.getByRole("button", { name: "Открыть раздел Источник клиента" })).toBeVisible();
   const clientHeaderBox = await clientHeader.boundingBox();
   expect(clientHeaderBox).not.toBeNull();
-  expect(clientHeaderBox!.height).toBeLessThanOrEqual(120);
+  expect(clientHeaderBox!.height).toBeLessThanOrEqual(96);
   const deleteButton = clientHeader.getByRole("button", { name: "Удалить клиента" });
   if (await deleteButton.count()) {
     const deleteBox = await deleteButton.boundingBox();
@@ -4508,6 +4527,13 @@ test("opens every client summary on its own responsive page", async ({ page }, t
     expect(deleteBox!.height).toBe(44);
   }
   await page.screenshot({ path: testInfo.outputPath("admin-client-source-row.png"), fullPage: false, animations: "disabled" });
+  if (testInfo.project.name === "release-android") {
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "dark";
+      document.documentElement.dataset.scheme = "graphite";
+    });
+    await clientHeader.screenshot({ path: testInfo.outputPath("admin-client-header-dark.png"), animations: "disabled" });
+  }
 
   const pages = [
     ["acquisition", "Источник клиента"],

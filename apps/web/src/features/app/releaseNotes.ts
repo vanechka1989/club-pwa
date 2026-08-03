@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact headers and churn charts",
+  title: "Compact headers and distinct tariff colors",
   items: [
-    "The client header and bright-red delete action are visually smaller while retaining accessible touch targets.",
-    "Demo and regenerate actions now share the same stable dimensions.",
-    "Customer churn, product churn and payment-provider churn are presented as compact comparative charts."
+    "The access state now sits beside the client name in a lower, cleaner header.",
+    "Finance demo mode uses an inline badge and a compact regenerate icon button.",
+    "Products and tariffs now use six clearly separated categorical colors."
   ]
 };
 

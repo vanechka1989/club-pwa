@@ -4517,12 +4517,14 @@ body.club-mobile-device .admin-panel-head {
 }
 
 .admin-stat-task-regenerate {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 0 12px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--warning) 62%, var(--border));
   border-radius: 12px;
   background: color-mix(in srgb, var(--warning) 14%, var(--surface));
@@ -4535,26 +4537,46 @@ body.club-mobile-device .admin-panel-head {
 .admin-statistics-task-screen .task-screen-header {
   min-height: 0;
   gap: 8px;
-  padding-block: 10px;
+  padding-block: 6px;
   padding-inline: 12px;
 }
 
 .admin-statistics-task-screen .ui-page-header__actions {
   display: grid;
-  width: clamp(138px, 40vw, 180px);
-  gap: 6px;
+  width: 44px;
+  flex: 0 0 44px;
+  place-items: center;
 }
 
-.admin-stat-task-demo,
+.admin-stat-task-heading { display: grid; min-width: 0; gap: 2px; }
+.admin-stat-task-title-line { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.admin-stat-task-title-line h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: calc(var(--app-header-title-size) * .9); font-weight: 900; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+.admin-stat-task-heading > p { margin: 0; overflow: hidden; color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 650; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+
+.admin-stat-task-demo {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--warning);
+  color: #211500;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .admin-stat-task-regenerate {
-  box-sizing: border-box;
-  width: 100%;
+  width: 44px;
   height: 44px;
   min-height: 44px;
-  border-radius: 10px;
+  border-radius: 11px;
 }
 
-.admin-stat-task-regenerate svg { width: 16px; }
+.admin-stat-task-regenerate svg { width: 18px; }
 .admin-stat-task-regenerate.is-confirmed,
 .admin-showcase-regenerate.is-confirmed { border-color: color-mix(in srgb, var(--success) 70%, var(--border)); background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
 .admin-stat-task-regenerate.is-confirmed svg,
@@ -4585,7 +4607,6 @@ body.club-mobile-device .admin-panel-head {
 .admin-showcase-regenerate { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border)); border-radius: 11px; background: var(--surface); color: var(--text); font-size: var(--app-type-meta-size); font-weight: 800; }
 .admin-showcase-regenerate svg { width: 16px; }
 @keyframes admin-showcase-confirm { 50% { transform: rotate(180deg) scale(1.12); } 100% { transform: rotate(360deg); } }
-.admin-stat-task-demo { display: inline-flex; align-items: center; justify-content: center; padding: 0 9px; background: var(--warning); color: #211500; font-size: var(--app-type-meta-size); font-weight: 900; text-transform: uppercase; }
 @media (max-width: 420px) {
   .admin-showcase-controls { align-items: stretch; flex-direction: column; }
   .admin-showcase-regenerate { width: 100%; }

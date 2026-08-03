@@ -241,11 +241,13 @@ async function copyContact(value: string) {
         <div class="admin-client-task-heading">
           <span class="admin-client-task-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span>
           <div class="admin-client-task-identity">
-            <h2 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h2>
+            <div class="admin-client-task-title-line">
+              <h2 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h2>
+              <span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span>
+            </div>
             <span class="admin-client-task-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span>
             <div class="admin-client-task-statuses">
               <span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span>
-              <span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span>
               <span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span>
               <span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span>
             </div>
@@ -330,22 +332,22 @@ async function copyContact(value: string) {
 .admin-client-task-screen :deep(.task-screen-header) {
   min-height: 0;
   gap: 8px;
-  padding-block: 8px;
+  padding-block: 6px;
   padding-inline: 12px;
 }
 
 .admin-client-task-heading {
   display: grid;
   min-width: 0;
-  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .admin-client-task-avatar {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   place-items: center;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
@@ -357,9 +359,11 @@ async function copyContact(value: string) {
 
 .admin-client-task-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .admin-client-task-identity { display: grid; min-width: 0; gap: 2px; }
-.admin-client-task-identity h2 { margin: 0; overflow: hidden; color: var(--text); font-size: calc(var(--app-header-title-size) * .9); font-weight: 900; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-task-title-line { display: flex; min-width: 0; align-items: center; gap: 6px; }
+.admin-client-task-title-line h2 { min-width: 0; margin: 0; overflow: hidden; color: var(--text); font-size: calc(var(--app-header-title-size) * .86); font-weight: 900; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+.admin-client-task-title-line .admin-status-pill { flex: 0 0 auto; min-height: 20px; padding: 2px 6px; font-size: 9px; line-height: 1.1; }
 .admin-client-task-last-login { overflow: hidden; color: var(--muted); font-size: var(--app-type-micro-size); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.admin-client-task-statuses { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; }
+.admin-client-task-statuses { display: flex; min-width: 0; flex-wrap: nowrap; gap: 4px; overflow: hidden; }
 .admin-client-task-statuses :is(.admin-status-pill, .admin-email-opt-out-badge) { min-height: 20px; padding: 2px 6px; font-size: 9px; line-height: 1.1; }
 
 .admin-client-contact-card { display: grid; gap: 12px; padding: 14px; }

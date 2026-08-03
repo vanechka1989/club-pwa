@@ -3312,9 +3312,25 @@ onUnmounted(() => {
       </div>
 
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
+        <template #heading>
+          <div class="admin-stat-task-heading">
+            <div class="admin-stat-task-title-line">
+              <h2>{{ statisticsDetailMeta.title }}</h2>
+              <span v-if="showcaseAnalyticsEnabled" class="admin-stat-task-demo">Демо</span>
+            </div>
+            <p>{{ statisticsDetailMeta.subtitle }}</p>
+          </div>
+        </template>
         <template #actions>
-          <span v-if="showcaseAnalyticsEnabled" class="admin-stat-task-demo">Демо</span>
-          <button v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate ui-button" :class="{ 'is-confirmed': showcaseRegenerationConfirmed }" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />{{ showcaseRegenerationConfirmed ? 'Обновлено' : 'Сгенерировать' }}</button>
+          <button
+            v-if="showcaseAnalyticsEnabled"
+            class="admin-stat-task-regenerate ui-button"
+            :class="{ 'is-confirmed': showcaseRegenerationConfirmed }"
+            type="button"
+            :aria-label="showcaseRegenerationConfirmed ? 'Данные обновлены' : 'Сгенерировать демонстрационные данные'"
+            :title="showcaseRegenerationConfirmed ? 'Данные обновлены' : 'Сгенерировать демонстрационные данные'"
+            @click="regenerateShowcaseAnalytics"
+          ><RefreshCw aria-hidden="true" /></button>
           <span v-else class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
         </template>
         <AdminAcquisitionAnalytics

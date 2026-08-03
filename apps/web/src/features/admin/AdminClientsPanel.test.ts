@@ -321,6 +321,17 @@ describe("AdminClientsPanel", () => {
     expect(within(contacts).getByText("+79991234567", { exact: true })).toBeTruthy();
   });
 
+  it("keeps the primary access state beside the client name", () => {
+    render(AdminClientsPanel, { props: createProps({ selectedUser: client }) });
+
+    const titleLine = document.querySelector<HTMLElement>(".admin-client-task-title-line");
+    const secondaryStatuses = document.querySelector<HTMLElement>(".admin-client-task-statuses");
+    expect(titleLine).toBeTruthy();
+    expect(within(titleLine!).getByRole("heading", { name: "Анна" })).toBeTruthy();
+    expect(within(titleLine!).getByText("Доступ открыт", { exact: true })).toBeTruthy();
+    expect(within(secondaryStatuses!).queryByText("Доступ открыт", { exact: true })).toBeNull();
+  });
+
   it("shows available contacts and replaces restricted personal data with an owner lock", async () => {
     const visibleClient: AdminStatsUser = {
       ...client,

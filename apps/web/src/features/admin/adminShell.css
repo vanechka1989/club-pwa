@@ -1215,13 +1215,13 @@ body.club-mobile-device .admin-client-task-screen.task-screen-route-layer .task-
 .admin-finance-donut svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform: rotate(-90deg); }
 .admin-finance-donut circle { fill: none; stroke-width: 12; }
 .admin-finance-donut-track { stroke: color-mix(in srgb, var(--border) 68%, transparent); }
-.admin-finance-donut-segment { stroke: var(--accent); transition: stroke-dashoffset 220ms ease; }
-.admin-finance-donut-segment.is-segment-0, .admin-finance-legend-dot.is-segment-0 { stroke: var(--accent); background: var(--accent); }
-.admin-finance-donut-segment.is-segment-1, .admin-finance-legend-dot.is-segment-1 { stroke: var(--info, #55a8f5); background: var(--info, #55a8f5); }
-.admin-finance-donut-segment.is-segment-2, .admin-finance-legend-dot.is-segment-2 { stroke: var(--warning, #d59b2a); background: var(--warning, #d59b2a); }
-.admin-finance-donut-segment.is-segment-3, .admin-finance-legend-dot.is-segment-3 { stroke: var(--success); background: var(--success); }
-.admin-finance-donut-segment.is-segment-4, .admin-finance-legend-dot.is-segment-4 { stroke: var(--danger, #df6c76); background: var(--danger, #df6c76); }
-.admin-finance-donut-segment.is-segment-5, .admin-finance-legend-dot.is-segment-5 { stroke: color-mix(in srgb, var(--accent) 48%, var(--warning, #d59b2a)); background: color-mix(in srgb, var(--accent) 48%, var(--warning, #d59b2a)); }
+.admin-finance-donut-segment { stroke: #14b8a6; transition: stroke-dashoffset 220ms ease; }
+.admin-finance-donut-segment.is-segment-0, .admin-finance-legend-dot.is-segment-0 { stroke: #14b8a6; background: #14b8a6; }
+.admin-finance-donut-segment.is-segment-1, .admin-finance-legend-dot.is-segment-1 { stroke: #2563eb; background: #2563eb; }
+.admin-finance-donut-segment.is-segment-2, .admin-finance-legend-dot.is-segment-2 { stroke: #f59e0b; background: #f59e0b; }
+.admin-finance-donut-segment.is-segment-3, .admin-finance-legend-dot.is-segment-3 { stroke: #9333ea; background: #9333ea; }
+.admin-finance-donut-segment.is-segment-4, .admin-finance-legend-dot.is-segment-4 { stroke: #e11d48; background: #e11d48; }
+.admin-finance-donut-segment.is-segment-5, .admin-finance-legend-dot.is-segment-5 { stroke: #65a30d; background: #65a30d; }
 .admin-finance-donut-visual > div { position: relative; z-index: 1; display: grid; max-width: 78px; justify-items: center; gap: 3px; text-align: center; }
 .admin-finance-donut-visual strong { color: var(--text); font-size: .9rem; line-height: 1.05; overflow-wrap: anywhere; }
 .admin-finance-donut-visual small { color: var(--muted); font-size: .62rem; }

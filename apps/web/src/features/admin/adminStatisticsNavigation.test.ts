@@ -108,15 +108,18 @@ describe("admin statistics navigation", () => {
   });
 
   it("replaces the selected period with regeneration inside demo analytics details", () => {
+    expect(section).toContain('<template #heading>');
+    expect(section).toContain('class="admin-stat-task-title-line"');
     expect(section).toContain('<template #actions>');
-    expect(section).toContain('v-if="showcaseAnalyticsEnabled" class="admin-stat-task-regenerate');
+    expect(section).toMatch(/v-if="showcaseAnalyticsEnabled"[\s\S]*?class="admin-stat-task-regenerate ui-button"/);
     expect(section).toContain('@click="regenerateShowcaseAnalytics"');
     expect(section).toContain("Сгенерировать");
     expect(section).toContain('v-else class="admin-stat-task-period"');
     expect(styles).toContain(".admin-stat-task-period");
     expect(styles).toContain(".admin-stat-task-regenerate");
-    expect(styles).toMatch(/\.admin-statistics-task-screen \.ui-page-header__actions\s*\{[^}]*display:\s*grid;[^}]*width:\s*clamp\(138px, 40vw, 180px\);/s);
-    expect(styles).toMatch(/\.admin-stat-task-demo,\s*\.admin-stat-task-regenerate\s*\{[^}]*width:\s*100%;[^}]*height:\s*44px;/s);
+    expect(styles).toMatch(/\.admin-statistics-task-screen \.ui-page-header__actions\s*\{[^}]*width:\s*44px;/s);
+    expect(styles).toMatch(/\.admin-stat-task-demo\s*\{[^}]*min-height:\s*20px;[^}]*border-radius:\s*999px;/s);
+    expect(styles).toMatch(/\.admin-stat-task-regenerate\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s);
   });
 
   it("shows visual dynamics inside client, finance, and community dashboards", () => {
