@@ -85,7 +85,7 @@ describe("compact admin statistics and clients", () => {
     expect(source).not.toContain('admin-client-modal admin-client-task-card');
     expect(styles).toContain(".admin-client-workspace");
     expect(styles).toMatch(/@media \(max-width: 359px\)[\s\S]*\.admin-client-kpi-grid/);
-    expect(source).toMatch(/\.admin-client-task-screen\s+:deep\(\.task-screen-header\)\s*\{[^}]*min-height:\s*0;[^}]*padding-block:\s*10px;/s);
+    expect(source).toMatch(/\.admin-client-task-screen\s+:deep\(\.task-screen-header\)\s*\{[^}]*min-height:\s*0;[^}]*padding-block:\s*8px;/s);
     expect(source).toMatch(/\.admin-client-task-avatar\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px;/s);
   });
 

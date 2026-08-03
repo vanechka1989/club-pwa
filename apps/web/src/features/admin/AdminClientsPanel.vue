@@ -330,7 +330,7 @@ async function copyContact(value: string) {
 .admin-client-task-screen :deep(.task-screen-header) {
   min-height: 0;
   gap: 8px;
-  padding-block: 10px;
+  padding-block: 8px;
   padding-inline: 12px;
 }
 
