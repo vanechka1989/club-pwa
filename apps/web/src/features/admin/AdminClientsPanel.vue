@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminLoginIp, AdminStatsUser, AdminUserDetailResponse, PaymentOrderLog } from "@club/shared";
-import { Activity, BookOpen, ChevronRight, CircleDollarSign, CreditCard, Lock, LockOpen, MessageCircle, MessageCircleOff, Network, Paperclip, Route, ShieldAlert, SlidersHorizontal, Smartphone, Trash2, UserRoundPlus, X } from "lucide-vue-next";
+import { Activity, BookOpen, ChevronRight, CircleDollarSign, Copy, CreditCard, Lock, LockKeyhole, LockOpen, Mail, MessageCircle, MessageCircleOff, Network, Paperclip, Phone, Route, ShieldAlert, SlidersHorizontal, Smartphone, Trash2, UserRoundPlus, X } from "lucide-vue-next";
 import { ref } from "vue";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -141,6 +141,10 @@ function updateClientMessageFiles(event: Event) {
   emit("update:client-message-files", Array.from(input.files ?? []).slice(0, 4));
   input.value = "";
 }
+
+async function copyContact(value: string) {
+  await navigator.clipboard?.writeText(value).catch(() => undefined);
+}
 </script>
 
 <template>
@@ -248,6 +252,15 @@ function updateClientMessageFiles(event: Event) {
       <div class="admin-client-workspace">
         <header class="admin-client-identity admin-detail ui-card"><div class="admin-client-card-head"><span class="admin-client-avatar"><img v-if="selectedUser.photoUrl" :src="selectedUser.photoUrl" :alt="userTitle(selectedUser)" /><span v-else>{{ userInitial(selectedUser) }}</span></span><div class="admin-client-card-title"><div class="admin-client-title-row"><h3 id="admin-client-modal-title">{{ userTitle(selectedUser) }}</h3></div><p>{{ selectedUserMeta(selectedUser) }}</p><span class="admin-client-last-login">Последний вход: {{ formatAdminClientLastLogin(selectedUser.lastLoginAt, formatAdminCompactDateTime) }}</span></div></div><div class="admin-client-status-row"><span v-if="selectedUser.marketingEmailOptOutAt" class="admin-email-opt-out-badge">Email отключён</span><span class="admin-status-pill" :class="`admin-access-badge-${getAdminClientAccessState(selectedUser).tone}`">{{ getAdminClientAccessState(selectedUser).label }}</span><span v-if="selectedUser.membershipExpiresAt" class="admin-status-pill admin-status-pill-yellow">до {{ formatAdminShortDate(selectedUser.membershipExpiresAt) }}</span><span class="admin-status-pill" :class="`admin-status-pill-${getAdminTariffBadge(selectedUser).tone}`">{{ getAdminTariffBadge(selectedUser).label }}</span></div></header>
 
+        <section class="admin-client-contact-card admin-detail ui-card" aria-labelledby="admin-client-contact-title">
+          <header><div><strong id="admin-client-contact-title">Контактные данные</strong><small>Почта и телефон клиента</small></div><LockKeyhole v-if="selectedUser.personalDataRestricted" aria-hidden="true" /></header>
+          <div v-if="selectedUser.personalDataRestricted" class="admin-client-contact-locked"><Lock aria-hidden="true" /><span><strong>Скрыто владельцем</strong><small>Нет права на персональные данные</small></span></div>
+          <div v-else class="admin-client-contact-list">
+            <article><Mail aria-hidden="true" /><span><small>Почта</small><strong>{{ selectedUser.email || 'Не указана' }}</strong></span><button v-if="selectedUser.email" class="ui-icon-button" type="button" aria-label="Скопировать почту" @click="copyContact(selectedUser.email)"><Copy aria-hidden="true" /></button></article>
+            <article><Phone aria-hidden="true" /><span><small>Телефон</small><strong>{{ selectedUser.phone || 'Не указан' }}</strong><em v-if="selectedUser.phoneSource">Получен из {{ selectedUser.phoneSource === 'prodamus' ? 'Prodamus' : 'Lava' }}</em></span><button v-if="selectedUser.phone" class="ui-icon-button" type="button" aria-label="Скопировать телефон" @click="copyContact(selectedUser.phone)"><Copy aria-hidden="true" /></button></article>
+          </div>
+        </section>
+
         <section class="admin-client-kpi-grid" aria-label="Краткая сводка клиента"><article class="admin-client-kpi"><span>Доступ</span><strong>{{ selectedUser.membershipExpiresAt ? `до ${formatAdminShortDate(selectedUser.membershipExpiresAt)}` : formatMembershipStatus(selectedUser.membershipStatus) }}</strong></article><article class="admin-client-kpi"><span>Обучение</span><strong>{{ selectedUser.completedItems }} / {{ selectedUser.totalItems }}</strong></article><article class="admin-client-kpi"><span>Оплаты</span><strong>{{ selectedUserPaidTotal.toLocaleString('ru-RU') }} ₽</strong></article><article class="admin-client-kpi"><span>Последнее действие</span><strong>{{ selectedUser.lastOpenedItemTitle ?? 'Нет активности' }}</strong></article></section>
 
         <section class="admin-client-action-panel admin-detail ui-card" aria-label="Действия с клиентом"><div class="admin-client-action-head"><strong>Действие</strong><small>{{ getAccessActionSummary(selectedUser) }}</small></div><div class="admin-access-toggle"><button class="admin-access-open" :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'open' }" type="button" :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess" @click="emit('open-access')"><LockOpen aria-hidden="true" />{{ pendingClientAccessAction === 'open' ? 'Открываю...' : 'Открыть доступ' }}</button><button class="admin-access-close" :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'close' }" type="button" :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess" @click="emit('close-access')"><Lock aria-hidden="true" />{{ pendingClientAccessAction === 'close' ? 'Закрываю...' : 'Закрыть доступ' }}</button><button class="admin-access-add" :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend7' }" type="button" :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess" @click="emit('extend-access', 7)">{{ pendingClientAccessAction === 'extend7' ? 'Продлеваю...' : '+7 дней' }}</button><button class="admin-access-add" :class="{ 'admin-access-button-pending': pendingClientAccessAction === 'extend30' }" type="button" :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess" @click="emit('extend-access', 30)">{{ pendingClientAccessAction === 'extend30' ? 'Продлеваю...' : '+30 дней' }}</button></div><form class="admin-compact-date-row" @submit.prevent="emit('manual-access')"><label class="admin-date-action"><span>Ручной доступ</span><input :value="accessExpiresAt" type="date" aria-label="Дата окончания доступа" :disabled="!canManageSelectedUserAccess" @input="emit('update:access-expires-at', ($event.target as HTMLInputElement).value)" /></label><button class="admin-client-mute-action" type="button" :disabled="saving || !canManageSelectedUser" @click="emit('quick-mute', selectedUser)"><MessageCircleOff aria-hidden="true" />Запретить общение в чате</button><button class="admin-date-save" :class="{ 'admin-save-success': accessSaveSucceeded, 'admin-access-button-pending': pendingClientAccessAction === 'manual' }" type="submit" :disabled="saving || clientAccessBusy || !canManageSelectedUserAccess">{{ pendingClientAccessAction === 'manual' ? 'Сохраняю...' : accessSaveButtonText }}</button></form></section>
@@ -288,6 +301,25 @@ function updateClientMessageFiles(event: Event) {
   cursor: pointer;
   transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
 }
+
+.admin-client-contact-card { display: grid; gap: 12px; padding: 14px; }
+.admin-client-contact-card > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-client-contact-card > header > div { display: grid; gap: 2px; }
+.admin-client-contact-card small { color: var(--muted); font-size: var(--app-type-micro-size); }
+.admin-client-contact-card > header > svg { width: 20px; color: var(--warning); }
+.admin-client-contact-list { display: grid; gap: 8px; }
+.admin-client-contact-list article,
+.admin-client-contact-locked { min-width: 0; min-height: 52px; display: grid; grid-template-columns: 36px minmax(0, 1fr) 44px; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.admin-client-contact-list article > svg,
+.admin-client-contact-locked > svg { width: 19px; justify-self: center; color: var(--accent); }
+.admin-client-contact-list article > span,
+.admin-client-contact-locked > span { min-width: 0; display: grid; gap: 2px; }
+.admin-client-contact-list strong { overflow-wrap: anywhere; font-size: var(--app-type-meta-size); }
+.admin-client-contact-list em { color: var(--muted); font-size: var(--app-type-micro-size); font-style: normal; }
+.admin-client-contact-list button { width: 44px; height: 44px; color: var(--accent); }
+.admin-client-contact-list button svg { width: 17px; }
+.admin-client-contact-locked { grid-template-columns: 36px minmax(0, 1fr); color: var(--muted); }
+.admin-client-contact-locked strong { color: var(--text); }
 
 .admin-client-delete-button:hover:not(:disabled) {
   filter: brightness(1.08);

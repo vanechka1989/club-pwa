@@ -12,6 +12,12 @@ describe("admin permissions contracts", () => {
     expect(allAdminPermissions).toContain("login_ips");
   });
 
+  it("exposes a dedicated client personal-data permission", () => {
+    expect(adminPermissionSchema.parse("personal_data")).toBe("personal_data");
+    expect(adminPermissionLabels.personal_data).toBe("Персональные данные клиентов");
+    expect(allAdminPermissions).toContain("personal_data");
+  });
+
   it("exposes active status, custom role label, and permission toggles for admins", () => {
     const parsed = adminListResponseSchema.parse({
       ownerTelegramId: "1",

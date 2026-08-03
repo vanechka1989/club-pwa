@@ -294,6 +294,28 @@ describe("AdminClientsPanel", () => {
     expect(screen.getByText("Последний вход: Не входил", { exact: true })).toBeTruthy();
   });
 
+  it("shows available contacts and replaces restricted personal data with an owner lock", async () => {
+    const visibleClient: AdminStatsUser = {
+      ...client,
+      email: "anna@example.com",
+      phone: "+79991234567",
+      phoneSource: "prodamus",
+      phoneUpdatedAt: "2026-08-03T10:00:00.000Z",
+      personalDataRestricted: false
+    };
+    const view = render(AdminClientsPanel, { props: createProps({ selectedUser: visibleClient }) });
+
+    expect(screen.getByText("Контактные данные", { exact: true })).toBeTruthy();
+    expect(screen.getByText("anna@example.com", { exact: true })).toBeTruthy();
+    expect(screen.getByText("+79991234567", { exact: true })).toBeTruthy();
+    expect(screen.getByText("Получен из Prodamus", { exact: true })).toBeTruthy();
+
+    await view.rerender({ ...createProps(), selectedUser: { ...visibleClient, email: null, phone: null, phoneSource: null, phoneUpdatedAt: null, personalDataRestricted: true } });
+    expect(screen.getByText("Скрыто владельцем", { exact: true })).toBeTruthy();
+    expect(screen.queryByText("anna@example.com", { exact: true })).toBeNull();
+    expect(screen.queryByText("+79991234567", { exact: true })).toBeNull();
+  });
+
   it("shows cancelled automatic billing while preserving the paid access date", () => {
     const cancelledRecurrentClient: AdminStatsUser = {
       ...client,

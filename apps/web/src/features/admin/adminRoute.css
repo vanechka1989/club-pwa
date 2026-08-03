@@ -4516,6 +4516,36 @@ body.club-mobile-device .admin-panel-head {
   gap: 8px;
 }
 
+.admin-showcase-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+.admin-showcase-controls-active { border-color: color-mix(in srgb, var(--warning) 65%, var(--border)); background: color-mix(in srgb, var(--warning) 9%, var(--surface)); }
+.admin-showcase-switch { min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.admin-showcase-switch input { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); opacity: 0; pointer-events: none; }
+.admin-showcase-switch > span { flex: 0 0 42px; width: 42px; height: 24px; padding: 3px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 45%, var(--surface)); transition: background 160ms ease; }
+.admin-showcase-switch > span i { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgb(0 0 0 / 24%); transition: transform 160ms ease; }
+.admin-showcase-switch input:checked + span { background: var(--warning); }
+.admin-showcase-switch input:checked + span i { transform: translateX(18px); }
+.admin-showcase-switch input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 2px; }
+.admin-showcase-switch b { min-width: 0; font-size: var(--app-type-label-size); line-height: 1.2; }
+.admin-showcase-switch em { padding: 4px 7px; border-radius: 8px; background: var(--warning); color: #211500; font-size: 9px; font-style: normal; font-weight: 900; text-transform: uppercase; }
+.admin-showcase-regenerate { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border)); border-radius: 11px; background: var(--surface); color: var(--text); font-size: var(--app-type-meta-size); font-weight: 800; }
+.admin-showcase-regenerate svg { width: 16px; }
+.admin-stat-task-demo { display: inline-flex; align-items: center; min-height: 28px; padding: 0 9px; border-radius: 9px; background: var(--warning); color: #211500; font-size: var(--app-type-micro-size); font-weight: 900; text-transform: uppercase; }
+@media (max-width: 420px) {
+  .admin-showcase-controls { align-items: stretch; flex-direction: column; }
+  .admin-showcase-regenerate { width: 100%; }
+}
+
 .admin-statistics-panel .admin-stat-period-control {
   width: 100%;
   min-width: 0;

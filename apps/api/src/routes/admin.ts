@@ -39,6 +39,7 @@ import { createAcquisitionLink, setAcquisitionLinkActive } from "../acquisition/
 import { getOwnerTelegramId, getUserRole, hasAdminPermission, isOwnerTelegramId, normalizeAdminPermissions, ownerTelegramIdSettingKey } from "../admin/roles";
 import { validateOwnerTransferTarget } from "../admin/ownerTransfer";
 import { recordAdminAction } from "../admin/actionLog";
+import { protectClientContact } from "../admin/personalData";
 import { getS3DeletionAuditKey, hasS3DeletionSource, mergeS3DeletionSource } from "../admin/s3DeletionAudit";
 import { buildConfiguredIntegrationHealth } from "../admin/integrationHealth";
 import { serializeAdminLastLoginAt } from "../admin/adminClientLastLogin";
@@ -863,7 +864,8 @@ async function buildStatsUser(
   totalItems: number,
   acquisitionByUserId?: Map<string, ClientAcquisitionSummary>,
   recurrentPaymentStatusByUserId?: Map<string, AdminStatsUser["recurrentPaymentStatus"]>,
-  paymentFacetsByUserId?: Map<string, ClientPaymentFacets>
+  paymentFacetsByUserId?: Map<string, ClientPaymentFacets>,
+  includePersonalData = false
 ): Promise<AdminStatsUser> {
   const resolvedAcquisitionByUserId = acquisitionByUserId ?? await getClientAcquisitionSummaries([user.id]);
   const resolvedRecurrentPaymentStatusByUserId = recurrentPaymentStatusByUserId ?? await getLatestRecurrentPaymentStatuses([user.id]);
@@ -899,7 +901,12 @@ async function buildStatsUser(
   return {
     id: user.id,
     telegramId: user.telegramId,
-    email: user.email,
+    ...protectClientContact({
+      email: user.email,
+      phone: user.phone,
+      phoneSource: user.phoneSource === "prodamus" || user.phoneSource === "lava" ? user.phoneSource : null,
+      phoneUpdatedAt: user.phoneUpdatedAt
+    }, includePersonalData),
     marketingEmailOptOutAt: user.marketingEmailOptOutAt?.toISOString() ?? null,
     firstName: user.firstName,
     username: user.username,
@@ -1347,10 +1354,10 @@ function buildActiveS3SettingsResponse(setting: typeof clubSettings.$inferSelect
   });
 }
 
-async function buildUserDetail(user: typeof users.$inferSelect): Promise<AdminUserDetailResponse> {
+async function buildUserDetail(user: typeof users.$inferSelect, includePersonalData: boolean): Promise<AdminUserDetailResponse> {
   const totalItems = await getPublishedItemsCount();
   const [statsUser, userSubscriptions, mutes, comments, messages, userReferrals, userDeviceHistory, learningEngagementRows, quizAssessmentRows, homeworkAssessmentRows] = await Promise.all([
-    buildStatsUser(user, totalItems),
+    buildStatsUser(user, totalItems, undefined, undefined, undefined, includePersonalData),
     db.query.subscriptions.findMany({
       where: eq(subscriptions.userId, user.id),
       orderBy: [desc(subscriptions.createdAt)],
@@ -2600,12 +2607,22 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
     try {
       const range = resolveLearningEngagementRange(c.req.query("from"), c.req.query("to"));
       const result = await getLearningEngagementUsers(itemId.data, range.from, range.toExclusive);
-      return result ? c.json(result) : c.json({ error: "Learning content not found" }, 404);
+      if (!result) return c.json({ error: "Learning content not found" }, 404);
+      const includePersonalData = await hasAdminPermission(c.get("telegramUser").id, "personal_data");
+      return c.json({
+        ...result,
+        users: result.users.map((user) => ({
+          ...user,
+          email: includePersonalData ? user.email : null,
+          personalDataRestricted: !includePersonalData
+        }))
+      });
     } catch {
       return c.json({ error: "Invalid learning engagement date range" }, 400);
     }
   })
   .get("/stats", async (c) => {
+    const includePersonalData = await hasAdminPermission(c.get("telegramUser").id, "personal_data");
     const totalItems = await getPublishedItemsCount();
     const now = new Date();
     const [[usersCountRow], [activeUsersCountRow], [completedItemsCountRow], [pollCountRow], [activePollCountRow], [pollVoteStatsRow], recentUsers, communityMessages, pollRecords, paymentProductRecords, paymentProviderRecords] = await Promise.all([
@@ -2663,7 +2680,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       getClientPaymentFacets(recentUserIds)
     ]);
     const statsUsers = await Promise.all(
-      recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId, recurrentPaymentStatusByUserId, paymentFacetsByUserId))
+      recentUsers.map((user) => buildStatsUser(user, totalItems, acquisitionByUserId, recurrentPaymentStatusByUserId, paymentFacetsByUserId, includePersonalData))
     );
 
     return c.json({
@@ -2719,7 +2736,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    return c.json(await buildStatsUser(user, await getPublishedItemsCount()));
+    return c.json(await buildStatsUser(user, await getPublishedItemsCount(), undefined, undefined, undefined, await hasAdminPermission(c.get("telegramUser").id, "personal_data")));
   })
   .get("/stats/users/:telegramId/detail", async (c) => {
     const user = await db.query.users.findFirst({
@@ -2730,7 +2747,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
       return c.json({ error: "User not found" }, 404);
     }
 
-    return c.json(await buildUserDetail(user));
+    return c.json(await buildUserDetail(user, await hasAdminPermission(c.get("telegramUser").id, "personal_data")));
   })
   .delete("/stats/users/:telegramId", async (c) => {
     const result = await deleteClientAccount({
@@ -2838,7 +2855,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
         summary: `Изменил ник клиента на ${displayName}`,
         metadata: { previousDisplayName: user.displayName, displayName }
       });
-      return c.json(await buildStatsUser(updatedUser, await getPublishedItemsCount()));
+      return c.json(await buildStatsUser(updatedUser, await getPublishedItemsCount(), undefined, undefined, undefined, await hasAdminPermission(c.get("telegramUser").id, "personal_data")));
     } catch (error) {
       if ((error as { code?: string })?.code === "23505") return c.json({ error: "Display name is already taken" }, 409);
       throw error;
@@ -2913,7 +2930,7 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
 
     return c.json({
       ok: true,
-      user: await buildStatsUser(user, await getPublishedItemsCount())
+      user: await buildStatsUser(user, await getPublishedItemsCount(), undefined, undefined, undefined, await hasAdminPermission(c.get("telegramUser").id, "personal_data"))
     });
   })
   .get("/moderation", async (c) => {

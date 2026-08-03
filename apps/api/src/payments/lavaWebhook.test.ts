@@ -55,6 +55,14 @@ describe("Lava webhook", () => {
     expect(event).not.toHaveProperty("amountRub");
   });
 
+  it("keeps an optional buyer phone from an authenticated callback", async () => {
+    const event = await parseLavaWebhook(lavaRequest("payment.success", "correct", {
+      buyer: { email: "buyer@example.com", phone: "+7 (999) 123-45-67" }
+    }), "correct");
+
+    expect(event.buyerPhone).toBe("+7 (999) 123-45-67");
+  });
+
   it.each([
     ["payment.success", "payment_succeeded"],
     ["payment.failed", "payment_failed"],

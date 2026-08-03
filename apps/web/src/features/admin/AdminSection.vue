@@ -41,6 +41,7 @@ import {
   Link2,
   LayoutGrid,
   Megaphone,
+  RefreshCw,
   Server,
   SlidersHorizontal,
   Shield,
@@ -126,6 +127,8 @@ import { getAdminPanelForTaskPath, getVisibleAdminPanels, type AdminPanel } from
 import { resolveAdminPollStats } from "@/features/admin/adminStatsFallback";
 import { buildAdminStatistics, type AdminStatisticsPeriod } from "@/features/admin/adminStatistics";
 import { paymentSuccessPercent } from "@/features/admin/adminAnalyticsOverview";
+import { createShowcaseAnalytics } from "@/features/admin/showcaseAnalytics";
+import { readShowcaseState, regenerateShowcaseSeed, writeShowcaseState } from "@/features/admin/showcaseMode";
 import { formatAdminPaymentMoney, paymentRubMajor } from "@/features/admin/adminPaymentMoney";
 import { canUseDeveloperPreview, normalizeAdminPreviewMode } from "@/features/admin/developerPreview";
 import { formatMembershipStatus } from "@/features/app/i18n";
@@ -157,6 +160,7 @@ const appDialogs = useAppDialogsStore();
 const ui = useUiStore();
 const route = useRoute();
 const router = useRouter();
+const initialShowcaseState = readShowcaseState(window.localStorage);
 
 function openAdminTask(path: string) {
   if (route.path !== path) void router.push(path);
@@ -350,6 +354,8 @@ const sourceFilter = ref(allClientSourcesFilter);
 const utmFieldFilter = ref<AdminClientUtmField>("all");
 const utmValueFilter = ref("");
 const statisticsPeriod = ref<AdminStatisticsPeriod>("30d");
+const showcaseAnalyticsEnabled = ref(initialShowcaseState.enabled);
+const showcaseAnalyticsSeed = ref(initialShowcaseState.seed);
 const statisticsCustomFrom = ref("");
 const statisticsCustomTo = ref("");
 const accessStatus = ref<"active" | "inactive">("active");
@@ -671,6 +677,11 @@ const statisticsAcquisitionRange = computed(() => {
   return { from: formatDateInput(from), to: formatDateInput(to) };
 });
 const statisticsFinanceRange = computed(() => statisticsPeriod.value === "all" ? {} : statisticsEngagementRange.value);
+const showcaseSnapshot = computed(() => createShowcaseAnalytics(showcaseAnalyticsSeed.value, statisticsEngagementRange.value));
+const analyticsUsers = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.stats.users : users.value);
+const analyticsPaymentOrders = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.paymentOrders : paymentOrders.value);
+const displayedPollStats = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.stats.pollStats : pollStats.value);
+const displayedFinanceAnalytics = computed(() => showcaseAnalyticsEnabled.value ? showcaseSnapshot.value.finance : financeAnalytics.value);
 const statisticsOptions = computed(() =>
   statisticsDateRange.value
     ? { period: statisticsPeriod.value, dateRange: statisticsDateRange.value }
@@ -683,7 +694,7 @@ const routePaymentBreakdown = computed(() => {
 const activePaymentBreakdown = computed(() => selectedPaymentBreakdown.value ?? routePaymentBreakdown.value);
 const paymentDrilldownOrders = computed(() =>
   activePaymentBreakdown.value
-    ? filterPaymentOrdersByBreakdown(activePaymentBreakdown.value.key, paymentOrders.value, statisticsOptions.value)
+    ? filterPaymentOrdersByBreakdown(activePaymentBreakdown.value.key, analyticsPaymentOrders.value, statisticsOptions.value)
     : []
 );
 const routeUserDrilldown = computed<UserDrilldownSelection | null>(() => {
@@ -713,14 +724,16 @@ const userDrilldownUsers = computed(() => {
   }
 
   if (activeUserDrilldown.value.kind === "tariff") {
-    return filterUsersByTariff(activeUserDrilldown.value.tariff, users.value);
+    return filterUsersByTariff(activeUserDrilldown.value.tariff, analyticsUsers.value);
   }
 
-  return filterUsersByAccessBreakdown(activeUserDrilldown.value.key, users.value);
+  return filterUsersByAccessBreakdown(activeUserDrilldown.value.key, analyticsUsers.value);
 });
 const accessSaveButtonText = computed(() => getAccessSaveButtonText(accessSaveSucceeded.value));
 const adminStatistics = computed(() =>
-  buildAdminStatistics(
+  showcaseAnalyticsEnabled.value
+    ? showcaseSnapshot.value.overview
+    : buildAdminStatistics(
     {
       users: users.value,
       paymentOrders: paymentOrders.value,
@@ -732,6 +745,16 @@ const adminStatistics = computed(() =>
     statisticsOptions.value
   )
 );
+
+function setShowcaseAnalytics(enabled: boolean) {
+  showcaseAnalyticsEnabled.value = enabled;
+  writeShowcaseState(window.localStorage, { enabled, seed: showcaseAnalyticsSeed.value });
+}
+
+function regenerateShowcaseAnalytics() {
+  showcaseAnalyticsSeed.value = regenerateShowcaseSeed(showcaseAnalyticsSeed.value);
+  writeShowcaseState(window.localStorage, { enabled: showcaseAnalyticsEnabled.value, seed: showcaseAnalyticsSeed.value });
+}
 const paymentOutcomeCount = computed(
   () =>
     adminStatistics.value.payments.paidOrders +
@@ -3102,6 +3125,15 @@ onUnmounted(() => {
           <h3>Аналитика клуба</h3>
           <p>Клиенты, оплаты, контент и общение по выбранному периоду.</p>
         </div>
+        <div class="admin-showcase-controls" :class="{ 'admin-showcase-controls-active': showcaseAnalyticsEnabled }">
+          <label class="admin-showcase-switch">
+            <input :checked="showcaseAnalyticsEnabled" type="checkbox" @change="setShowcaseAnalytics(($event.target as HTMLInputElement).checked)" />
+            <span aria-hidden="true"><i></i></span>
+            <b>Демонстрационные данные</b>
+            <em v-if="showcaseAnalyticsEnabled">Демо</em>
+          </label>
+          <button v-if="showcaseAnalyticsEnabled" class="admin-showcase-regenerate ui-button" type="button" @click="regenerateShowcaseAnalytics"><RefreshCw aria-hidden="true" />Сгенерировать заново</button>
+        </div>
         <div class="admin-stat-period-control">
           <div class="admin-stat-periods" aria-label="Период статистики">
             <button
@@ -3265,6 +3297,7 @@ onUnmounted(() => {
 
       <TaskScreen v-if="activeStatisticsDetail" class="admin-statistics-task-screen" :title="statisticsDetailMeta.title" :subtitle="statisticsDetailMeta.subtitle" portal @back="closeStatisticsDetail">
         <template #actions>
+          <span v-if="showcaseAnalyticsEnabled" class="admin-stat-task-demo">Демо</span>
           <span class="admin-stat-task-period">{{ statisticsPeriodShortLabel }}</span>
         </template>
         <AdminAcquisitionAnalytics
@@ -3272,22 +3305,24 @@ onUnmounted(() => {
           :from="statisticsAcquisitionRange?.from"
           :to="statisticsAcquisitionRange?.to"
           :learning-categories="learningCategories"
+          :demo-seed="showcaseAnalyticsEnabled ? showcaseAnalyticsSeed : undefined"
           @client="openAcquisitionClient"
         />
         <AdminLearningEngagement
           v-else-if="activeStatisticsDetail === 'learning'"
           :from="statisticsEngagementRange.from"
           :to="statisticsEngagementRange.to"
+          :demo-seed="showcaseAnalyticsEnabled ? showcaseAnalyticsSeed : undefined"
           @client="openAcquisitionClient"
         />
         <AdminStatisticsDetail
           v-else
           :detail="activeStatisticsDetail"
           :stats="adminStatistics"
-          :poll-stats="pollStats"
-          :finance-analytics="financeAnalytics"
-          :finance-analytics-loading="financeAnalyticsLoading"
-          :finance-analytics-error="financeAnalyticsError"
+          :poll-stats="displayedPollStats"
+          :finance-analytics="displayedFinanceAnalytics"
+          :finance-analytics-loading="showcaseAnalyticsEnabled ? false : financeAnalyticsLoading"
+          :finance-analytics-error="showcaseAnalyticsEnabled ? false : financeAnalyticsError"
           @access="openUserAccessDrilldown"
           @tariff="openUserTariffDrilldown"
           @payment="openPaymentDrilldown"

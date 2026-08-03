@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { PaymentOrderLog, PaymentProviderCode } from "@club/shared";
 import { recordAdminAction } from "../admin/actionLog";
+import { extractVerifiedPaymentPhone } from "../admin/personalData";
 import { getAdminAccessProfile, getUserRole, isOwnerTelegramId } from "../admin/roles";
 import { db } from "../db/client";
 import {
@@ -323,6 +324,7 @@ async function grantPaidAccess(
   payload: Record<string, unknown>
 ) {
   const now = new Date();
+  const verifiedPhone = extractVerifiedPaymentPhone("prodamus", payload);
   const expiresAt = new Date(now.getTime() + product.accessDays * 24 * 60 * 60 * 1000);
   const applied = await db.transaction(async (tx) => {
     if (order.individualOfferId) {
@@ -360,6 +362,15 @@ async function grantPaidAccess(
       .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")))
       .returning({ id: paymentOrders.id });
     if (!claimedOrder) return false;
+
+    if (verifiedPhone) {
+      await tx.update(users).set({
+        phone: verifiedPhone.phone,
+        phoneSource: verifiedPhone.phoneSource,
+        phoneUpdatedAt: now,
+        updatedAt: now
+      }).where(eq(users.id, order.userId));
+    }
 
     await tx.insert(subscriptions).values({
       userId: order.userId,

@@ -23,7 +23,8 @@ const lavaWebhookSchema = z.object({
   contractId: z.string().uuid(),
   parentContractId: z.string().uuid().nullable().optional(),
   buyer: z.object({
-    email: z.string().email()
+    email: z.string().email(),
+    phone: z.string().trim().max(64).nullable().optional()
   }),
   amount: z.number().nonnegative(),
   currency: z.string(),
@@ -114,6 +115,7 @@ export async function parseLavaWebhook(
     externalSubscriptionId: subscriptionId,
     productId: payload.product.id,
     buyerEmail: payload.buyer.email,
+    buyerPhone: payload.buyer.phone ?? null,
     amountMinor,
     currency: currency.data,
     occurredAt: new Date(payload.timestamp),

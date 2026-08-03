@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the owner preview-mode deletion fix as version 6.19", () => {
-    expect(appVersion).toBe("6.19");
-    expect(releaseNotes[0]?.title).toBe("Исправление удаления клиентов");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/режим/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/владел/i);
+  it("publishes protected personal data and showcase analytics as version 6.20", () => {
+    expect(appVersion).toBe("6.20");
+    expect(releaseNotes[0]?.title).toBe("Защита контактов и демо-аналитика");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/персональн/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/демонстрац/i);
+
+    const deletionFix = releaseNotes.find((note) => note.version === "6.19");
+    expect(deletionFix?.title).toBe("Исправление удаления клиентов");
 
     const clientDeletion = releaseNotes.find((note) => note.version === "6.18");
     expect(clientDeletion?.title).toBe("Полное удаление клиентов");
@@ -339,7 +342,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Client deletion permission fix");
+    expect(englishNotes[0]?.title).toBe("Protected contacts and showcase analytics");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -3,8 +3,9 @@ import { onMounted, ref, watch } from "vue";
 import type { LearningEngagementResponse, LearningEngagementUsersResponse } from "@club/shared";
 import { ArrowLeft, CheckCircle2, ChevronRight, ClipboardCheck, Clock3, Eye, FileCheck2, Users, Zap } from "lucide-vue-next";
 import { getAdminLearningEngagement, getAdminLearningEngagementUsers } from "@/api/client";
+import { createShowcaseAnalytics } from "./showcaseAnalytics";
 
-const props = defineProps<{ from?: string; to?: string }>();
+const props = defineProps<{ from?: string; to?: string; demoSeed?: number | undefined }>();
 const emit = defineEmits<{ client: [telegramId: string] }>();
 
 const dashboard = ref<LearningEngagementResponse | null>(null);
@@ -33,7 +34,13 @@ async function load() {
   error.value = "";
   drilldown.value = null;
   try {
-    dashboard.value = await getAdminLearningEngagement(options());
+    if (props.demoSeed !== undefined) {
+      const to = props.to ?? new Date().toISOString().slice(0, 10);
+      const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
+      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }).learning;
+    } else {
+      dashboard.value = await getAdminLearningEngagement(options());
+    }
   } catch {
     error.value = "Не удалось загрузить статистику";
   } finally {
@@ -45,7 +52,29 @@ async function loadUsers(card: LearningEngagementResponse["cards"][number]) {
   loadingUsers.value = true;
   error.value = "";
   try {
-    drilldown.value = await getAdminLearningEngagementUsers(card.contentItemId, options());
+    if (props.demoSeed !== undefined) {
+      const to = props.to ?? new Date().toISOString().slice(0, 10);
+      const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
+      const snapshot = createShowcaseAnalytics(props.demoSeed, { from, to });
+      drilldown.value = {
+        item: { id: card.contentItemId, title: card.title, categoryTitle: card.categoryTitle },
+        users: snapshot.stats.users.slice(0, card.viewers).map((user, index) => ({
+          userId: user.id,
+          telegramId: user.telegramId,
+          displayName: user.firstName ?? `Демо-клиент ${index + 1}`,
+          email: null,
+          personalDataRestricted: false,
+          opens: 1 + index % 4,
+          totalActiveSeconds: card.averageActiveSeconds + index * 7,
+          videoSeconds: card.videoSeconds ? Math.round(card.videoSeconds / Math.max(1, card.viewers)) : 0,
+          playbackPositionSeconds: 0,
+          lastViewedAt: card.lastViewedAt,
+          completed: index < card.completedUsers
+        }))
+      };
+    } else {
+      drilldown.value = await getAdminLearningEngagementUsers(card.contentItemId, options());
+    }
   } catch {
     error.value = "Не удалось загрузить статистику";
   } finally {
@@ -54,7 +83,7 @@ async function loadUsers(card: LearningEngagementResponse["cards"][number]) {
 }
 
 onMounted(load);
-watch(() => [props.from, props.to], load);
+watch(() => [props.from, props.to, props.demoSeed], load);
 </script>
 
 <template>
@@ -122,7 +151,7 @@ watch(() => [props.from, props.to], load);
       <p v-else-if="!drilldown.users.length" class="admin-learning-state">У этой карточки пока нет просмотров.</p>
       <div v-else class="admin-learning-user-list">
         <button v-for="user in drilldown.users" :key="user.userId" class="admin-learning-user ui-button" type="button" @click="emit('client', user.telegramId)">
-          <div><strong>{{ user.displayName }}</strong><small>{{ user.email || `ID ${user.telegramId}` }}</small></div>
+          <div><strong>{{ user.displayName }}</strong><small>{{ user.personalDataRestricted ? "Скрыто владельцем" : (user.email || `ID ${user.telegramId}`) }}</small></div>
           <div class="admin-learning-user-metrics"><span>{{ user.opens }} откр.</span><span>{{ duration(user.totalActiveSeconds) }}</span><span>{{ viewedAt(user.lastViewedAt) }}</span></div>
           <b :class="{ 'is-completed': user.completed }">{{ user.completed ? "Завершил" : "Не завершил" }}</b>
           <ChevronRight aria-hidden="true" />

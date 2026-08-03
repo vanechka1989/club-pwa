@@ -24,11 +24,12 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Client deletion permission fix",
+  title: "Protected contacts and showcase analytics",
   items: [
-    "The real club owner can now delete an ordinary client while a developer or another preview mode is enabled.",
-    "The server checks the real owner role, so a temporary preview role no longer blocks a confirmed deletion.",
-    "Administrators still cannot delete clients, and owner or administrator accounts remain protected."
+    "The owner can explicitly grant administrators access to client personal data; otherwise the API withholds email and phone values.",
+    "Verified Prodamus and Lava payment callbacks can now save a valid customer phone number.",
+    "Club analytics now includes an isolated showcase mode with coherent fictional metrics for customer demonstrations.",
+    "Regeneration creates a new presentation snapshot, while disabling showcase mode immediately restores real analytics."
   ]
 };
 

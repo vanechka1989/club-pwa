@@ -87,6 +87,7 @@ export type NormalizedPaymentEvent = {
   externalSubscriptionId: string | null;
   productId: string;
   buyerEmail: string;
+  buyerPhone?: string | null;
   amountMinor: number;
   currency: PaymentCurrency;
   occurredAt: Date;

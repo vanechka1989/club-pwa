@@ -36,6 +36,7 @@ export const adminPermissionValues = [
   "storage",
   "admins",
   "login_ips",
+  "personal_data",
   "project_settings"
 ] as const;
 export const adminPermissionSchema = z.enum(adminPermissionValues);
@@ -54,6 +55,7 @@ export const adminPermissionLabels: Record<AdminPermission, string> = {
   storage: "Хранилище",
   admins: "Админы",
   login_ips: "IP входов",
+  personal_data: "Персональные данные клиентов",
   project_settings: "Настройки проекта"
 };
 
@@ -1294,6 +1296,10 @@ export const adminStatsUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
   email: z.string().email().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  phoneSource: paymentProviderCodeSchema.nullable().optional(),
+  phoneUpdatedAt: z.string().datetime().nullable().optional(),
+  personalDataRestricted: z.boolean().optional(),
   marketingEmailOptOutAt: z.string().datetime().nullable().optional(),
   firstName: z.string().nullable(),
   username: z.string().nullable(),
@@ -1734,6 +1740,7 @@ export const learningEngagementUserSchema = z.object({
   telegramId: z.string(),
   displayName: z.string(),
   email: z.string().email().nullable(),
+  personalDataRestricted: z.boolean().optional(),
   opens: z.number().int().nonnegative(),
   totalActiveSeconds: z.number().int().nonnegative(),
   videoSeconds: z.number().int().nonnegative(),

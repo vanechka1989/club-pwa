@@ -14,6 +14,7 @@ import type { NormalizedPaymentEvent } from "./providerAdapter";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
 import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
 import { resolvePaymentOrderSnapshot } from "./paymentOrderSnapshot";
+import { extractVerifiedPaymentPhone } from "../admin/personalData";
 
 export type PaymentEventProcessResult = "processed" | "duplicate" | "ignored";
 
@@ -171,6 +172,18 @@ export async function processPaymentEvent(
       .where(and(eq(paymentOrders.id, order.id), ne(paymentOrders.status, "paid")))
       .returning();
     if (!claimedOrder) return "duplicate";
+
+    const verifiedPhone = event.buyerPhone
+      ? extractVerifiedPaymentPhone(event.provider, { buyer: { phone: event.buyerPhone } })
+      : null;
+    if (verifiedPhone) {
+      await tx.update(users).set({
+        phone: verifiedPhone.phone,
+        phoneSource: verifiedPhone.phoneSource,
+        phoneUpdatedAt: event.occurredAt,
+        updatedAt: event.occurredAt
+      }).where(eq(users.id, order.userId));
+    }
 
     const latestAccess = await tx.query.subscriptions.findFirst({
       where: eq(subscriptions.userId, order.userId),

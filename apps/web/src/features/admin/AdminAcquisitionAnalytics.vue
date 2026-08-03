@@ -4,8 +4,9 @@ import { BarChart3, Check, ChevronRight, Copy, Link2, MousePointerClick, Plus, R
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { createAdminAcquisitionLink, getAdminAcquisitionDashboard, getAdminAcquisitionDay, getAdminAcquisitionLinks, updateAdminAcquisitionLinkStatus } from "@/api/client";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { createShowcaseAnalytics } from "./showcaseAnalytics";
 
-const props = defineProps<{ from?: string | undefined; to?: string | undefined; learningCategories?: LearningCategory[] | undefined }>();
+const props = defineProps<{ from?: string | undefined; to?: string | undefined; learningCategories?: LearningCategory[] | undefined; demoSeed?: number | undefined }>();
 const emit = defineEmits<{ client: [telegramId: string] }>();
 const dashboard = ref<AdminAcquisitionDashboard | null>(null);
 const links = ref<AdminAcquisitionLink[]>([]);
@@ -32,6 +33,13 @@ async function load() {
   loading.value = true;
   error.value = null;
   try {
+    if (props.demoSeed !== undefined) {
+      const to = props.to ?? new Date().toISOString().slice(0, 10);
+      const from = props.from ?? new Date(Date.parse(`${to}T00:00:00Z`) - 29 * 86_400_000).toISOString().slice(0, 10);
+      dashboard.value = createShowcaseAnalytics(props.demoSeed, { from, to }).acquisition;
+      links.value = [];
+      return;
+    }
     const [nextDashboard, nextLinks] = await Promise.all([
       getAdminAcquisitionDashboard({ ...dateOptions.value, attribution: "last" }),
       getAdminAcquisitionLinks()
@@ -86,7 +94,26 @@ async function openDay(date: string) {
   dayScreenOpen.value = true;
   dayLoading.value = true;
   try {
-    selectedDayDetail.value = await getAdminAcquisitionDay(date);
+    if (props.demoSeed !== undefined) {
+      const snapshot = createShowcaseAnalytics(props.demoSeed, { from: props.from ?? date, to: props.to ?? date });
+      const point = snapshot.acquisition.timeline.find((entry) => entry.date === date);
+      const people = snapshot.stats.users;
+      const person = (index: number): AdminAcquisitionPerson => ({
+        userId: people[index % people.length]!.id,
+        telegramId: people[index % people.length]!.telegramId,
+        label: people[index % people.length]!.firstName ?? `Демо-клиент ${index + 1}`,
+        username: null
+      });
+      const base = (index: number) => ({ occurredAt: `${date}T${String(9 + index % 10).padStart(2, "0")}:00:00.000Z`, source: "Telegram", campaign: "Демонстрация", linkName: "Презентационная ссылка" });
+      selectedDayDetail.value = {
+        date,
+        visits: Array.from({ length: point?.visits ?? 0 }, (_, index) => ({ id: `demo-visit-${index}`, visitorLabel: `Посетитель ${index + 1}`, user: index % 3 ? person(index) : null, ...base(index) })),
+        registrations: Array.from({ length: point?.registrations ?? 0 }, (_, index) => ({ user: person(index), ...base(index) })),
+        payments: Array.from({ length: point?.paidUsers ?? 0 }, (_, index) => ({ amountRub: 1490 + index * 500, user: person(index), ...base(index) }))
+      };
+    } else {
+      selectedDayDetail.value = await getAdminAcquisitionDay(date);
+    }
   } catch {
     dayError.value = "Не удалось загрузить данные за этот день.";
   } finally {
@@ -122,7 +149,7 @@ function formatLinkCreatedAt(value: string) { return new Date(value).toLocaleDat
 function linkUtmSummary(link: AdminAcquisitionLink) { return [link.source, link.medium, link.campaign, link.content].filter(Boolean).join(" / "); }
 function personInitial(person: AdminAcquisitionPerson | null, fallback: string) { return (person?.label || fallback).trim().charAt(0).toUpperCase() || "•"; }
 
-watch([() => props.from, () => props.to], load);
+watch([() => props.from, () => props.to, () => props.demoSeed], load);
 onMounted(load);
 </script>
 
