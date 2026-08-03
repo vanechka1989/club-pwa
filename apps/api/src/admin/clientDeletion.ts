@@ -28,7 +28,7 @@ export async function deleteClientAccount(
   input: { actorTelegramId: string; targetTelegramId: string; previewRole?: string | null },
   dependencies: ClientDeletionDependencies
 ): Promise<ClientDeletionResult> {
-  if (input.previewRole || !(await dependencies.isOwnerTelegramId(input.actorTelegramId))) {
+  if (!(await dependencies.isOwnerTelegramId(input.actorTelegramId))) {
     return { status: "forbidden-actor" };
   }
 

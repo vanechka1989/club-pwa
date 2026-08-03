@@ -49,16 +49,18 @@ describe("full client deletion", () => {
     expect(adminRoutes).toContain("tx.delete(users)");
   });
 
-  it("rejects a non-owner and preview role before resolving the target", async () => {
+  it("rejects a non-owner before resolving the target", async () => {
     const regularAdmin = createDependencies({ isOwnerTelegramId: vi.fn(async () => false) });
     await expect(deleteClientAccount({ actorTelegramId: "admin", targetTelegramId: target.telegramId }, regularAdmin.dependencies))
       .resolves.toEqual({ status: "forbidden-actor" });
     expect(regularAdmin.dependencies.findTarget).not.toHaveBeenCalled();
+  });
 
+  it("allows the real owner to delete while a preview mode is enabled", async () => {
     const previewOwner = createDependencies();
     await expect(deleteClientAccount({ actorTelegramId: "owner-telegram-id", targetTelegramId: target.telegramId, previewRole: "member" }, previewOwner.dependencies))
-      .resolves.toEqual({ status: "forbidden-actor" });
-    expect(previewOwner.dependencies.findTarget).not.toHaveBeenCalled();
+      .resolves.toEqual({ status: "deleted", deletedTelegramId: target.telegramId, deletedObjectCount: 2 });
+    expect(previewOwner.dependencies.findTarget).toHaveBeenCalledWith(target.telegramId);
   });
 
   it("returns not-found without collecting data", async () => {

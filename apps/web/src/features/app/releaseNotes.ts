@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Permanent client deletion",
+  title: "Client deletion permission fix",
   items: [
-    "The club owner can permanently delete an ordinary client from the card header using a bright-red trash action.",
-    "The app always requires explicit confirmation and explains that the operation cannot be undone.",
-    "Related access, payment, learning, message, and file data is removed while owners and administrators remain protected."
+    "The real club owner can now delete an ordinary client while a developer or another preview mode is enabled.",
+    "The server checks the real owner role, so a temporary preview role no longer blocks a confirmed deletion.",
+    "Administrators still cannot delete clients, and owner or administrator accounts remain protected."
   ]
 };
 
