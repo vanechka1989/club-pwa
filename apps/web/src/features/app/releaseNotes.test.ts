@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the compact finance dashboard as version 6.15", () => {
-    expect(appVersion).toBe("6.15");
-    expect(releaseNotes[0]?.title).toBe("Спокойная финансовая аналитика");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/компактн/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/нулев/i);
+  it("publishes combined finance share charts as version 6.16", () => {
+    expect(appVersion).toBe("6.16");
+    expect(releaseNotes[0]?.title).toBe("Единые диаграммы выручки");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/платёжн/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/продукт/i);
+
+    const compactFinance = releaseNotes.find((note) => note.version === "6.15");
+    expect(compactFinance?.title).toBe("Спокойная финансовая аналитика");
 
     const visualFinance = releaseNotes.find((note) => note.version === "6.14");
     expect(visualFinance?.title).toBe("Визуальный финансовый дашборд");
@@ -327,7 +330,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Calmer finance analytics");
+    expect(englishNotes[0]?.title).toBe("Unified revenue charts");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

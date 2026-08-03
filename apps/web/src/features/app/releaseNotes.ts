@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Calmer finance analytics",
+  title: "Unified revenue charts",
   items: [
-    "The finance pulse now uses one primary ring and three compact metrics instead of four equally prominent charts.",
-    "Payment providers, products, and churn use concise comparison bars with exact values and fewer repeated visuals.",
-    "When churn is zero, empty charts and breakdowns are replaced by one clear status message."
+    "All payment providers are combined into one segmented ring that shows each provider's share of total revenue.",
+    "Products and plans have their own unified chart for comparing revenue distribution at a glance.",
+    "Compact color legends retain percentages, totals, payments, customers, and average order value while zero entries create no empty segments."
   ]
 };
 
