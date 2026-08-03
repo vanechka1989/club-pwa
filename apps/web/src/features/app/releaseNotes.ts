@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Rich text editing for lessons",
+  title: "Permanent client deletion",
   items: [
-    "Lesson cards now include a visual editor for bold and italic text, headings, quotes, lists, and links.",
-    "An HTML mode is available for precise formatting, with unsafe tags and scripts removed automatically on save.",
-    "The editor is optimized for phones with a wrapping toolbar and touch-friendly controls."
+    "The club owner can permanently delete an ordinary client from the card header using a bright-red trash action.",
+    "The app always requires explicit confirmation and explains that the operation cannot be undone.",
+    "Related access, payment, learning, message, and file data is removed while owners and administrators remain protected."
   ]
 };
 

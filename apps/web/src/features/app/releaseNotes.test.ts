@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes rich lesson text editing as version 6.17", () => {
-    expect(appVersion).toBe("6.17");
-    expect(releaseNotes[0]?.title).toBe("Форматирование текста в уроках");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/HTML/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/телефон/i);
+  it("publishes owner-only full client deletion as version 6.18", () => {
+    expect(appVersion).toBe("6.18");
+    expect(releaseNotes[0]?.title).toBe("Полное удаление клиентов");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/владел/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/подтвержден/i);
+
+    const richLessonText = releaseNotes.find((note) => note.version === "6.17");
+    expect(richLessonText?.title).toBe("Форматирование текста в уроках");
 
     const unifiedRevenue = releaseNotes.find((note) => note.version === "6.16");
     expect(unifiedRevenue?.title).toBe("Единые диаграммы выручки");
@@ -333,7 +336,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Rich text editing for lessons");
+    expect(englishNotes[0]?.title).toBe("Permanent client deletion");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });
