@@ -107,6 +107,18 @@ describe("compact profile layout", () => {
     expect(source).not.toContain("profile-avatar-camera");
   });
 
+  it("places the access state after the camera and moves product details into the lower strip", () => {
+    expect(source).toMatch(/profile-avatar-edit[\s\S]*profile-access-state/);
+    expect(source).not.toContain('class="profile-current-access"');
+    expect(source).toContain('class="profile-dashboard-subscription"');
+    expect(source).toContain('aria-label="Текущий доступ"');
+    expect(source).toContain("profileCurrentAccess?.title ?? t('profileNoActiveProduct')");
+    expect(source).toContain('class="profile-membership-source"');
+    expect(styles).toMatch(/\.profile-access-state--active\s*\{[^}]*--profile-access-state-color:/s);
+    expect(styles).toMatch(/\.profile-access-state--ending\s*\{[^}]*--profile-access-state-color:/s);
+    expect(styles).toMatch(/\.profile-access-state--inactive\s*\{[^}]*--profile-access-state-color:/s);
+  });
+
   it("gives revealed email a full-width wrapping row", () => {
     expect(source).toContain(`:class="{ 'profile-email-row--visible': emailVisible }"`);
     expect(styles).toMatch(/\.profile-dashboard \.profile-email-row\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);

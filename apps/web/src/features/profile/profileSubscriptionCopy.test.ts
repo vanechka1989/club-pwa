@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   canUseReferralActivation,
+  getProfileAccessState,
   getProfileMembershipStatusText,
   getProfileMembershipStatusTone,
   getProfilePaymentActionText,
@@ -11,6 +12,13 @@ import {
 } from "./profileSubscriptionCopy";
 
 describe("profile subscription copy", () => {
+  it("distinguishes active, ending and inactive access without treating unlimited access as ending", () => {
+    expect(getProfileAccessState({ isMember: false, expiresAt: null, daysLeft: 0 })).toBe("inactive");
+    expect(getProfileAccessState({ isMember: true, expiresAt: "2026-08-07T00:00:00.000Z", daysLeft: 3 })).toBe("ending");
+    expect(getProfileAccessState({ isMember: true, expiresAt: "2026-08-08T00:00:00.000Z", daysLeft: 4 })).toBe("active");
+    expect(getProfileAccessState({ isMember: true, expiresAt: null, daysLeft: 0 })).toBe("active");
+  });
+
   it("uses only the button text for recurrent subscription management", () => {
     expect(
       getProfilePaymentActionText({
@@ -90,7 +98,7 @@ describe("profile subscription copy", () => {
   it("wires subscription status and referral reward copy into the profile screen", () => {
     const source = readFileSync(resolve(__dirname, "ProfileSection.vue"), "utf8");
 
-    expect(source).toContain("profileSubscriptionStatusText");
+    expect(source).toContain("profileAccessStateText");
     expect(source).toContain("referralRewardText");
     expect(source).toContain(':disabled="!canActivateReferral"');
   });

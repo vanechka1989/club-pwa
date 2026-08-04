@@ -1856,6 +1856,9 @@ test.beforeEach(async ({ page }, testInfo) => {
 test("profile access card uses the empty identity space and hides early renewal", async ({ page }, testInfo) => {
   const accessSummary = page.getByRole("region", { name: "Текущий доступ" });
   await expect(accessSummary).toBeVisible();
+  const accessState = page.getByText("Доступ активен", { exact: true });
+  await expect(accessState).toBeVisible();
+  await expect(page.locator(".profile-current-access")).toHaveCount(0);
   await expect(accessSummary.getByText("Клуб Premium", { exact: true })).toBeVisible();
   await expect(accessSummary.getByText("Разовый платёж · 30 дней", { exact: true })).toBeVisible();
   await expect(page.getByText("Email", { exact: true })).toBeVisible();
@@ -1883,6 +1886,11 @@ test("profile access card uses the empty identity space and hides early renewal"
   expect(avatarEditBox).not.toBeNull();
   expect(avatarEditBox!.x).toBeGreaterThan(nameEditBox!.x);
   expect(avatarEditBox!.x).toBeGreaterThanOrEqual(avatarBox!.x + avatarBox!.width);
+  const accessStateBox = await accessState.boundingBox();
+  expect(accessStateBox).not.toBeNull();
+  if ((page.viewportSize()?.width ?? 0) >= 360) {
+    expect(accessStateBox!.x).toBeGreaterThanOrEqual(avatarEditBox!.x + avatarEditBox!.width);
+  }
 
   const subscriptionHeight = await page.locator(".profile-dashboard-subscription").evaluate((element) => element.getBoundingClientRect().height);
   expect(subscriptionHeight).toBeLessThanOrEqual(76);

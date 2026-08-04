@@ -38,7 +38,7 @@ import {
 import { getAvatarFileError } from "@/features/profile/avatarFilePolicy";
 import {
   canUseReferralActivation,
-  getProfileMembershipStatusText,
+  getProfileAccessState,
   getProfilePaymentActionText,
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
@@ -108,11 +108,6 @@ const displayNameEditorOpen = ref(false);
 const displayNameDraft = ref("");
 const displayNameSaving = ref(false);
 const displayNameError = ref<string | null>(null);
-const accessUntil = computed(() =>
-  session.user?.membershipExpiresAt
-    ? new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")
-    : t("notActive")
-);
 const displayName = computed(() => session.user?.displayName || session.user?.firstName || session.user?.username || t("profileDefaultName"));
 const accountEmail = computed(() => session.user?.email ?? null);
 const maskedAccountEmail = computed(() => maskProfileEmail(accountEmail.value, currentLocale.value));
@@ -202,13 +197,18 @@ const paymentActionText = computed(() => {
     joinText: t("joinClub")
   });
 });
-const profileSubscriptionStatusText = computed(() =>
-  getProfileMembershipStatusText({
+const profileAccessState = computed(() =>
+  getProfileAccessState({
     isMember: isMember.value,
-    activeText: t("profileSubscriptionActive"),
-    inactiveText: t("profileSubscriptionInactive")
+    expiresAt: session.user?.membershipExpiresAt ?? null,
+    daysLeft: daysLeft.value
   })
 );
+const profileAccessStateText = computed(() => {
+  if (profileAccessState.value === "ending") return t("profileAccessEnding");
+  if (profileAccessState.value === "inactive") return t("profileAccessInactive");
+  return t("profileAccessActive");
+});
 const profileCurrentAccess = computed<CurrentAccess | null>(() => {
   if (session.user?.currentAccess) return session.user.currentAccess;
   if (!isMember.value) return null;
@@ -742,17 +742,15 @@ onBeforeUnmount(discardAvatarDraftFile);
                       <Camera class="h-4 w-4" aria-hidden="true" />
                     </button>
                   </span>
+                  <span class="profile-access-state" :class="`profile-access-state--${profileAccessState}`">
+                    {{ profileAccessStateText }}
+                  </span>
                 </div>
                 <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
               </div>
             </div>
           </div>
         </div>
-        <section v-if="profileCurrentAccess" class="profile-current-access" role="region" aria-label="Текущий доступ">
-          <strong>{{ profileCurrentAccess.title }}</strong>
-          <span>{{ profileAccessMetaText }}</span>
-          <small>{{ profileAccessDateText }}</small>
-        </section>
       </div>
       <div class="profile-email-row" :class="{ 'profile-email-row--visible': emailVisible }">
         <span class="profile-email-copy">
@@ -775,14 +773,17 @@ onBeforeUnmount(discardAvatarDraftFile);
           </button>
         </span>
       </div>
-      <div class="profile-dashboard-subscription">
+      <div class="profile-dashboard-subscription" role="region" aria-label="Текущий доступ">
         <div class="profile-membership-row">
           <div class="profile-membership-title">
-            <strong>{{ profileSubscriptionStatusText }}</strong>
-            <span v-if="isMember">до {{ accessUntil }}</span>
+            <strong>{{ profileCurrentAccess?.title ?? t('profileNoActiveProduct') }}</strong>
+            <span v-if="profileCurrentAccess">{{ profileAccessDateText }}</span>
+          </div>
+          <div class="profile-membership-details">
+            <span v-if="profileCurrentAccess" class="profile-membership-source">{{ profileAccessMetaText }}</span>
+            <span class="profile-dashboard-subscription-meta">{{ subscriptionMeta }}</span>
           </div>
           <div class="subscription-bar"><span :style="{ width: `${subscriptionProgress}%` }"></span></div>
-          <span class="profile-dashboard-subscription-meta">{{ subscriptionMeta }}</span>
         </div>
         <button v-if="showProfilePaymentAction" class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
           {{ paymentActionText }}

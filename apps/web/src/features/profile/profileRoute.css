@@ -2357,3 +2357,95 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   margin-top: 0;
   line-height: 1.2;
 }
+
+/* Access state stays by the identity actions; product details live in the status strip. */
+.profile-dashboard-top {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.profile-dashboard .profile-identity-block .profile-display-name-row {
+  flex-wrap: wrap;
+  column-gap: 8px;
+  row-gap: 6px;
+}
+
+.profile-access-state {
+  --profile-access-state-color: var(--muted);
+  display: inline-flex;
+  min-height: 28px;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--profile-access-state-color) 48%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--profile-access-state-color) 12%, var(--panel));
+  color: var(--profile-access-state-color);
+  padding: 4px 9px;
+  font-size: var(--app-type-micro-size);
+  font-weight: 780;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.profile-access-state--active {
+  --profile-access-state-color: var(--success-text);
+}
+
+.profile-access-state--ending {
+  --profile-access-state-color: var(--warning);
+}
+
+.profile-access-state--inactive {
+  --profile-access-state-color: var(--danger-text);
+}
+
+.profile-membership-details {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-membership-source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--app-type-micro-size);
+  font-weight: 680;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-dashboard .profile-membership-details .profile-dashboard-subscription-meta {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 360px) {
+  .profile-dashboard .profile-identity-block .profile-display-name-row {
+    flex-wrap: nowrap;
+  }
+
+  .profile-dashboard .profile-identity-block .profile-display-name-row h3 {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 359px) {
+  .profile-dashboard .profile-display-name-row .profile-access-state {
+    order: 3;
+  }
+
+  .profile-membership-details {
+    align-items: flex-start;
+  }
+
+  .profile-membership-source {
+    white-space: normal;
+  }
+}

@@ -5,6 +5,18 @@ type ProfilePaymentActionInput = {
   joinText: string;
 };
 
+export type ProfileAccessState = "active" | "ending" | "inactive";
+
+export function getProfileAccessState(input: {
+  isMember: boolean;
+  expiresAt: string | null;
+  daysLeft: number;
+}): ProfileAccessState {
+  if (!input.isMember) return "inactive";
+  if (input.expiresAt && input.daysLeft <= 3) return "ending";
+  return "active";
+}
+
 export function getProfilePaymentActionText(input: ProfilePaymentActionInput) {
   if (input.hasManageableRecurrentSubscription) {
     return "Управление подпиской";
