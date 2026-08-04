@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import "./profileRoute.css";
-import type { PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
+import type { CurrentAccess, PaymentOrderLog, ReferralSummary, UserRecurrentSubscription } from "@club/shared";
 import {
   BookOpen,
   Camera,
@@ -9,7 +9,8 @@ import {
   Copy,
   CreditCard,
   Crop,
-  Fingerprint,
+  Eye,
+  EyeOff,
   Gift,
   LogOut,
   Minus,
@@ -42,6 +43,12 @@ import {
   getReferralRewardText
 } from "@/features/profile/profileSubscriptionCopy";
 import { formatProfilePaymentMoney, getLatestPaidOrder } from "@/features/profile/profilePayments";
+import {
+  getProfileAccessDateText,
+  getProfileAccessMetaText,
+  maskProfileEmail,
+  shouldShowProfilePaymentAction
+} from "@/features/profile/profileAccess";
 import { useSessionStore } from "@/stores/session";
 import { useUiStore, type DesignTheme, type Theme } from "@/stores/ui";
 
@@ -92,6 +99,7 @@ const avatarDraftY = ref(50);
 const avatarDraftScale = ref(1);
 const avatarGestureActive = ref(false);
 const emailVisible = ref(false);
+const emailCopied = ref(false);
 const logoutSaving = ref(false);
 const logoutMessage = ref<string | null>(null);
 const showLogoutConfirm = ref(false);
@@ -101,10 +109,13 @@ const displayNameDraft = ref("");
 const displayNameSaving = ref(false);
 const displayNameError = ref<string | null>(null);
 const accessUntil = computed(() =>
-  session.user?.membershipExpiresAt ? new Date(session.user.membershipExpiresAt).toLocaleDateString() : t("notActive")
+  session.user?.membershipExpiresAt
+    ? new Date(session.user.membershipExpiresAt).toLocaleDateString(currentLocale.value === "ru" ? "ru-RU" : "en-US")
+    : t("notActive")
 );
 const displayName = computed(() => session.user?.displayName || session.user?.firstName || session.user?.username || t("profileDefaultName"));
-const accountEmail = computed(() => session.user?.email || session.user?.username || session.user?.telegramId || "");
+const accountEmail = computed(() => session.user?.email ?? null);
+const maskedAccountEmail = computed(() => maskProfileEmail(accountEmail.value, currentLocale.value));
 const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase());
 const avatarDisplayStyle = computed(() => {
   const positionX = session.user?.avatarPositionX ?? 50;
@@ -196,6 +207,31 @@ const profileSubscriptionStatusText = computed(() =>
     isMember: isMember.value,
     activeText: t("profileSubscriptionActive"),
     inactiveText: t("profileSubscriptionInactive")
+  })
+);
+const profileCurrentAccess = computed<CurrentAccess | null>(() => {
+  if (session.user?.currentAccess) return session.user.currentAccess;
+  if (!isMember.value) return null;
+  return {
+    source: "unknown",
+    title: currentLocale.value === "ru" ? "Доступ к клубу" : "Club access",
+    accessDays: null,
+    bonusDays: null,
+    expiresAt: session.user?.membershipExpiresAt ?? null,
+    nextPaymentAt: session.user?.nextPaymentAt ?? null
+  };
+});
+const profileAccessMetaText = computed(() =>
+  profileCurrentAccess.value ? getProfileAccessMetaText(profileCurrentAccess.value, currentLocale.value) : ""
+);
+const profileAccessDateText = computed(() =>
+  profileCurrentAccess.value ? getProfileAccessDateText(profileCurrentAccess.value, currentLocale.value) : ""
+);
+const showProfilePaymentAction = computed(() =>
+  shouldShowProfilePaymentAction({
+    isMember: isMember.value,
+    expiresAt: session.user?.membershipExpiresAt ?? null,
+    source: profileCurrentAccess.value?.source ?? null
   })
 );
 const referralRewardText = computed(() =>
@@ -552,6 +588,21 @@ async function copyReferralLink() {
   }, 1800);
 }
 
+function toggleEmailVisibility() {
+  if (!accountEmail.value) return;
+  emailVisible.value = !emailVisible.value;
+  if (!emailVisible.value) emailCopied.value = false;
+}
+
+async function copyAccountEmail() {
+  if (!accountEmail.value) return;
+  await navigator.clipboard.writeText(accountEmail.value).catch(() => null);
+  emailCopied.value = true;
+  window.setTimeout(() => {
+    emailCopied.value = false;
+  }, 1800);
+}
+
 function referralBlockReason() {
   if (!referral.value?.activationBlockedReason) {
     if (session.user?.paymentType === "recurrent" && session.user.recurrentPaymentStatus === "active") {
@@ -652,55 +703,75 @@ onBeforeUnmount(discardAvatarDraftFile);
       </template>
     </UiPageHeader>
     <section class="soft-card ui-card profile-access-card profile-dashboard-hero">
-      <div class="profile-dashboard-toolbar">
-        <div class="profile-access-layout">
-        <div class="profile-avatar-stack">
-          <button
-            class="profile-avatar profile-avatar-large profile-avatar-trigger"
-            type="button"
-            aria-label="Изменить фото профиля"
-            :disabled="avatarSaving"
-            @click="openAvatarPhotoActions"
-          >
-            <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
-            <span v-else>{{ avatarInitial }}</span>
-          </button>
-        </div>
-        <div class="profile-access-main">
-          <div class="profile-access-head profile-identity-head">
-            <div class="min-w-0">
-              <div class="profile-display-name-row">
-                <h3>{{ displayName }}</h3>
-                <button
-                  v-if="!session.user?.displayNameChangedByUserAt"
-                  class="profile-name-edit profile-avatar-icon-button ui-icon-button"
-                  type="button"
-                  aria-label="Изменить ник"
-                  @click="openDisplayNameEditor"
-                >
-                  <Pencil class="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  class="profile-avatar-icon-button ui-icon-button"
-                  type="button"
-                  :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
-                  :title="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
-                  :disabled="avatarSaving"
-                  @click="openAvatarPhotoActions"
-                >
-                  <Camera class="h-4 w-4" aria-hidden="true" />
-                </button>
+      <div class="profile-dashboard-top">
+        <div class="profile-identity-block">
+          <div class="profile-avatar-stack">
+            <button
+              class="profile-avatar profile-avatar-large profile-avatar-trigger"
+              type="button"
+              aria-label="Изменить фото профиля"
+              :disabled="avatarSaving"
+              @click="openAvatarPhotoActions"
+            >
+              <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
+              <span v-else>{{ avatarInitial }}</span>
+            </button>
+            <button
+              class="profile-avatar-camera ui-icon-button"
+              type="button"
+              :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+              :disabled="avatarSaving"
+              @click="openAvatarPhotoActions"
+            >
+              <Camera class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div class="profile-access-main">
+            <div class="profile-access-head profile-identity-head">
+              <div class="min-w-0">
+                <div class="profile-display-name-row">
+                  <h3>{{ displayName }}</h3>
+                  <button
+                    v-if="!session.user?.displayNameChangedByUserAt"
+                    class="profile-name-edit profile-avatar-icon-button ui-icon-button"
+                    type="button"
+                    aria-label="Изменить ник"
+                    @click="openDisplayNameEditor"
+                  >
+                    <Pencil class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
               </div>
-              <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
             </div>
           </div>
-          <button class="profile-account-inline" type="button" :aria-label="emailVisible ? t('profileEmailVisible') : t('profileEmailShow')" @click="emailVisible = true">
-            <Fingerprint class="h-3.5 w-3.5 text-[var(--muted)]" aria-hidden="true" />
-            <span>Email</span>
-            <strong :class="{ 'profile-secret-blurred': !emailVisible }">{{ accountEmail }}</strong>
-          </button>
+          <div class="profile-email-row">
+            <span class="profile-email-copy">
+              <small>Email</small>
+              <strong>{{ emailVisible && accountEmail ? accountEmail : maskedAccountEmail }}</strong>
+            </span>
+            <span v-if="accountEmail" class="profile-email-actions">
+              <button
+                class="ui-icon-button"
+                type="button"
+                :aria-label="emailVisible ? 'Скрыть email' : 'Показать email'"
+                @click="toggleEmailVisibility"
+              >
+                <EyeOff v-if="emailVisible" class="h-4 w-4" aria-hidden="true" />
+                <Eye v-else class="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button v-if="emailVisible" class="ui-icon-button" type="button" aria-label="Скопировать email" @click="copyAccountEmail">
+                <Check v-if="emailCopied" class="h-4 w-4" aria-hidden="true" />
+                <Copy v-else class="h-4 w-4" aria-hidden="true" />
+              </button>
+            </span>
+          </div>
         </div>
-        </div>
+        <section v-if="profileCurrentAccess" class="profile-current-access" role="region" aria-label="Текущий доступ">
+          <strong>{{ profileCurrentAccess.title }}</strong>
+          <span>{{ profileAccessMetaText }}</span>
+          <small>{{ profileAccessDateText }}</small>
+        </section>
       </div>
       <div class="profile-dashboard-subscription">
         <div class="profile-membership-row">
@@ -711,7 +782,7 @@ onBeforeUnmount(discardAvatarDraftFile);
           <div class="subscription-bar"><span :style="{ width: `${subscriptionProgress}%` }"></span></div>
           <span class="profile-dashboard-subscription-meta">{{ subscriptionMeta }}</span>
         </div>
-        <button class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
+        <button v-if="showProfilePaymentAction" class="soft-inline-button ui-button" type="button" @click="$emit('openPayments')">
           {{ paymentActionText }}
         </button>
       </div>

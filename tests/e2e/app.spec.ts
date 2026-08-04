@@ -34,6 +34,7 @@ const errorTrackerGroup = {
 const currentUser = {
   id: "user-owner",
   telegramId: "593677751",
+  email: "ekaterina@example.com",
   displayName: "Екатерина",
   firstName: "Екатерина",
   username: "katya",
@@ -47,6 +48,14 @@ const currentUser = {
   paymentType: "manual",
   recurrentPaymentStatus: null,
   nextPaymentAt: null,
+  currentAccess: {
+    source: "one_time",
+    title: "Клуб Premium",
+    accessDays: 30,
+    bonusDays: null,
+    expiresAt: activeUntil,
+    nextPaymentAt: null
+  },
   avatarRefreshedAt: null
 };
 
@@ -1842,6 +1851,34 @@ async function expectStableScreenshot(page: Page, name: string) {
 
 test.beforeEach(async ({ page }, testInfo) => {
   await openApp(page, testInfo);
+});
+
+test("profile access card uses the empty identity space and hides early renewal", async ({ page }, testInfo) => {
+  const accessSummary = page.getByRole("region", { name: "Текущий доступ" });
+  await expect(accessSummary).toBeVisible();
+  await expect(accessSummary.getByText("Клуб Premium", { exact: true })).toBeVisible();
+  await expect(accessSummary.getByText("Разовый платёж · 30 дней", { exact: true })).toBeVisible();
+  await expect(page.getByText("Email", { exact: true })).toBeVisible();
+  await expect(page.getByText("e•••@example.com", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Продлить" })).toHaveCount(0);
+  const showEmail = page.getByRole("button", { name: "Показать email" });
+  await expect(showEmail).toBeVisible();
+  await showEmail.click();
+  await expect(page.getByText("ekaterina@example.com", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Скопировать email" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("profile-access-light.png"), fullPage: false, animations: "disabled" });
+
+  await page.evaluate(() => {
+    localStorage.setItem("club-appearance-version", "7");
+    localStorage.setItem("club-theme", "dark");
+    localStorage.setItem("club-design-theme", "pine-teal");
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("region", { name: "Текущий доступ" })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: testInfo.outputPath("profile-access-dark.png"), fullPage: false, animations: "disabled" });
 });
 
 const responsiveRouteAuditProjects = new Set([
