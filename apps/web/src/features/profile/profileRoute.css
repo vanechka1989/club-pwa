@@ -1393,7 +1393,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .profile-email-copy small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--app-type-micro-size);
   font-weight: 700;
   line-height: 1.2;
 }
@@ -1402,7 +1402,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-type-meta-size);
   font-weight: 740;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -1444,7 +1444,7 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 .profile-current-access span,
 .profile-current-access small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--app-type-micro-size);
   font-weight: 680;
   line-height: 1.35;
 }
