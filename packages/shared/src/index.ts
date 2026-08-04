@@ -203,6 +203,16 @@ export const adminUserAcquisitionSchema = z.object({
 });
 export type AdminUserAcquisition = z.infer<typeof adminUserAcquisitionSchema>;
 
+export const currentAccessSchema = z.object({
+  source: z.enum(["one_time", "recurrent", "gift", "referral", "unknown"]),
+  title: z.string().min(1),
+  accessDays: z.number().int().positive().nullable(),
+  bonusDays: z.number().int().positive().nullable(),
+  expiresAt: z.string().datetime().nullable(),
+  nextPaymentAt: z.string().datetime().nullable()
+});
+export type CurrentAccess = z.infer<typeof currentAccessSchema>;
+
 export const clubUserSchema = z.object({
   id: z.string(),
   telegramId: z.string(),
@@ -221,6 +231,7 @@ export const clubUserSchema = z.object({
   paymentType: z.enum(["none", "manual", "one_time", "recurrent"]),
   recurrentPaymentStatus: z.enum(["active", "cancelled"]).nullable(),
   nextPaymentAt: z.string().datetime().nullable(),
+  currentAccess: currentAccessSchema.nullable().optional(),
   avatarPositionX: z.number().min(0).max(100).default(50),
   avatarPositionY: z.number().min(0).max(100).default(50),
   avatarScale: z.number().min(1).max(2.5).default(1),
@@ -242,7 +253,8 @@ export const appAccessStateSchema = clubUserSchema.pick({
   membershipExpiresAt: true,
   paymentType: true,
   recurrentPaymentStatus: true,
-  nextPaymentAt: true
+  nextPaymentAt: true,
+  currentAccess: true
 });
 export type AppAccessState = z.infer<typeof appAccessStateSchema>;
 
