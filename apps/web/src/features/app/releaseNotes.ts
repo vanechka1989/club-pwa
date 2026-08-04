@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Polished profile card",
+  title: "Access status and product",
   items: [
-    "Avatar editing is back as a separate button to the right of name editing and no longer overlaps the profile photo.",
-    "The subscription status is more compact, and administrator-granted access now uses one clear description.",
-    "Email uses the full card width, so long revealed addresses remain readable without overlapping the view and copy actions."
+    "A compact framed access-state badge now appears beside the photo action and changes when access is ending or inactive.",
+    "The product name, access source, expiration date, progress, and remaining days now share the lower status strip.",
+    "The layout adapts to narrow screens without horizontal overflow and keeps the existing renewal policy."
   ]
 };
 
