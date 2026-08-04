@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the compact profile access card as version 6.27", () => {
-    expect(appVersion).toBe("6.27");
-    expect(releaseNotes[0]?.title).toBe("Компактный профиль и понятный доступ");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/тариф/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/три дня/i);
+  it("publishes the polished profile card as version 6.28", () => {
+    expect(appVersion).toBe("6.28");
+    expect(releaseNotes[0]?.title).toBe("Аккуратная карточка профиля");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/аватар/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/email/i);
+
+    const profileAccessCard = releaseNotes.find((note) => note.version === "6.27");
+    expect(profileAccessCard?.title).toBe("Компактный профиль и понятный доступ");
 
     const compactAdvertising = releaseNotes.find((note) => note.version === "6.26");
     expect(compactAdvertising?.title).toBe("Компактные источники рекламы");
@@ -363,7 +366,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Compact profile and clear access");
+    expect(englishNotes[0]?.title).toBe("Polished profile card");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

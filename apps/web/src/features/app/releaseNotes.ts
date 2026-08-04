@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact profile and clear access",
+  title: "Polished profile card",
   items: [
-    "The profile card now shows the product name, access period, and whether access came from a one-time payment, an admin gift, or a referral bonus.",
-    "Email stays masked by default and can be revealed and copied when needed.",
-    "The payment action appears only during the final three days of eligible access and stays hidden for active recurring subscriptions."
+    "Avatar editing is back as a separate button to the right of name editing and no longer overlaps the profile photo.",
+    "The subscription status is more compact, and administrator-granted access now uses one clear description.",
+    "Email uses the full card width, so long revealed addresses remain readable without overlapping the view and copy actions."
   ]
 };
 
