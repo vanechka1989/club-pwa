@@ -54,7 +54,7 @@ export function getProfileAccessMetaText(access: CurrentAccess, locale: Locale) 
       ? `${locale === "ru" ? "Автопродление · каждые" : "Auto-renewal · every"} ${formatDays(access.accessDays, locale)}`
       : locale === "ru" ? "Автопродление" : "Auto-renewal";
   }
-  if (access.source === "gift") return locale === "ru" ? "Подарочный доступ" : "Gift access";
+  if (access.source === "gift") return locale === "ru" ? "Выдана администратором" : "Granted by an administrator";
   if (access.source === "referral") {
     return access.bonusDays
       ? `${locale === "ru" ? "Добавлено" : "Added"} ${formatDays(access.bonusDays, locale)}`

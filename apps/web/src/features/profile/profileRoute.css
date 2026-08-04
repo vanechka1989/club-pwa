@@ -1342,20 +1342,6 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   height: 60px;
 }
 
-.profile-avatar-camera {
-  position: absolute;
-  right: -8px;
-  bottom: -8px;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
-  background: color-mix(in srgb, var(--panel) 88%, var(--accent-soft));
-  color: var(--accent);
-  box-shadow: 0 6px 14px color-mix(in srgb, #000 18%, transparent);
-}
-
 .profile-dashboard .profile-identity-block .profile-access-main {
   width: 100%;
   min-width: 0;
@@ -1364,6 +1350,17 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
 
 .profile-dashboard .profile-identity-block .profile-display-name-row {
   flex-wrap: nowrap;
+}
+
+.profile-identity-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.profile-identity-actions .profile-name-edit {
+  margin: 0;
 }
 
 .profile-dashboard .profile-identity-block .profile-access-head h3 {
@@ -1407,6 +1404,12 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-email-row--visible .profile-email-copy strong {
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .profile-email-actions {
@@ -1524,10 +1527,10 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   }
 }
 
-body.club-mobile-device .profile-dashboard .profile-avatar-camera,
-body.club-mobile-app-scaled .profile-dashboard .profile-avatar-camera,
 body.club-mobile-device .profile-dashboard .profile-name-edit,
 body.club-mobile-app-scaled .profile-dashboard .profile-name-edit,
+body.club-mobile-device .profile-dashboard .profile-avatar-edit,
+body.club-mobile-app-scaled .profile-dashboard .profile-avatar-edit,
 body.club-mobile-device .profile-dashboard .profile-email-actions .ui-icon-button,
 body.club-mobile-app-scaled .profile-dashboard .profile-email-actions .ui-icon-button {
   width: 44px;
@@ -2320,4 +2323,37 @@ body.club-mobile-app-scaled .profile-dashboard .profile-dashboard-toolbar .profi
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Final compact access-card geometry. */
+.profile-dashboard .profile-email-row {
+  width: 100%;
+  max-width: none;
+}
+
+.profile-dashboard .profile-dashboard-hero {
+  gap: 10px;
+}
+
+.profile-dashboard .profile-dashboard-subscription {
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-row {
+  gap: 4px;
+}
+
+.profile-dashboard .profile-dashboard-subscription .profile-membership-title {
+  line-height: 1.2;
+}
+
+.profile-dashboard .profile-dashboard-subscription .subscription-bar {
+  height: 4px;
+}
+
+.profile-dashboard .profile-dashboard-subscription-meta {
+  margin-top: 0;
+  line-height: 1.2;
 }

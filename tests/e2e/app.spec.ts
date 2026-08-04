@@ -34,7 +34,7 @@ const errorTrackerGroup = {
 const currentUser = {
   id: "user-owner",
   telegramId: "593677751",
-  email: "ekaterina@example.com",
+  email: "vanechka1989@gmail.com",
   displayName: "Екатерина",
   firstName: "Екатерина",
   username: "katya",
@@ -1859,13 +1859,33 @@ test("profile access card uses the empty identity space and hides early renewal"
   await expect(accessSummary.getByText("Клуб Premium", { exact: true })).toBeVisible();
   await expect(accessSummary.getByText("Разовый платёж · 30 дней", { exact: true })).toBeVisible();
   await expect(page.getByText("Email", { exact: true })).toBeVisible();
-  await expect(page.getByText("e•••@example.com", { exact: true })).toBeVisible();
+  await expect(page.getByText("v•••@gmail.com", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Продлить" })).toHaveCount(0);
   const showEmail = page.getByRole("button", { name: "Показать email" });
   await expect(showEmail).toBeVisible();
   await showEmail.click();
-  await expect(page.getByText("ekaterina@example.com", { exact: true })).toBeVisible();
+  const revealedEmail = page.getByText("vanechka1989@gmail.com", { exact: true });
+  await expect(revealedEmail).toBeVisible();
   await expect(page.getByRole("button", { name: "Скопировать email" })).toBeVisible();
+  await expect.poll(() => revealedEmail.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    whiteSpace: getComputedStyle(element).whiteSpace
+  }))).toMatchObject({ whiteSpace: "normal" });
+  const emailMetrics = await revealedEmail.evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }));
+  expect(emailMetrics.scrollWidth).toBeLessThanOrEqual(emailMetrics.clientWidth + 1);
+
+  const avatarBox = await page.getByRole("button", { name: "Изменить фото профиля" }).boundingBox();
+  const nameEditBox = await page.getByRole("button", { name: "Изменить ник" }).boundingBox();
+  const avatarEditBox = await page.getByRole("button", { name: "Загрузить фото" }).boundingBox();
+  expect(avatarBox).not.toBeNull();
+  expect(nameEditBox).not.toBeNull();
+  expect(avatarEditBox).not.toBeNull();
+  expect(avatarEditBox!.x).toBeGreaterThan(nameEditBox!.x);
+  expect(avatarEditBox!.x).toBeGreaterThanOrEqual(avatarBox!.x + avatarBox!.width);
+
+  const subscriptionHeight = await page.locator(".profile-dashboard-subscription").evaluate((element) => element.getBoundingClientRect().height);
+  expect(subscriptionHeight).toBeLessThanOrEqual(76);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("profile-access-light.png"), fullPage: false, animations: "disabled" });
 

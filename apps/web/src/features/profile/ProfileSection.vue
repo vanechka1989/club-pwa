@@ -716,55 +716,36 @@ onBeforeUnmount(discardAvatarDraftFile);
               <img v-if="session.user?.photoUrl" :src="session.user.photoUrl" :alt="displayName" :style="avatarDisplayStyle" />
               <span v-else>{{ avatarInitial }}</span>
             </button>
-            <button
-              class="profile-avatar-camera ui-icon-button"
-              type="button"
-              :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
-              :disabled="avatarSaving"
-              @click="openAvatarPhotoActions"
-            >
-              <Camera class="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
           <div class="profile-access-main">
             <div class="profile-access-head profile-identity-head">
               <div class="min-w-0">
                 <div class="profile-display-name-row">
                   <h3>{{ displayName }}</h3>
-                  <button
-                    v-if="!session.user?.displayNameChangedByUserAt"
-                    class="profile-name-edit profile-avatar-icon-button ui-icon-button"
-                    type="button"
-                    aria-label="Изменить ник"
-                    @click="openDisplayNameEditor"
-                  >
-                    <Pencil class="h-4 w-4" aria-hidden="true" />
-                  </button>
+                  <span class="profile-identity-actions">
+                    <button
+                      v-if="!session.user?.displayNameChangedByUserAt"
+                      class="profile-name-edit profile-avatar-icon-button ui-icon-button"
+                      type="button"
+                      aria-label="Изменить ник"
+                      @click="openDisplayNameEditor"
+                    >
+                      <Pencil class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      class="profile-avatar-edit profile-avatar-icon-button ui-icon-button"
+                      type="button"
+                      :aria-label="avatarSaving ? t('profileAvatarUploading') : t('profileAvatarUpload')"
+                      :disabled="avatarSaving"
+                      @click="openAvatarPhotoActions"
+                    >
+                      <Camera class="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </span>
                 </div>
                 <small v-if="session.user?.displayNameChangedByUserAt" class="profile-name-locked">Изменение доступно через администратора</small>
               </div>
             </div>
-          </div>
-          <div class="profile-email-row">
-            <span class="profile-email-copy">
-              <small>Email</small>
-              <strong>{{ emailVisible && accountEmail ? accountEmail : maskedAccountEmail }}</strong>
-            </span>
-            <span v-if="accountEmail" class="profile-email-actions">
-              <button
-                class="ui-icon-button"
-                type="button"
-                :aria-label="emailVisible ? 'Скрыть email' : 'Показать email'"
-                @click="toggleEmailVisibility"
-              >
-                <EyeOff v-if="emailVisible" class="h-4 w-4" aria-hidden="true" />
-                <Eye v-else class="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button v-if="emailVisible" class="ui-icon-button" type="button" aria-label="Скопировать email" @click="copyAccountEmail">
-                <Check v-if="emailCopied" class="h-4 w-4" aria-hidden="true" />
-                <Copy v-else class="h-4 w-4" aria-hidden="true" />
-              </button>
-            </span>
           </div>
         </div>
         <section v-if="profileCurrentAccess" class="profile-current-access" role="region" aria-label="Текущий доступ">
@@ -772,6 +753,27 @@ onBeforeUnmount(discardAvatarDraftFile);
           <span>{{ profileAccessMetaText }}</span>
           <small>{{ profileAccessDateText }}</small>
         </section>
+      </div>
+      <div class="profile-email-row" :class="{ 'profile-email-row--visible': emailVisible }">
+        <span class="profile-email-copy">
+          <small>Email</small>
+          <strong>{{ emailVisible && accountEmail ? accountEmail : maskedAccountEmail }}</strong>
+        </span>
+        <span v-if="accountEmail" class="profile-email-actions">
+          <button
+            class="ui-icon-button"
+            type="button"
+            :aria-label="emailVisible ? 'Скрыть email' : 'Показать email'"
+            @click="toggleEmailVisibility"
+          >
+            <EyeOff v-if="emailVisible" class="h-4 w-4" aria-hidden="true" />
+            <Eye v-else class="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button v-if="emailVisible" class="ui-icon-button" type="button" aria-label="Скопировать email" @click="copyAccountEmail">
+            <Check v-if="emailCopied" class="h-4 w-4" aria-hidden="true" />
+            <Copy v-else class="h-4 w-4" aria-hidden="true" />
+          </button>
+        </span>
       </div>
       <div class="profile-dashboard-subscription">
         <div class="profile-membership-row">

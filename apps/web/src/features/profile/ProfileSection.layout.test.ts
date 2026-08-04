@@ -97,12 +97,26 @@ describe("compact profile layout", () => {
   it("opens the same photo action from the avatar and camera beside the name editor", () => {
     expect(source).toContain('class="profile-avatar profile-avatar-large profile-avatar-trigger"');
     expect(source.match(/@click="openAvatarPhotoActions"/g)).toHaveLength(2);
-    expect(source).toMatch(/profile-display-name-row[\s\S]*profile-avatar-icon-button/);
+    expect(source).toContain('class="profile-identity-actions"');
+    expect(source).toMatch(/profile-display-name-row[\s\S]*profile-name-edit[\s\S]*profile-avatar-edit/);
     expect(source).toContain("avatarPhotoMenuOpen");
     expect(source).toContain("Загрузить новое фото");
     expect(source).toContain("Настроить кадр");
     expect(source).not.toContain("profile-avatar-menu-button");
     expect(source).not.toContain('class="profile-avatar-actions"');
+    expect(source).not.toContain("profile-avatar-camera");
+  });
+
+  it("gives revealed email a full-width wrapping row", () => {
+    expect(source).toContain(`:class="{ 'profile-email-row--visible': emailVisible }"`);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-email-row\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none;/s);
+    expect(styles).toMatch(/\.profile-email-row--visible \.profile-email-copy strong\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*normal;/s);
+  });
+
+  it("keeps subscription status as a compact two-line strip", () => {
+    expect(styles).toMatch(/\.profile-dashboard \.profile-dashboard-subscription\s*\{[^}]*padding-top:\s*8px;/s);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-dashboard-subscription \.profile-membership-row\s*\{[^}]*gap:\s*4px;/s);
+    expect(styles).toMatch(/\.profile-dashboard \.profile-dashboard-subscription \.subscription-bar\s*\{[^}]*height:\s*4px;/s);
   });
 
   it("keeps file selection inside the visible photo menu action", () => {

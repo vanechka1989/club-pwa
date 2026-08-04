@@ -44,7 +44,7 @@ describe("profile access presentation", () => {
 
     expect(getProfileAccessMetaText(oneTime, "ru")).toBe("Разовый платёж · 30 дней");
     expect(getProfileAccessMetaText(recurrent, "ru")).toBe("Автопродление · каждые 30 дней");
-    expect(getProfileAccessMetaText(gift, "ru")).toBe("Подарочный доступ");
+    expect(getProfileAccessMetaText(gift, "ru")).toBe("Выдана администратором");
     expect(getProfileAccessMetaText(referral, "ru")).toBe("Добавлено 14 дней");
     expect(getProfileAccessDateText(recurrent, "ru")).toBe("Следующее списание 1 января 2031 г.");
     expect(getProfileAccessDateText(oneTime, "ru")).toBe("до 1 января 2031 г.");
