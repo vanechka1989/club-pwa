@@ -24,10 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Compact advertising sources",
+  title: "Compact profile and clear access",
   items: [
-    "The redundant refresh control has been removed from the advertising links screen; demo regeneration remains in the main header.",
-    "Advertising source rows now show all four key metrics in a compact mobile-friendly layout without horizontal scrolling."
+    "The profile card now shows the product name, access period, and whether access came from a one-time payment, an admin gift, or a referral bonus.",
+    "Email stays masked by default and can be revealed and copied when needed.",
+    "The payment action appears only during the final three days of eligible access and stays hidden for active recurring subscriptions."
   ]
 };
 
