@@ -1,13 +1,15 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createHash, randomUUID } from "node:crypto";
 import { deviceDiagnosticsSchema, isValidDisplayName, normalizeDisplayName } from "@club/shared";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
 import { db } from "../db/client";
-import { userDevices, userRecurrentSubscriptions, users } from "../db/schema";
+import { userDevices, users } from "../db/schema";
 import { getAdminAccessProfile } from "../admin/roles";
 import { getMembership } from "../membership/getMembership";
+import { resolveCurrentAccess } from "../membership/currentAccess";
+import { loadCurrentAccessSourceData } from "../membership/currentAccessData";
 import { resolveMembershipPreview, resolveMembershipProfileFields } from "../membership/profileFields";
 import { logger } from "../logger";
 import { normalizeAvatarDisplay } from "../profile/avatarDisplay";
@@ -60,13 +62,11 @@ async function storeAvatarObject({
 async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T extends keyof AuthVariables>(key: T) => AuthVariables[T] }) {
   const membership = await getMembership(user.id);
   const photoUrl = await resolveUserPhotoUrl(user);
-  const recurrentSubscription =
-    membership.subscription?.provider === "prodamus_recurrent" || membership.subscription?.provider === "lava_recurrent"
-      ? await db.query.userRecurrentSubscriptions.findFirst({
-          where: eq(userRecurrentSubscriptions.userId, user.id),
-          orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
-        })
-      : null;
+  const accessSource = await loadCurrentAccessSourceData({
+    userId: user.id,
+    provider: membership.subscription?.provider ?? null,
+    providerPaymentId: membership.subscription?.providerPaymentId ?? null
+  });
   const adminAccess = await getAdminAccessProfile(user.telegramId);
   const realRole = adminAccess.isOwner ? "owner" : adminAccess.isActive ? "admin" : "member";
   const role = c.get("previewRole") ?? realRole;
@@ -81,7 +81,15 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
     membershipStatus,
     subscriptionProvider: membership.subscription?.provider ?? null,
     subscriptionExpiresAt: membershipPreview.membershipExpiresAt,
-    recurrentPaymentStatus: recurrentSubscription?.status ?? null
+    recurrentPaymentStatus: accessSource.recurrentPaymentStatus
+  });
+  const currentAccess = resolveCurrentAccess({
+    membershipStatus,
+    provider: membership.subscription?.provider ?? null,
+    expiresAt: membershipPreview.membershipExpiresAt,
+    nextPaymentAt: membershipProfile.nextPaymentAt ? new Date(membershipProfile.nextPaymentAt) : null,
+    product: accessSource.product,
+    bonusDays: accessSource.bonusDays
   });
 
   return {
@@ -103,6 +111,7 @@ async function buildMeResponse(user: typeof users.$inferSelect, c: { get: <T ext
       paymentType: membershipProfile.paymentType,
       recurrentPaymentStatus: membershipProfile.recurrentPaymentStatus,
       nextPaymentAt: membershipProfile.nextPaymentAt,
+      currentAccess,
       avatarPositionX: user.avatarPositionX ?? 50,
       avatarPositionY: user.avatarPositionY ?? 50,
       avatarScale: (user.avatarScale ?? 100) / 100,

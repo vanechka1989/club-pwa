@@ -1,10 +1,12 @@
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import type { UserRole } from "@club/shared";
 import { getAdminAccessProfile } from "../admin/roles";
 import { db } from "../db/client";
-import { appNotifications, userRecurrentSubscriptions } from "../db/schema";
+import { appNotifications } from "../db/schema";
 import { getMembership } from "../membership/getMembership";
+import { resolveCurrentAccess } from "../membership/currentAccess";
+import { loadCurrentAccessSourceData } from "../membership/currentAccessData";
 import { resolveMembershipPreview, resolveMembershipProfileFields } from "../membership/profileFields";
 import type { AuthVariables } from "../middleware/auth";
 import { telegramAuth } from "../middleware/auth";
@@ -27,13 +29,12 @@ export const appStateRoute = new Hono<{ Variables: AuthVariables }>()
     const realRole: UserRole = adminAccess.isOwner ? "owner" : adminAccess.isActive ? "admin" : "member";
     const role = c.get("previewRole") ?? realRole;
     const isSupportAdmin = role === "owner" || (role === "admin" && adminAccess.permissions.includes("support"));
-    const [recurrentSubscription, supportUnreadCount] = await Promise.all([
-      membership.subscription?.provider === "prodamus_recurrent" || membership.subscription?.provider === "lava_recurrent"
-        ? db.query.userRecurrentSubscriptions.findFirst({
-            where: eq(userRecurrentSubscriptions.userId, user.id),
-            orderBy: [desc(userRecurrentSubscriptions.updatedAt)]
-          })
-        : Promise.resolve(null),
+    const [accessSource, supportUnreadCount] = await Promise.all([
+      loadCurrentAccessSourceData({
+        userId: user.id,
+        provider: membership.subscription?.provider ?? null,
+        providerPaymentId: membership.subscription?.providerPaymentId ?? null
+      }),
       getSupportUnreadCount({ userId: user.id, isSupportAdmin })
     ]);
 
@@ -46,7 +47,15 @@ export const appStateRoute = new Hono<{ Variables: AuthVariables }>()
       membershipStatus: membershipPreview.membershipStatus,
       subscriptionProvider: membership.subscription?.provider ?? null,
       subscriptionExpiresAt: membershipPreview.membershipExpiresAt,
-      recurrentPaymentStatus: recurrentSubscription?.status ?? null
+      recurrentPaymentStatus: accessSource.recurrentPaymentStatus
+    });
+    const currentAccess = resolveCurrentAccess({
+      membershipStatus: membershipPreview.membershipStatus,
+      provider: membership.subscription?.provider ?? null,
+      expiresAt: membershipPreview.membershipExpiresAt,
+      nextPaymentAt: membershipProfile.nextPaymentAt ? new Date(membershipProfile.nextPaymentAt) : null,
+      product: accessSource.product,
+      bonusDays: accessSource.bonusDays
     });
 
     return c.json({
@@ -59,7 +68,8 @@ export const appStateRoute = new Hono<{ Variables: AuthVariables }>()
         membershipExpiresAt: membershipProfile.membershipExpiresAt,
         paymentType: membershipProfile.paymentType,
         recurrentPaymentStatus: membershipProfile.recurrentPaymentStatus,
-        nextPaymentAt: membershipProfile.nextPaymentAt
+        nextPaymentAt: membershipProfile.nextPaymentAt,
+        currentAccess
       },
       notificationUnreadCount: notificationRow?.value ?? 0,
       supportUnreadCount
