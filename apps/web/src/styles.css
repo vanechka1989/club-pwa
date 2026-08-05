@@ -1,14 +1,18 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
-#app,
-#app * {
+body,
+body * {
   -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-#app :is(input, textarea, select, [contenteditable]:not([contenteditable="false"]), [data-native-context-menu]),
-#app :is(input, textarea, select, [contenteditable]:not([contenteditable="false"]), [data-native-context-menu]) * {
+body :is(input, textarea, select, [contenteditable]:not([contenteditable="false"]), [data-native-context-menu]),
+body :is(input, textarea, select, [contenteditable]:not([contenteditable="false"]), [data-native-context-menu]) * {
   -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 :root {

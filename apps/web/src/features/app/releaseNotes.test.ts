@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the access status and product strip as version 6.29", () => {
-    expect(appVersion).toBe("6.29");
-    expect(releaseNotes[0]?.title).toBe("Статус доступа и продукт");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/доступ активен/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/продукт/i);
+  it("publishes the profile interaction fixes as version 6.30", () => {
+    expect(appVersion).toBe("6.30");
+    expect(releaseNotes[0]?.title).toBe("Исправление редактирования профиля");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/сохранить/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/выделен/i);
+
+    const accessStatus = releaseNotes.find((note) => note.version === "6.29");
+    expect(accessStatus?.title).toBe("Статус доступа и продукт");
 
     const polishedProfile = releaseNotes.find((note) => note.version === "6.28");
     expect(polishedProfile?.title).toBe("Аккуратная карточка профиля");
@@ -369,7 +372,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Access status and product");
+    expect(englishNotes[0]?.title).toBe("Profile editing fixes");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

@@ -846,19 +846,21 @@ onBeforeUnmount(discardAvatarDraftFile);
       <span>{{ logoutSaving ? t("profileLogoutLoading") : t("profileLogout") }}</span>
     </button>
 
-    <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
-      <form class="profile-name-sheet" @submit.prevent="saveDisplayName">
-        <div class="profile-name-sheet-head"><h3>Изменить ник</h3><button type="button" aria-label="Закрыть" @click="displayNameEditorOpen = false">×</button></div>
-        <label for="profile-display-name">Новый ник</label>
-        <input id="profile-display-name" v-model.trim="displayNameDraft" class="text-input" maxlength="20" autocomplete="nickname" />
-        <p class="profile-name-hint">От 3 до 20 символов: буквы, цифры, _ и -. Изменить самостоятельно можно один раз.</p>
-        <p v-if="displayNameError" class="profile-name-error">{{ displayNameError }}</p>
-        <div class="profile-name-sheet-actions">
-          <button class="secondary-button ui-button" type="button" @click="displayNameEditorOpen = false">Отмена</button>
-          <button class="soft-inline-button ui-button" type="submit" :disabled="displayNameSaving">{{ displayNameSaving ? "Сохранение…" : "Сохранить" }}</button>
-        </div>
-      </form>
-    </div>
+    <Teleport to="body">
+      <div v-if="displayNameEditorOpen" class="profile-name-sheet-backdrop" @click.self="displayNameEditorOpen = false">
+        <form class="profile-name-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-name-sheet-title" @submit.prevent="saveDisplayName">
+          <div class="profile-name-sheet-head"><h3 id="profile-name-sheet-title">Изменить ник</h3><button type="button" aria-label="Закрыть" @click="displayNameEditorOpen = false">×</button></div>
+          <label for="profile-display-name">Новый ник</label>
+          <input id="profile-display-name" v-model.trim="displayNameDraft" class="text-input" maxlength="20" autocomplete="nickname" />
+          <p class="profile-name-hint">От 3 до 20 символов: буквы, цифры, _ и -. Изменить самостоятельно можно один раз.</p>
+          <p v-if="displayNameError" class="profile-name-error">{{ displayNameError }}</p>
+          <div class="profile-name-sheet-actions">
+            <button class="secondary-button ui-button" type="button" @click="displayNameEditorOpen = false">Отмена</button>
+            <button class="soft-inline-button ui-button" type="submit" :disabled="displayNameSaving">{{ displayNameSaving ? "Сохранение…" : "Сохранить" }}</button>
+          </div>
+        </form>
+      </div>
+    </Teleport>
 
     <TaskScreen v-if='activeProfilePanel === "referrals"' class="profile-detail-task-screen" :title="t('referralTitle')" :subtitle="t('referralSubtitle')" portal @back="closeProfilePanel">
     <section class="profile-detail-content profile-referral-content">

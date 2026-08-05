@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Access status and product",
+  title: "Profile editing fixes",
   items: [
-    "A compact framed access-state badge now appears beside the photo action and changes when access is ending or inactive.",
-    "The product name, access source, expiration date, progress, and remaining days now share the lower status strip.",
-    "The layout adapts to narrow screens without horizontal overflow and keeps the existing renewal policy."
+    "The name editor now opens above the bottom navigation, keeping Cancel and Save visible and tappable.",
+    "Ordinary labels, statuses, and profile cards no longer trigger accidental text selection or system search.",
+    "Text selection and native editing actions remain available inside editable controls."
   ]
 };
 

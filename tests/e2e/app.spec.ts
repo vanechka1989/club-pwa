@@ -1909,6 +1909,40 @@ test("profile access card uses the empty identity space and hides early renewal"
   await page.screenshot({ path: testInfo.outputPath("profile-access-dark.png"), fullPage: false, animations: "disabled" });
 });
 
+test("profile name editor actions stay above the bottom navigation", async ({ page }, testInfo) => {
+  await page.getByRole("button", { name: "Изменить ник" }).click();
+
+  const editor = page.locator(".profile-name-sheet");
+  const saveButton = editor.getByRole("button", { name: "Сохранить" });
+  await expect(editor).toBeVisible();
+  await expect(saveButton).toBeVisible();
+
+  const saveButtonIsTopmost = await saveButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return target === button || button.contains(target);
+  });
+  expect(saveButtonIsTopmost).toBe(true);
+
+  const editorBox = await editor.boundingBox();
+  const viewport = page.viewportSize();
+  expect(editorBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(editorBox!.y + editorBox!.height).toBeLessThanOrEqual(viewport!.height + 1);
+  await page.screenshot({ path: testInfo.outputPath("profile-name-editor.png"), fullPage: false, animations: "disabled" });
+});
+
+test("ordinary profile text is not selectable while the name field stays editable", async ({ page }) => {
+  const daysRemaining = page.locator(".profile-dashboard-subscription-meta");
+  await expect(daysRemaining).toBeVisible();
+  expect(await daysRemaining.evaluate((element) => getComputedStyle(element).userSelect)).toBe("none");
+
+  await page.getByRole("button", { name: "Изменить ник" }).click();
+  const nameField = page.getByRole("textbox", { name: "Новый ник" });
+  await expect(nameField).toBeVisible();
+  expect(await nameField.evaluate((element) => getComputedStyle(element).userSelect)).toBe("text");
+});
+
 const responsiveRouteAuditProjects = new Set([
   "android-compact-320",
   "oneplus-mt2111",
