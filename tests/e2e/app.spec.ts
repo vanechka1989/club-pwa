@@ -1910,6 +1910,17 @@ test("profile access card uses the empty identity space and hides early renewal"
 });
 
 test("profile name editor actions stay above the bottom navigation", async ({ page }, testInfo) => {
+  let submittedDisplayName = "";
+  await page.route(/\/(?:api\/)?me\/display-name$/, async (route) => {
+    submittedDisplayName = (route.request().postDataJSON() as { displayName?: string } | null)?.displayName ?? "";
+    await route.fulfill(json({
+      user: {
+        ...currentUser,
+        displayName: submittedDisplayName,
+        displayNameChangedByUserAt: now
+      }
+    }));
+  });
   await page.getByRole("button", { name: "Изменить ник" }).click();
 
   const editor = page.locator(".profile-name-sheet");
@@ -1930,6 +1941,12 @@ test("profile name editor actions stay above the bottom navigation", async ({ pa
   expect(viewport).not.toBeNull();
   expect(editorBox!.y + editorBox!.height).toBeLessThanOrEqual(viewport!.height + 1);
   await page.screenshot({ path: testInfo.outputPath("profile-name-editor.png"), fullPage: false, animations: "disabled" });
+
+  await page.getByRole("textbox", { name: "Новый ник" }).fill("Ирина");
+  await saveButton.click();
+  await expect.poll(() => submittedDisplayName).toBe("Ирина");
+  await expect(editor).toBeHidden();
+  await expect(page.locator(".profile-display-name-row h3")).toHaveText("Ирина");
 });
 
 test("ordinary profile text is not selectable while the name field stays editable", async ({ page }) => {
