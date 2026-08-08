@@ -658,6 +658,27 @@ export type PaymentPlan = z.infer<typeof paymentPlanSchema>;
 export const paymentProductKindSchema = z.enum(["one_time", "recurrent"]);
 export type PaymentProductKind = z.infer<typeof paymentProductKindSchema>;
 
+export const paymentAccessTypeSchema = z.enum(["limited", "lifetime"]);
+export type PaymentAccessType = z.infer<typeof paymentAccessTypeSchema>;
+
+function validatePaymentAccess(
+  value: { kind?: PaymentProductKind; accessType: PaymentAccessType; accessDays: number | null },
+  context: z.RefinementCtx
+) {
+  if (value.accessType === "lifetime") {
+    if (value.kind === "recurrent") {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessType"], message: "Recurrent payments require limited access" });
+    }
+    if (value.accessDays !== null) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessDays"], message: "Lifetime access must not have access days" });
+    }
+    return;
+  }
+  if (value.accessDays === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessDays"], message: "Limited access requires access days" });
+  }
+}
+
 export const paymentCurrencySchema = z.enum(["RUB", "USD", "EUR"]);
 export type PaymentCurrency = z.infer<typeof paymentCurrencySchema>;
 
@@ -726,14 +747,15 @@ export const paymentProductSchema = z.object({
   badgeLabel: z.string().nullable(),
   amountRub: z.number().int().positive().nullable(),
   prices: z.array(paymentMoneySchema).default([]),
-  accessDays: z.number().int().positive(),
+  accessType: paymentAccessTypeSchema.default("limited"),
+  accessDays: z.number().int().positive().nullable(),
   prodamusSubscriptionId: z.string().nullable().default(null),
   bindings: z.array(paymentProductProviderBindingSchema).default([]),
   isPublished: z.boolean(),
   archivedUntil: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
-});
+}).superRefine(validatePaymentAccess);
 export type PaymentProduct = z.input<typeof paymentProductSchema>;
 
 export const paymentCheckoutOptionSchema = z.object({
@@ -876,14 +898,16 @@ const individualProdamusOneTimePayloadSchema = z.object({
   kind: z.literal("one_time"),
   title: z.string().trim().min(1).max(180),
   amountRub: z.number().int().positive().max(10_000_000),
-  accessDays: z.number().int().positive().max(3650)
-});
+  accessType: paymentAccessTypeSchema.default("limited"),
+  accessDays: z.number().int().positive().max(3650).nullable()
+}).superRefine(validatePaymentAccess);
 
 const individualProdamusRecurrentPayloadSchema = z.object({
   provider: z.literal("prodamus"),
   kind: z.literal("recurrent"),
   title: z.string().trim().min(1).max(180),
   amountRub: z.number().int().positive().max(10_000_000),
+  accessType: z.literal("limited").default("limited"),
   accessDays: z.number().int().positive().max(3650),
   externalProductId: z.string().trim().min(1).max(64)
 });
@@ -892,9 +916,10 @@ const individualLavaPayloadSchema = z.object({
   provider: z.literal("lava"),
   catalogItemId: z.string().uuid(),
   currency: paymentCurrencySchema,
-  accessDays: z.number().int().positive().max(3650),
+  accessType: paymentAccessTypeSchema.default("limited"),
+  accessDays: z.number().int().positive().max(3650).nullable(),
   customAmountMinor: z.number().int().positive().max(1_000_000_000).optional()
-});
+}).superRefine(validatePaymentAccess);
 
 export const adminIndividualPaymentOfferPayloadSchema = z.union([
   individualProdamusOneTimePayloadSchema,
@@ -903,14 +928,15 @@ export const adminIndividualPaymentOfferPayloadSchema = z.union([
 ]);
 export type AdminIndividualPaymentOfferPayload = z.infer<typeof adminIndividualPaymentOfferPayloadSchema>;
 
-export const individualPaymentOfferSchema = z.object({
+const individualPaymentOfferBaseSchema = z.object({
   id: z.string().uuid(),
   provider: paymentProviderCodeSchema,
   kind: paymentProductKindSchema,
   title: z.string(),
   currency: paymentCurrencySchema,
   amountMinor: z.number().int().positive(),
-  accessDays: z.number().int().positive(),
+  accessType: paymentAccessTypeSchema.default("limited"),
+  accessDays: z.number().int().positive().nullable(),
   status: individualPaymentOfferStatusSchema,
   expiresAt: z.string().datetime(),
   createdAt: z.string().datetime(),
@@ -921,6 +947,7 @@ export const individualPaymentOfferSchema = z.object({
   createdBy: z.string(),
   orderId: z.string().uuid().nullable()
 });
+export const individualPaymentOfferSchema = individualPaymentOfferBaseSchema.superRefine(validatePaymentAccess);
 export type IndividualPaymentOffer = z.infer<typeof individualPaymentOfferSchema>;
 
 export const individualPaymentOffersResponseSchema = z.object({
@@ -944,7 +971,7 @@ export const adminIndividualPaymentOfferCreateResponseSchema = z.object({
 export type AdminIndividualPaymentOfferCreateResponse = z.infer<typeof adminIndividualPaymentOfferCreateResponseSchema>;
 
 export const individualPaymentOfferDetailResponseSchema = z.object({
-  offer: individualPaymentOfferSchema.omit({ createdBy: true, orderId: true })
+  offer: individualPaymentOfferBaseSchema.omit({ createdBy: true, orderId: true }).superRefine(validatePaymentAccess)
 });
 export type IndividualPaymentOfferDetailResponse = z.infer<typeof individualPaymentOfferDetailResponseSchema>;
 

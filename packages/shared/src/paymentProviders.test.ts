@@ -62,6 +62,50 @@ describe("provider-neutral payment contracts", () => {
     expect(product.bindings).toHaveLength(2);
   });
 
+  it("accepts lifetime one-time products without access days", () => {
+    const product = paymentProductSchema.parse({
+      id: "lifetime-product",
+      kind: "one_time",
+      accessType: "lifetime",
+      title: "Навсегда",
+      description: null,
+      badgeLabel: null,
+      amountRub: 4990,
+      accessDays: null,
+      isPublished: true,
+      archivedUntil: null,
+      createdAt: "2026-08-08T10:00:00.000Z",
+      updatedAt: "2026-08-08T10:00:00.000Z"
+    });
+
+    expect(product.accessType).toBe("lifetime");
+    expect(product.accessDays).toBeNull();
+  });
+
+  it("rejects contradictory payment access settings", () => {
+    const base = {
+      id: "product",
+      title: "Клуб",
+      description: null,
+      badgeLabel: null,
+      amountRub: 990,
+      isPublished: true,
+      archivedUntil: null,
+      createdAt: "2026-08-08T10:00:00.000Z",
+      updatedAt: "2026-08-08T10:00:00.000Z"
+    };
+
+    expect(paymentProductSchema.safeParse({
+      ...base, kind: "recurrent", accessType: "lifetime", accessDays: null
+    }).success).toBe(false);
+    expect(paymentProductSchema.safeParse({
+      ...base, kind: "one_time", accessType: "limited", accessDays: null
+    }).success).toBe(false);
+    expect(paymentProductSchema.safeParse({
+      ...base, kind: "one_time", accessType: "lifetime", accessDays: 30
+    }).success).toBe(false);
+  });
+
   it("describes a required provider choice", () => {
     const response = paymentCheckoutOptionsResponseSchema.parse({
       productId: "product",

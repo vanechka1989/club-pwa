@@ -8,12 +8,14 @@ describe("individual payment offer contracts", () => {
       kind: "one_time",
       title: "Персональный доступ",
       amountRub: 1490,
+      accessType: "limited",
       accessDays: 45
     })).toEqual({
       provider: "prodamus",
       kind: "one_time",
       title: "Персональный доступ",
       amountRub: 1490,
+      accessType: "limited",
       accessDays: 45
     });
   });
@@ -28,16 +30,49 @@ describe("individual payment offer contracts", () => {
     }).success).toBe(false);
   });
 
+  it("accepts lifetime personal offers for Prodamus and Lava", () => {
+    expect(adminIndividualPaymentOfferPayloadSchema.parse({
+      provider: "prodamus",
+      kind: "one_time",
+      accessType: "lifetime",
+      title: "Постоянный доступ",
+      amountRub: 4990,
+      accessDays: null
+    }).accessType).toBe("lifetime");
+
+    expect(adminIndividualPaymentOfferPayloadSchema.parse({
+      provider: "lava",
+      catalogItemId: "11111111-1111-4111-8111-111111111111",
+      currency: "RUB",
+      accessType: "lifetime",
+      accessDays: null
+    }).accessType).toBe("lifetime");
+  });
+
+  it("rejects lifetime recurrent personal offers", () => {
+    expect(adminIndividualPaymentOfferPayloadSchema.safeParse({
+      provider: "prodamus",
+      kind: "recurrent",
+      accessType: "lifetime",
+      title: "Ошибочная подписка",
+      amountRub: 990,
+      accessDays: null,
+      externalProductId: "subscription-1"
+    }).success).toBe(false);
+  });
+
   it("accepts only a catalog selection for Lava.top", () => {
     expect(adminIndividualPaymentOfferPayloadSchema.parse({
       provider: "lava",
       catalogItemId: "11111111-1111-4111-8111-111111111111",
       currency: "RUB",
+      accessType: "limited",
       accessDays: 30
     })).toEqual({
       provider: "lava",
       catalogItemId: "11111111-1111-4111-8111-111111111111",
       currency: "RUB",
+      accessType: "limited",
       accessDays: 30
     });
     expect(adminIndividualPaymentOfferPayloadSchema.safeParse({
@@ -56,6 +91,7 @@ describe("individual payment offer contracts", () => {
       title: "Персональный доступ",
       currency: "RUB",
       amountMinor: 149000,
+      accessType: "limited",
       accessDays: 45,
       status: "active",
       expiresAt: "2026-07-31T08:00:00.000Z",

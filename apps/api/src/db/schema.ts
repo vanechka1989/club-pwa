@@ -8,6 +8,7 @@ export const moderationStatus = pgEnum("moderation_status", ["visible", "hidden"
 export const muteKind = pgEnum("mute_kind", ["temporary", "permanent"]);
 export const messageReaction = pgEnum("message_reaction", ["like", "dislike", "thumbs_up", "fire", "heart", "laugh", "clap", "poop"]);
 export const paymentProductKind = pgEnum("payment_product_kind", ["one_time", "recurrent"]);
+export const paymentAccessType = pgEnum("payment_access_type", ["limited", "lifetime"]);
 export const paymentCurrency = pgEnum("payment_currency", ["RUB", "USD", "EUR"]);
 export const paymentOrderStatus = pgEnum("payment_order_status", ["pending", "paid", "failed", "cancelled"]);
 export const recurrentSubscriptionStatus = pgEnum("recurrent_subscription_status", ["active", "cancelled"]);
@@ -460,7 +461,8 @@ export const paymentProducts = pgTable(
     description: text("description"),
     badgeLabel: varchar("badge_label", { length: 32 }),
     amountRub: integer("amount_rub"),
-    accessDays: integer("access_days").notNull(),
+    accessType: paymentAccessType("access_type").notNull().default("limited"),
+    accessDays: integer("access_days"),
     prodamusSubscriptionId: varchar("prodamus_subscription_id", { length: 64 }),
     isPublished: boolean("is_published").notNull().default(false),
     archivedUntil: timestamp("archived_until", { withTimezone: true }),
@@ -470,7 +472,11 @@ export const paymentProducts = pgTable(
   },
   (table) => ({
     providerKindIdx: index("payment_products_provider_kind_idx").on(table.providerId, table.kind, table.isPublished),
-    archivedIdx: index("payment_products_archived_idx").on(table.archivedUntil)
+    archivedIdx: index("payment_products_archived_idx").on(table.archivedUntil),
+    validAccess: check(
+      "payment_products_access_check",
+      sql`(${table.accessType} = 'limited' and ${table.accessDays} between 1 and 3650) or (${table.accessType} = 'lifetime' and ${table.kind} = 'one_time' and ${table.accessDays} is null)`
+    )
   })
 );
 
@@ -563,7 +569,8 @@ export const individualPaymentOffers = pgTable(
     title: varchar("title", { length: 180 }).notNull(),
     currency: paymentCurrency("currency").notNull(),
     amountMinor: integer("amount_minor").notNull(),
-    accessDays: integer("access_days").notNull(),
+    accessType: paymentAccessType("access_type").notNull().default("limited"),
+    accessDays: integer("access_days"),
     externalProductId: varchar("external_product_id", { length: 160 }),
     externalOfferId: varchar("external_offer_id", { length: 160 }),
     catalogSnapshot: jsonb("catalog_snapshot").$type<Record<string, unknown> | null>(),
@@ -589,7 +596,10 @@ export const individualPaymentOffers = pgTable(
       sql`${table.status} in ('active', 'checkout_pending', 'paid', 'expired', 'cancelled')`
     ),
     positiveAmount: check("individual_payment_offers_amount_check", sql`${table.amountMinor} > 0`),
-    positiveAccess: check("individual_payment_offers_access_days_check", sql`${table.accessDays} between 1 and 3650`)
+    validAccess: check(
+      "individual_payment_offers_access_check",
+      sql`(${table.accessType} = 'limited' and ${table.accessDays} between 1 and 3650) or (${table.accessType} = 'lifetime' and ${table.kind} = 'one_time' and ${table.accessDays} is null)`
+    )
   })
 );
 
@@ -612,6 +622,7 @@ export const paymentOrders = pgTable(
     externalSubscriptionId: varchar("external_subscription_id", { length: 160 }),
     productTitleSnapshot: varchar("product_title_snapshot", { length: 180 }),
     productKindSnapshot: paymentProductKind("product_kind_snapshot"),
+    accessTypeSnapshot: paymentAccessType("access_type_snapshot"),
     accessDaysSnapshot: integer("access_days_snapshot"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     rawPayload: jsonb("raw_payload").$type<Record<string, unknown> | null>(),
@@ -628,7 +639,7 @@ export const paymentOrders = pgTable(
       .where(sql`${table.status} = 'pending'`),
     productOrOffer: check(
       "payment_orders_product_or_offer_check",
-      sql`(${table.productId} is not null and ${table.individualOfferId} is null) or (${table.productId} is null and ${table.individualOfferId} is not null and ${table.productTitleSnapshot} is not null and ${table.productKindSnapshot} is not null and ${table.accessDaysSnapshot} is not null)`
+      sql`(${table.productId} is not null and ${table.individualOfferId} is null) or (${table.productId} is null and ${table.individualOfferId} is not null and ${table.productTitleSnapshot} is not null and ${table.productKindSnapshot} is not null and ${table.accessTypeSnapshot} is not null and ((${table.accessTypeSnapshot} = 'limited' and ${table.accessDaysSnapshot} is not null) or (${table.accessTypeSnapshot} = 'lifetime' and ${table.accessDaysSnapshot} is null)))`
     )
   })
 );
