@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AdminIndividualPaymentOfferPayload, IndividualPaymentOffer, IndividualPaymentOfferOptionsResponse, PaymentCurrency } from "@club/shared";
+import type { AdminIndividualPaymentOfferPayload, IndividualPaymentOffer, IndividualPaymentOfferOptionsResponse, PaymentAccessType, PaymentCurrency } from "@club/shared";
 import { computed, ref, watch } from "vue";
 import { Banknote, Copy, X } from "lucide-vue-next";
 import {
@@ -8,7 +8,7 @@ import {
   getAdminIndividualPaymentOfferOptions,
   getAdminIndividualPaymentOffers
 } from "@/api/client";
-import { lavaCatalogPeriodOptions, lavaCatalogPricesForTariff, lavaCatalogAccessDays } from "@/features/billing/paymentProductForm";
+import { lavaCatalogPeriodOptions, lavaCatalogPricesForTariff, lavaCatalogAccessDays, normalizePaymentAccess, paymentAccessLabel } from "@/features/billing/paymentProductForm";
 
 const props = defineProps<{ telegramId: string; clientName: string; disabled: boolean }>();
 const open = ref(false);
@@ -21,7 +21,8 @@ const provider = ref<"prodamus" | "lava">("prodamus");
 const kind = ref<"one_time" | "recurrent">("one_time");
 const title = ref("Индивидуальная подписка");
 const amountRub = ref(990);
-const accessDays = ref(30);
+const accessType = ref<PaymentAccessType>("limited");
+const accessDays = ref<number | null>(30);
 const externalProductId = ref("");
 const catalogItemId = ref("");
 const currency = ref<PaymentCurrency>("RUB");
@@ -33,9 +34,10 @@ const lavaPeriods = computed(() => selectedCatalogItem.value ? lavaCatalogPeriod
 const selectedCatalogPrices = computed(() => selectedCatalogItem.value ? lavaCatalogPricesForTariff(selectedCatalogItem.value, selectedCatalogItem.value.kind, accessDays.value) : []);
 const selectedCatalogPrice = computed(() => selectedCatalogPrices.value.find((price) => price.currency === currency.value) ?? null);
 const providerAvailable = computed(() => options.value?.providers.some((item) => item.provider === provider.value) ?? false);
+const effectiveKind = computed(() => provider.value === "prodamus" ? kind.value : selectedCatalogItem.value?.kind ?? "one_time");
 const canSubmit = computed(() => providerAvailable.value && (provider.value === "prodamus"
-  ? Boolean(title.value.trim() && amountRub.value > 0 && accessDays.value > 0 && (kind.value === "one_time" || externalProductId.value.trim()))
-  : Boolean(catalogItemId.value && accessDays.value > 0 && selectedCatalogPrice.value && (selectedCatalogPrice.value.amountMinor !== null || (customAmount.value ?? 0) > 0))
+  ? Boolean(title.value.trim() && amountRub.value > 0 && (accessType.value === "lifetime" || (accessDays.value ?? 0) > 0) && (kind.value === "one_time" || externalProductId.value.trim()))
+  : Boolean(catalogItemId.value && (accessType.value === "lifetime" || (accessDays.value ?? 0) > 0) && selectedCatalogPrice.value && (selectedCatalogPrice.value.amountMinor !== null || (customAmount.value ?? 0) > 0))
 ));
 
 function money(offer: Pick<IndividualPaymentOffer, "currency" | "amountMinor">) {
@@ -79,13 +81,14 @@ async function submit() {
     let payload: AdminIndividualPaymentOfferPayload;
     if (provider.value === "prodamus") {
       payload = kind.value === "recurrent"
-        ? { provider: "prodamus", kind: "recurrent", title: title.value.trim(), amountRub: amountRub.value, accessDays: accessDays.value, externalProductId: externalProductId.value.trim() }
-        : { provider: "prodamus", kind: "one_time", title: title.value.trim(), amountRub: amountRub.value, accessDays: accessDays.value };
+        ? { provider: "prodamus", kind: "recurrent", title: title.value.trim(), amountRub: amountRub.value, accessType: "limited", accessDays: accessDays.value ?? 30, externalProductId: externalProductId.value.trim() }
+        : { provider: "prodamus", kind: "one_time", title: title.value.trim(), amountRub: amountRub.value, accessType: accessType.value, accessDays: accessDays.value };
     } else {
       payload = {
         provider: "lava",
         catalogItemId: catalogItemId.value,
         currency: currency.value,
+        accessType: accessType.value,
         accessDays: accessDays.value,
         ...(selectedCatalogPrice.value?.amountMinor === null && customAmount.value ? { customAmountMinor: Math.round(customAmount.value * 100) } : {})
       };
@@ -118,8 +121,23 @@ async function copyLink() {
 
 watch(selectedCatalogItem, (item) => {
   if (!item) return;
-  accessDays.value = lavaCatalogPeriodOptions(item)[0]?.accessDays ?? lavaCatalogAccessDays(item.periodicity ?? null) ?? accessDays.value;
+  const nextDays = lavaCatalogPeriodOptions(item)[0]?.accessDays ?? lavaCatalogAccessDays(item.periodicity ?? null) ?? accessDays.value;
+  const access = normalizePaymentAccess(item.kind, accessType.value, nextDays);
+  accessType.value = access.accessType;
+  accessDays.value = access.accessDays;
   currency.value = lavaCatalogPricesForTariff(item, item.kind, accessDays.value)[0]?.currency ?? "RUB";
+});
+
+watch(effectiveKind, (nextKind) => {
+  const access = normalizePaymentAccess(nextKind, accessType.value, accessDays.value);
+  accessType.value = access.accessType;
+  accessDays.value = access.accessDays;
+});
+
+watch(accessType, (nextType) => {
+  const access = normalizePaymentAccess(effectiveKind.value, nextType, accessDays.value);
+  accessType.value = access.accessType;
+  accessDays.value = access.accessDays;
 });
 
 watch(accessDays, () => {
@@ -142,25 +160,26 @@ watch(accessDays, () => {
           <form v-else class="individual-offer-form" @submit.prevent="submit">
             <p v-if="!options?.providers.length" class="individual-offer-wide admin-warning-line">Сначала подключите и включите Prodamus или Lava.top в разделе оплаты.</p>
             <label><span>Платёжная система</span><select v-model="provider" class="text-input"><option v-for="item in options?.providers ?? []" :key="item.provider" :value="item.provider">{{ item.title }}</option></select></label>
+            <label v-if="effectiveKind === 'one_time'"><span>Срок доступа</span><select v-model="accessType" class="text-input"><option value="limited">Ограниченный срок</option><option value="lifetime">Постоянный доступ</option></select></label>
             <template v-if="provider === 'prodamus'">
               <label><span>Тип оплаты</span><select v-model="kind" class="text-input"><option value="one_time">Разовая оплата</option><option value="recurrent">Автоподписка</option></select></label>
               <label class="individual-offer-wide"><span>Название</span><input v-model="title" class="text-input" maxlength="180" /></label>
               <label><span>Сумма, ₽</span><input v-model.number="amountRub" class="text-input" type="number" min="1" /></label>
-              <label><span>Доступ, дней</span><input v-model.number="accessDays" class="text-input" type="number" min="1" max="3650" /></label>
+              <label v-if="accessType === 'limited'"><span>Доступ, дней</span><input v-model.number="accessDays" class="text-input" type="number" min="1" max="3650" /></label>
               <label v-if="kind === 'recurrent'" class="individual-offer-wide"><span>ID подписки Prodamus</span><input v-model="externalProductId" class="text-input" maxlength="64" /></label>
             </template>
             <template v-else>
               <label class="individual-offer-wide"><span>Товар Lava</span><select v-model="catalogItemId" class="text-input"><option v-for="item in options?.lavaCatalog ?? []" :key="item.id" :value="item.id">{{ item.title }}</option></select></label>
               <label><span>Валюта</span><select v-model="currency" class="text-input"><option v-for="price in selectedCatalogPrices" :key="price.currency" :value="price.currency">{{ price.currency }}</option></select></label>
-              <label v-if="lavaPeriods.length"><span>Период</span><select v-model.number="accessDays" class="text-input"><option v-for="period in lavaPeriods" :key="period.accessDays" :value="period.accessDays">{{ period.label }}</option></select></label>
-              <label v-else><span>Доступ, дней</span><input v-model.number="accessDays" class="text-input" type="number" min="1" max="3650" /></label>
+              <label v-if="accessType === 'limited' && lavaPeriods.length"><span>Период</span><select v-model.number="accessDays" class="text-input"><option v-for="period in lavaPeriods" :key="period.accessDays" :value="period.accessDays">{{ period.label }}</option></select></label>
+              <label v-else-if="accessType === 'limited'"><span>Доступ, дней</span><input v-model.number="accessDays" class="text-input" type="number" min="1" max="3650" /></label>
               <label v-if="selectedCatalogPrice?.amountMinor === null"><span>Сумма</span><input v-model.number="customAmount" class="text-input" type="number" min="1" /></label>
               <p v-else class="individual-offer-price">Цена Lava: <strong>{{ selectedCatalogPrice ? money({ currency, amountMinor: selectedCatalogPrice.amountMinor ?? 0 }) : '—' }}</strong></p>
             </template>
             <div v-if="createdLink" class="individual-offer-created"><span>Ссылка создана и записана в историю</span><button type="button" @click="copyLink"><Copy />Скопировать</button></div>
             <button class="primary-button ui-button individual-offer-submit" type="submit" :disabled="saving || !canSubmit">{{ saving ? 'Создаём…' : 'Создать и отправить' }}</button>
           </form>
-          <details class="individual-offer-history"><summary>Созданные ссылки <span>{{ offers.length }}</span></summary><div><p v-if="!offers.length" class="admin-empty">Ссылок пока нет.</p><article v-for="offer in offers" :key="offer.id"><div><strong>{{ offer.title }}</strong><small>{{ money(offer) }} · {{ offer.accessDays }} дн. · {{ new Date(offer.createdAt).toLocaleString('ru-RU') }}</small></div><span :class="`offer-status-${offer.status}`">{{ statusLabel(offer.status) }}</span><button v-if="offer.status === 'active'" type="button" @click="cancel(offer)">Отменить</button></article></div></details>
+          <details class="individual-offer-history"><summary>Созданные ссылки <span>{{ offers.length }}</span></summary><div><p v-if="!offers.length" class="admin-empty">Ссылок пока нет.</p><article v-for="offer in offers" :key="offer.id"><div><strong>{{ offer.title }}</strong><small>{{ money(offer) }} · {{ paymentAccessLabel(offer.accessType, offer.accessDays) }} · {{ new Date(offer.createdAt).toLocaleString('ru-RU') }}</small></div><span :class="`offer-status-${offer.status}`">{{ statusLabel(offer.status) }}</span><button v-if="offer.status === 'active'" type="button" @click="cancel(offer)">Отменить</button></article></div></details>
         </section>
       </div>
     </Teleport>

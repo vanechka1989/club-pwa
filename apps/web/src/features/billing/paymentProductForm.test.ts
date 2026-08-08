@@ -5,13 +5,16 @@ import {
   lavaCatalogPeriodLabel,
   lavaCatalogPeriodOptions,
   lavaCatalogPricesForTariff,
-  lavaPeriodicityForTariff
+  lavaPeriodicityForTariff,
+  normalizePaymentAccess,
+  paymentAccessLabel
 } from "./paymentProductForm";
 
 const form = {
   kind: "one_time" as const,
   title: "Черновик",
   amountRub: 990,
+  accessType: "limited" as const,
   accessDays: 14
 };
 
@@ -34,8 +37,28 @@ describe("Lava tariff autofill", () => {
       kind: "recurrent",
       title: "Клуб на месяц",
       amountRub: 100,
+      accessType: "limited",
       accessDays: 30
     });
+  });
+
+  it("turns lifetime access back into a dated period for recurrent payments", () => {
+    expect(normalizePaymentAccess("recurrent", "lifetime", null)).toEqual({
+      accessType: "limited",
+      accessDays: 30
+    });
+  });
+
+  it("keeps a one-time lifetime tariff without fake access days", () => {
+    expect(normalizePaymentAccess("one_time", "lifetime", 30)).toEqual({
+      accessType: "lifetime",
+      accessDays: null
+    });
+  });
+
+  it("formats permanent and dated access without nullable-day leakage", () => {
+    expect(paymentAccessLabel("lifetime", null)).toBe("Постоянный доступ");
+    expect(paymentAccessLabel("limited", 30)).toBe("30 дней");
   });
 
   it("keeps the entered price and access period when Lava does not provide them", () => {

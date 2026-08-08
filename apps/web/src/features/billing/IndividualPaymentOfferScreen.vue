@@ -5,6 +5,7 @@ import { CheckCircle2, Clock3, LockKeyhole } from "lucide-vue-next";
 import { createIndividualPaymentOfferCheckout, getIndividualPaymentOffer } from "@/api/client";
 import { openPaymentCheckoutUrl } from "./paymentRedirect";
 import TaskScreen from "@/features/app/TaskScreen.vue";
+import { paymentAccessLabel } from "./paymentProductForm";
 
 const props = defineProps<{ token: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -60,7 +61,7 @@ watch(() => props.token, load, { immediate: true });
         <span class="offer-eyebrow">{{ offer.provider === 'lava' ? 'Lava.top' : 'Prodamus' }} · {{ offer.kind === 'recurrent' ? 'автоподписка' : 'разовая оплата' }}</span>
         <h2>{{ offer.title }}</h2>
         <strong class="offer-amount">{{ amount }}</strong>
-        <div class="offer-benefit"><CheckCircle2 /><span>Доступ на {{ offer.accessDays }} дней после подтверждения оплаты</span></div>
+        <div class="offer-benefit"><CheckCircle2 /><span>{{ offer.accessType === 'lifetime' ? 'Постоянный доступ после подтверждения оплаты' : `Доступ на ${paymentAccessLabel(offer.accessType, offer.accessDays)} после подтверждения оплаты` }}</span></div>
         <div class="offer-benefit"><LockKeyhole /><span>Ссылка привязана к вашему аккаунту и оплачивается один раз</span></div>
         <div class="offer-benefit"><Clock3 /><span v-if="offer.provider === 'lava' && offer.status === 'checkout_pending'">Платёжная сессия уже создана и доступна по этой ссылке</span><span v-else>Действует до {{ new Date(offer.expiresAt).toLocaleString('ru-RU') }}</span></div>
         <p v-if="offer.status === 'paid'" class="offer-terminal offer-success">Предложение оплачено. Доступ уже начислен.</p>

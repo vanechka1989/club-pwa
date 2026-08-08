@@ -1,10 +1,11 @@
-import type { PaymentProductKind, PaymentProductProviderBinding, PaymentProviderCatalogItem } from "@club/shared";
+import type { PaymentAccessType, PaymentProductKind, PaymentProductProviderBinding, PaymentProviderCatalogItem } from "@club/shared";
 
 type PaymentProductFormBasics = {
   kind: PaymentProductKind;
   title: string;
   amountRub: number | null;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
   bindings?: PaymentProductProviderBinding[];
 };
 
@@ -25,8 +26,28 @@ export function lavaCatalogAccessDays(periodicity: string | null) {
   return periodicity ? lavaAccessDaysByPeriodicity.get(periodicity) ?? null : null;
 }
 
-export function lavaPeriodicityForTariff(kind: PaymentProductKind, accessDays: number) {
+export function normalizePaymentAccess(
+  kind: PaymentProductKind,
+  accessType: PaymentAccessType,
+  accessDays: number | null
+) {
+  if (kind === "recurrent") return { accessType: "limited" as const, accessDays: accessDays ?? 30 };
+  if (accessType === "lifetime") return { accessType, accessDays: null };
+  return { accessType, accessDays: accessDays ?? 30 };
+}
+
+export function paymentAccessLabel(accessType: PaymentAccessType, accessDays: number | null) {
+  if (accessType === "lifetime") return "Постоянный доступ";
+  const days = accessDays ?? 0;
+  const mod10 = days % 10;
+  const mod100 = days % 100;
+  const unit = mod10 === 1 && mod100 !== 11 ? "день" : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? "дня" : "дней";
+  return `${days} ${unit}`;
+}
+
+export function lavaPeriodicityForTariff(kind: PaymentProductKind, accessDays: number | null) {
   if (kind === "one_time") return "ONE_TIME";
+  if (accessDays === null) return null;
   return lavaPeriodicityByAccessDays.get(accessDays) ?? null;
 }
 
@@ -47,7 +68,7 @@ export function lavaCatalogPeriodOptions(item: PaymentProviderCatalogItem) {
 export function lavaCatalogPricesForTariff(
   item: PaymentProviderCatalogItem,
   kind: PaymentProductKind,
-  accessDays: number
+  accessDays: number | null
 ) {
   const periodicity = lavaPeriodicityForTariff(kind, accessDays);
   if (!periodicity) return [];
@@ -67,7 +88,8 @@ export function applyLavaCatalogItem(
     ?? periods[0]?.accessDays
     ?? lavaCatalogAccessDays(item.periodicity ?? null)
     ?? form.accessDays;
-  const catalogPrices = lavaCatalogPricesForTariff(item, item.kind, accessDays);
+  const access = normalizePaymentAccess(item.kind, form.accessType, accessDays);
+  const catalogPrices = lavaCatalogPricesForTariff(item, item.kind, access.accessDays);
   const hasForeignOnlyPrices = Boolean(catalogPrices.length) && !catalogPrices.some((price) => price.currency === "RUB");
   const fixedPrices = catalogPrices
     .filter((price): price is typeof price & { amountMinor: number } => price.amountMinor !== null)
@@ -82,7 +104,7 @@ export function applyLavaCatalogItem(
     kind: item.kind,
     title: item.title,
     amountRub: hasForeignOnlyPrices ? null : item.amountRub ?? form.amountRub,
-    accessDays,
+    ...access,
     ...(bindings ? { bindings } : {})
   };
 }

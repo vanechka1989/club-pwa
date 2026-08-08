@@ -70,6 +70,7 @@ import type {
   PaymentProviderCatalogResponse,
   PaymentProviderCode,
   PaymentCurrency,
+  PaymentAccessType,
   PaymentProviderMutationResponse,
   AdminIndividualPaymentOfferPayload,
   AdminIndividualPaymentOfferCreateResponse,
@@ -488,7 +489,8 @@ export function createPaymentProduct(payload: {
   description?: string | null;
   badgeLabel?: string | null;
   amountRub: number | null;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
   prodamusSubscriptionId?: string | null;
   bindings?: PaymentProductProviderBinding[];
   isPublished?: boolean;
@@ -507,7 +509,8 @@ export function updatePaymentProduct(
     description?: string | null;
     badgeLabel?: string | null;
     amountRub: number | null;
-    accessDays: number;
+    accessType: PaymentAccessType;
+    accessDays: number | null;
     prodamusSubscriptionId?: string | null;
     bindings?: PaymentProductProviderBinding[];
     isPublished?: boolean;

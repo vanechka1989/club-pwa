@@ -54,7 +54,7 @@ import PaymentCurrencyPicker from "./PaymentCurrencyPicker.vue";
 import PaymentProviderSettings from "./PaymentProviderSettings.vue";
 import LavaProviderTabs from "./LavaProviderTabs.vue";
 import LavaCatalogList from "./LavaCatalogList.vue";
-import { applyLavaCatalogItem, lavaCatalogAccessDays, lavaCatalogPeriodOptions } from "./paymentProductForm";
+import { applyLavaCatalogItem, lavaCatalogAccessDays, lavaCatalogPeriodOptions, normalizePaymentAccess } from "./paymentProductForm";
 import { buildLavaProviderForm } from "./lavaProviderForm";
 import { productCheckoutAction, productCurrencyOptions, serverCurrencyPickerAction } from "./paymentCheckout";
 import { startConfirmedCheckout, startCurrencyChoiceCheckout } from "./checkoutFlow";
@@ -112,7 +112,8 @@ const productForm = ref({
   title: "",
   badgeLabel: "",
   amountRub: 990 as number | null,
-  accessDays: 30,
+  accessType: "limited" as "limited" | "lifetime",
+  accessDays: 30 as number | null,
   prodamusSubscriptionId: "",
   bindings: [
     { provider: "prodamus", enabled: true, externalProductId: null, externalOfferId: null },
@@ -343,6 +344,7 @@ function resetProductForm() {
     title: "",
     badgeLabel: "",
     amountRub: 990,
+    accessType: "limited",
     accessDays: 30,
     prodamusSubscriptionId: "",
     bindings: [
@@ -358,6 +360,7 @@ function handleLavaItemSelected(item: PaymentProviderCatalogItem) {
 }
 
 function handleLavaPeriodSelected(accessDays: number) {
+  productForm.value.accessType = "limited";
   productForm.value.accessDays = accessDays;
 }
 
@@ -369,6 +372,7 @@ function setProductForm(product?: PaymentProduct) {
       title: product.title,
       badgeLabel: product.badgeLabel ?? "",
       amountRub: product.amountRub,
+      accessType: product.accessType ?? "limited",
       accessDays: product.accessDays,
       prodamusSubscriptionId: product.prodamusSubscriptionId ?? "",
       bindings: (product.bindings ?? []).length ? (product.bindings ?? []).map((binding) => ({ ...binding })) : [
@@ -830,6 +834,7 @@ function formatProductPrices(product: PaymentProduct) {
 }
 
 function productPeriod(product: PaymentProduct) {
+  if (product.accessType === "lifetime") return "Постоянный доступ";
   return product.kind === "recurrent"
     ? `${t("paymentsRecurringPeriod")} ${product.accessDays} ${t("paymentsDaysShort")}`
     : `${t("paymentsOneTimePeriod")} ${product.accessDays} ${t("paymentsDaysShort")}`;
@@ -841,6 +846,12 @@ onMounted(async () => {
 });
 
 watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
+watch(() => productForm.value.kind, (kind) => {
+  Object.assign(productForm.value, normalizePaymentAccess(kind, productForm.value.accessType, productForm.value.accessDays));
+});
+watch(() => productForm.value.accessType, (accessType) => {
+  Object.assign(productForm.value, normalizePaymentAccess(productForm.value.kind, accessType, productForm.value.accessDays));
+});
 </script>
 
 <template>
@@ -1285,7 +1296,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
       v-if="showProductModal"
       class="payment-task-screen"
       :title="editingProduct ? 'Редактировать тариф' : 'Новый тариф'"
-      subtitle="Обычный платеж или рекуррентная подписка."
+      subtitle="Разовая оплата, постоянный доступ или рекуррентная подписка."
       portal
       @back="closeProductModal"
     >
@@ -1293,7 +1304,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
             <PaymentProductBindings
               v-model="productForm.bindings"
               :kind="productForm.kind"
-              :access-days="productForm.accessDays"
+              :access-days="productForm.accessDays ?? 30"
               :lava-catalog="lavaCatalog"
               @lava-item-selected="handleLavaItemSelected"
               @lava-period-selected="handleLavaPeriodSelected"
@@ -1310,11 +1321,18 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
               <span class="text-sm font-semibold text-[var(--muted)]">Название</span>
               <input v-model.trim="productForm.title" class="text-input mt-2" required />
             </label>
+            <label v-if="productForm.kind === 'one_time'" class="block">
+              <span class="text-sm font-semibold text-[var(--muted)]">Срок доступа</span>
+              <select v-model="productForm.accessType" class="text-input mt-2">
+                <option value="limited">Ограниченный срок</option>
+                <option value="lifetime">Постоянный доступ</option>
+              </select>
+            </label>
             <label class="block">
               <span class="text-sm font-semibold text-[var(--muted)]">Метка (необязательно)</span>
               <input v-model="productForm.badgeLabel" class="text-input mt-2" maxlength="32" placeholder="Например: Выгодно" />
             </label>
-            <div class="grid gap-3" :class="selectedProductProvider === 'prodamus' ? 'grid-cols-2' : 'grid-cols-1'">
+            <div class="grid gap-3" :class="selectedProductProvider === 'prodamus' && productForm.accessType === 'limited' ? 'grid-cols-2' : 'grid-cols-1'">
               <label v-if="selectedProductProvider === 'prodamus'" class="block">
                 <span class="text-sm font-semibold text-[var(--muted)]">Цена для Prodamus, ₽</span>
                 <input
@@ -1325,7 +1343,7 @@ watch([() => route.path, isAdmin, isOwner], syncPaymentTaskRoute);
                   required
                 />
               </label>
-              <label class="block">
+              <label v-if="productForm.accessType === 'limited'" class="block">
                 <span class="text-sm font-semibold text-[var(--muted)]">Дней доступа</span>
                 <input
                   v-model.number="productForm.accessDays"
