@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Profile editing fixes",
+  title: "Lifetime access",
   items: [
-    "The name editor now opens above the bottom navigation, keeping Cancel and Save visible and tappable.",
-    "Ordinary labels, statuses, and profile cards no longer trigger accidental text selection or system search.",
-    "Text selection and native editing actions remain available inside editable controls."
+    "Shared plans and personal offers can now grant lifetime access with no expiration date.",
+    "Lifetime access is available for one-time payments through Prodamus and Lava and is shown clearly before payment and in the profile.",
+    "A later limited-duration purchase never shortens lifetime access, while the owner can still close it manually."
   ]
 };
 
