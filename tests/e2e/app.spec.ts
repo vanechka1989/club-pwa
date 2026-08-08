@@ -505,7 +505,8 @@ async function mockApi(page: Page, sessionUser = currentUser) {
           title: "Персональный доступ к клубу",
           currency: "RUB",
           amountMinor: 149000,
-          accessDays: 45,
+          accessType: "lifetime",
+          accessDays: null,
           status: "active",
           expiresAt: "2026-08-01T10:00:00.000Z",
           createdAt: now,
@@ -3414,7 +3415,7 @@ test("keeps the copyable error detail usable at all target widths", async ({ pag
   await expect(page.getByRole("button", { name: "Скопировать отчёт" })).toBeVisible();
 });
 
-test("opens payment admin task screens when their URLs are loaded directly", async ({ page }) => {
+test("opens payment admin task screens when their URLs are loaded directly", async ({ page }, testInfo) => {
   await page.goto("/payments/provider");
   await expect(page).toHaveURL(/\/payments\/provider$/);
   await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
@@ -3422,6 +3423,13 @@ test("opens payment admin task screens when their URLs are loaded directly", asy
   await page.goto("/payments/plans/new");
   await expect(page).toHaveURL(/\/payments\/plans\/new$/);
   await expect(page.locator(".payment-task-screen .task-screen")).toBeVisible();
+  await page.getByLabel("Срок доступа").selectOption("lifetime");
+  await expect(page.getByLabel("Дней доступа")).toHaveCount(0);
+  await expect(page.getByLabel("Срок доступа")).toHaveValue("lifetime");
+  await expectNoHorizontalOverflow(page);
+  if (["android-compact-320", "desktop-chrome"].includes(testInfo.project.name)) {
+    await page.screenshot({ path: testInfo.outputPath("lifetime-tariff-form.png"), fullPage: false, animations: "disabled" });
+  }
 });
 
 test("keeps release history inside one full-screen scrolling task page", async ({ page }, testInfo) => {
@@ -3474,9 +3482,10 @@ test("opens a personal payment offer without viewport overflow", async ({ page }
   await page.goto(`/payments/offers/${individualOfferToken}`);
   await expect(page.locator(".offer-card")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Персональный доступ к клубу" })).toBeVisible();
+  await expect(page.getByText("Постоянный доступ после подтверждения оплаты", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Оплатить/ })).toBeVisible();
   await expectNoHorizontalOverflow(page);
-  if (testInfo.project.name === "release-android") {
+  if (["android-compact-320", "desktop-chrome"].includes(testInfo.project.name)) {
     await page.screenshot({ path: testInfo.outputPath("individual-payment-offer.png"), fullPage: false, animations: "disabled" });
   }
 });
