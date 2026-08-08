@@ -121,8 +121,9 @@ function errorForStatus(status: number) {
   return new LavaApiError("LAVA_UNAVAILABLE");
 }
 
-function lavaPeriodicity(kind: ProviderCheckoutInput["product"]["kind"], accessDays: number) {
+function lavaPeriodicity(kind: ProviderCheckoutInput["product"]["kind"], accessDays: number | null) {
   if (kind === "one_time") return undefined;
+  if (accessDays === null) throw new LavaApiError("LAVA_INVALID_RESPONSE");
   const values = new Map<number, string>([
     [30, "MONTHLY"],
     [90, "PERIOD_90_DAYS"],

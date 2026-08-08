@@ -12,7 +12,7 @@ import { logger } from "../logger";
 import { notifyPaymentReceived } from "./paymentNotification";
 import type { NormalizedPaymentEvent } from "./providerAdapter";
 import { awardReferralRewardForFirstPayment } from "../referrals/referrals";
-import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
+import { getCompatibleLegacyRubAmount, getPaidAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
 import { resolvePaymentOrderSnapshot } from "./paymentOrderSnapshot";
 import { extractVerifiedPaymentPhone } from "../admin/personalData";
 
@@ -23,7 +23,7 @@ type PaymentSuccessNotification = {
   productTitle: string;
   currency: "RUB" | "USD" | "EUR";
   amountMinor: number;
-  expiresAt: Date;
+  expiresAt: Date | null;
   order: typeof paymentOrders.$inferSelect;
   user: typeof users.$inferSelect;
 };
@@ -103,6 +103,7 @@ export async function processPaymentEvent(
           externalSubscriptionId: event.externalSubscriptionId,
           productTitleSnapshot: parentOrder.productTitleSnapshot,
           productKindSnapshot: parentOrder.productKindSnapshot,
+          accessTypeSnapshot: parentOrder.accessTypeSnapshot,
           accessDaysSnapshot: parentOrder.accessDaysSnapshot,
           createdAt: event.occurredAt,
           updatedAt: event.occurredAt
@@ -189,7 +190,12 @@ export async function processPaymentEvent(
       where: eq(subscriptions.userId, order.userId),
       orderBy: [desc(subscriptions.expiresAt), desc(subscriptions.createdAt)]
     });
-    const expiresAt = getExtendedAccessExpiry(event.occurredAt, latestAccess?.expiresAt ?? null, productSnapshot.accessDays);
+    const expiresAt = getPaidAccessExpiry(
+      event.occurredAt,
+      latestAccess?.expiresAt ?? null,
+      productSnapshot.accessType,
+      productSnapshot.accessDays
+    );
     await tx.insert(subscriptions).values({
       userId: order.userId,
       status: "active",

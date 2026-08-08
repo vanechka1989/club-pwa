@@ -44,6 +44,7 @@ function serializeOffer(offer: typeof individualPaymentOffers.$inferSelect) {
     title: offer.title,
     currency: offer.currency,
     amountMinor: offer.amountMinor,
+    accessType: offer.accessType,
     accessDays: offer.accessDays,
     status: offer.status as "active" | "checkout_pending" | "paid" | "expired" | "cancelled",
     expiresAt: offer.expiresAt.toISOString(),
@@ -218,6 +219,7 @@ export const individualPaymentOffersRoute = new Hono<{ Variables: AuthVariables 
           providerOrderId,
           productTitleSnapshot: offer.title,
           productKindSnapshot: offer.kind,
+          accessTypeSnapshot: offer.accessType,
           accessDaysSnapshot: offer.accessDays,
           createdAt: now,
           updatedAt: now

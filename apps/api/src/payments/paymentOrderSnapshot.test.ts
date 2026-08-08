@@ -28,6 +28,20 @@ describe("payment order product snapshots", () => {
     });
   });
 
+  it("uses an immutable shared-product snapshot after the tariff changes", () => {
+    expect(resolvePaymentOrderSnapshot({
+      productId: "product-edited",
+      individualOfferId: null,
+      productTitleSnapshot: "Доступ на месяц",
+      productKindSnapshot: "one_time",
+      accessTypeSnapshot: "limited",
+      accessDaysSnapshot: 30,
+      product: { id: "product-edited", title: "Навсегда", kind: "one_time", accessType: "lifetime", accessDays: null }
+    })).toEqual({
+      id: "product-edited", title: "Доступ на месяц", kind: "one_time", accessType: "limited", accessDays: 30, source: "product"
+    });
+  });
+
   it("uses immutable fields for an individual offer order", () => {
     expect(resolvePaymentOrderSnapshot({
       productId: null,

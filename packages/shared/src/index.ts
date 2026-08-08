@@ -204,7 +204,7 @@ export const adminUserAcquisitionSchema = z.object({
 export type AdminUserAcquisition = z.infer<typeof adminUserAcquisitionSchema>;
 
 export const currentAccessSchema = z.object({
-  source: z.enum(["one_time", "recurrent", "gift", "referral", "unknown"]),
+  source: z.enum(["one_time", "recurrent", "lifetime", "gift", "referral", "unknown"]),
   title: z.string().min(1),
   accessDays: z.number().int().positive().nullable(),
   bonusDays: z.number().int().positive().nullable(),

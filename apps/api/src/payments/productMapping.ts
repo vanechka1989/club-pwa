@@ -1,4 +1,4 @@
-import type { PaymentCurrency, PaymentProviderCode } from "@club/shared";
+import type { PaymentAccessType, PaymentCurrency, PaymentProviderCode } from "@club/shared";
 
 type BindingPrice = { currency: PaymentCurrency; amountMinor: number; isEnabled: boolean };
 type Binding = {
@@ -17,7 +17,8 @@ type Product = {
   description: string | null;
   badgeLabel: string | null;
   amountRub: number | null;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
   prodamusSubscriptionId: string | null;
   isPublished: boolean;
   archivedUntil: Date | null;
@@ -60,6 +61,7 @@ export function mapPaymentProduct(product: Product) {
     badgeLabel: product.badgeLabel,
     amountRub: product.amountRub,
     prices: (activeBinding?.prices ?? []).filter((price) => price.isEnabled).map(({ currency, amountMinor }) => ({ currency, amountMinor })),
+    accessType: product.accessType,
     accessDays: product.accessDays,
     prodamusSubscriptionId: product.prodamusSubscriptionId,
     bindings,

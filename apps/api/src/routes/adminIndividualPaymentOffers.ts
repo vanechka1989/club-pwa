@@ -69,6 +69,7 @@ function serializeOffer(
     title: offer.title,
     currency: offer.currency,
     amountMinor: offer.amountMinor,
+    accessType: offer.accessType,
     accessDays: offer.accessDays,
     status,
     expiresAt: offer.expiresAt.toISOString(),
@@ -211,6 +212,7 @@ export const adminIndividualPaymentOffersRoute = new Hono<{ Variables: AuthVaria
       title: offer.title,
       currency: offer.currency,
       amountMinor: offer.amountMinor,
+      accessType: offer.accessType,
       accessDays: offer.accessDays,
       expiresAt,
       appPath
@@ -241,6 +243,7 @@ export const adminIndividualPaymentOffersRoute = new Hono<{ Variables: AuthVaria
         kind: offer.kind,
         currency: offer.currency,
         amountMinor: offer.amountMinor,
+        accessType: offer.accessType,
         accessDays: offer.accessDays,
         expiresAt: offer.expiresAt.toISOString()
       }

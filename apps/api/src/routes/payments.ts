@@ -67,6 +67,7 @@ import { checkoutCurrencyChoiceResponse, checkoutFailureResponse, checkoutPrefli
 import { isLavaCatalogPriceForProduct } from "../payments/lavaPeriodicity";
 import { resolveLavaCheckoutBuyerEmail } from "../payments/lavaCheckoutBuyer";
 import { resolvePaymentOrderSnapshot, type ResolvedPaymentOrderSnapshot } from "../payments/paymentOrderSnapshot";
+import { getPaidAccessExpiry } from "../payments/paymentEventRules";
 
 const productArchiveTtlMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -96,10 +97,18 @@ const productPayloadSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   badgeLabel: z.string().trim().max(32).nullable().optional(),
   amountRub: z.number().int().positive().max(10_000_000).nullable(),
-  accessDays: z.number().int().positive().max(3650),
+  accessType: z.enum(["limited", "lifetime"]).default("limited"),
+  accessDays: z.number().int().positive().max(3650).nullable(),
   prodamusSubscriptionId: z.string().trim().max(64).nullable().optional(),
   bindings: z.array(productBindingPayloadSchema).max(2).optional(),
   isPublished: z.boolean().optional()
+}).superRefine((value, context) => {
+  if (value.accessType === "lifetime") {
+    if (value.kind === "recurrent") context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessType"], message: "Lifetime access cannot recur" });
+    if (value.accessDays !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessDays"], message: "Lifetime access has no days" });
+  } else if (value.accessDays === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["accessDays"], message: "Limited access requires days" });
+  }
 });
 
 const productStatusPayloadSchema = z.object({
@@ -325,7 +334,7 @@ async function grantPaidAccess(
 ) {
   const now = new Date();
   const verifiedPhone = extractVerifiedPaymentPhone("prodamus", payload);
-  const expiresAt = new Date(now.getTime() + product.accessDays * 24 * 60 * 60 * 1000);
+  const expiresAt = getPaidAccessExpiry(now, null, product.accessType, product.accessDays);
   const applied = await db.transaction(async (tx) => {
     if (order.individualOfferId) {
       const [claimedOffer] = await tx
@@ -569,7 +578,9 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         id: product.id,
         title: product.title,
         priceLabel: `${(product.amountRub ?? 0).toLocaleString("ru-RU")} ₽`,
-        periodLabel: product.kind === "recurrent" ? `каждые ${product.accessDays} дн.` : `${product.accessDays} дн.`,
+        periodLabel: product.accessType === "lifetime"
+          ? "постоянный доступ"
+          : product.kind === "recurrent" ? `каждые ${product.accessDays} дн.` : `${product.accessDays} дн.`,
         description: product.description ?? "Доступ к клубу и материалам."
       })),
       provider: provider ? mapProvider(provider) : null,
@@ -750,6 +761,10 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
               status: "pending",
               ...snapshot,
               providerOrderId: orderId,
+              productTitleSnapshot: product.title,
+              productKindSnapshot: product.kind,
+              accessTypeSnapshot: product.accessType,
+              accessDaysSnapshot: product.accessDays,
               createdAt: now,
               updatedAt: now
             })
@@ -1414,6 +1429,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
               description: body.data.description ?? null,
               badgeLabel: body.data.badgeLabel || null,
               amountRub: body.data.amountRub,
+              accessType: body.data.accessType,
               accessDays: body.data.accessDays,
               prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
               isPublished: body.data.isPublished ?? false,
@@ -1447,6 +1463,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         title: product.title,
         kind: product.kind,
         amountRub: product.amountRub,
+        accessType: product.accessType,
         accessDays: product.accessDays,
         isPublished: product.isPublished
       }
@@ -1541,6 +1558,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
               description: body.data.description ?? null,
               badgeLabel: body.data.badgeLabel || null,
               amountRub: body.data.amountRub,
+              accessType: body.data.accessType,
               accessDays: body.data.accessDays,
               prodamusSubscriptionId: body.data.prodamusSubscriptionId ?? null,
               isPublished: body.data.isPublished ?? false,
@@ -1574,6 +1592,7 @@ export const paymentsRoute = new Hono<{ Variables: AuthVariables }>()
         title: product.title,
         kind: product.kind,
         amountRub: product.amountRub,
+        accessType: product.accessType,
         accessDays: product.accessDays,
         isPublished: product.isPublished
       }

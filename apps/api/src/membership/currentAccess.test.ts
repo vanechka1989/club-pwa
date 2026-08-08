@@ -39,9 +39,27 @@ describe("resolveCurrentAccess", () => {
       provider: "lava",
       expiresAt,
       nextPaymentAt: null,
-      product: { title: "Клуб Premium", kind: "one_time", accessDays: 30 },
+      product: { title: "Клуб Premium", kind: "one_time", accessType: "limited", accessDays: 30 },
       bonusDays: null
     })).toMatchObject({ source: "one_time", title: "Клуб Premium", accessDays: 30 });
+  });
+
+  it("describes paid lifetime access without an expiry", () => {
+    expect(resolveCurrentAccess({
+      membershipStatus: "active",
+      provider: "lava",
+      expiresAt: null,
+      nextPaymentAt: null,
+      product: { title: "Навсегда", kind: "one_time", accessType: "lifetime", accessDays: null },
+      bonusDays: null
+    })).toEqual({
+      source: "lifetime",
+      title: "Навсегда",
+      accessDays: null,
+      bonusDays: null,
+      expiresAt: null,
+      nextPaymentAt: null
+    });
   });
 
   it("uses the recurring product and next payment date", () => {
@@ -50,7 +68,7 @@ describe("resolveCurrentAccess", () => {
       provider: "prodamus_recurrent",
       expiresAt,
       nextPaymentAt: expiresAt,
-      product: { title: "Клуб Premium", kind: "recurrent", accessDays: 30 },
+      product: { title: "Клуб Premium", kind: "recurrent", accessType: "limited", accessDays: 30 },
       bonusDays: null
     })).toMatchObject({
       source: "recurrent",

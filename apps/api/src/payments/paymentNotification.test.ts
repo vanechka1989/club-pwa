@@ -18,6 +18,15 @@ describe("payment notification", () => {
     ).toBe("Оплата получена.\nТариф: Подписка на 1 месяц\nСумма: 19,99 $\nДоступ активен до 25.07.2026.");
   });
 
+  it("confirms permanent access without inventing an expiry date", () => {
+    expect(formatPaymentReceivedMessage({
+      productTitle: "Постоянный доступ",
+      currency: "RUB",
+      amountMinor: 499000,
+      expiresAt: null
+    })).toBe("Оплата получена.\nТариф: Постоянный доступ\nСумма: 4 990,00 ₽\nПостоянный доступ активирован.");
+  });
+
   it("creates payment received app notification", async () => {
     await notifyPaymentReceived({
       userId: "user-1",

@@ -26,6 +26,24 @@ export type ResolvedPaymentOrderSnapshot = {
 };
 
 export function resolvePaymentOrderSnapshot(input: ProductSnapshotInput): ResolvedPaymentOrderSnapshot {
+  const snapshotId = input.productId ?? input.individualOfferId;
+  if (
+    snapshotId &&
+    input.productTitleSnapshot &&
+    input.productKindSnapshot &&
+    input.accessTypeSnapshot &&
+    ((input.accessTypeSnapshot === "limited" && input.accessDaysSnapshot !== null) ||
+      (input.accessTypeSnapshot === "lifetime" && input.accessDaysSnapshot === null))
+  ) {
+    return {
+      id: snapshotId,
+      title: input.productTitleSnapshot,
+      kind: input.productKindSnapshot,
+      accessType: input.accessTypeSnapshot,
+      accessDays: input.accessDaysSnapshot,
+      source: input.productId ? "product" : "offer"
+    };
+  }
   if (input.productId && input.product) {
     return {
       id: input.product.id,
@@ -34,23 +52,6 @@ export function resolvePaymentOrderSnapshot(input: ProductSnapshotInput): Resolv
       accessType: input.product.accessType,
       accessDays: input.product.accessDays,
       source: "product"
-    };
-  }
-  if (
-    input.individualOfferId &&
-    input.productTitleSnapshot &&
-    input.productKindSnapshot &&
-    input.accessTypeSnapshot &&
-    ((input.accessTypeSnapshot === "limited" && input.accessDaysSnapshot !== null) ||
-      (input.accessTypeSnapshot === "lifetime" && input.accessDaysSnapshot === null))
-  ) {
-    return {
-      id: input.individualOfferId,
-      title: input.productTitleSnapshot,
-      kind: input.productKindSnapshot,
-      accessType: input.accessTypeSnapshot,
-      accessDays: input.accessDaysSnapshot,
-      source: "offer"
     };
   }
   throw new Error("PAYMENT_ORDER_PRODUCT_SNAPSHOT_MISSING");

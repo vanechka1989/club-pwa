@@ -2886,6 +2886,13 @@ export const adminRoute = new Hono<{ Variables: AuthVariables }>()
           ? new Date(body.data.expiresAt)
           : now;
 
+    if (body.data.status !== "active") {
+      await db
+        .update(subscriptions)
+        .set({ status: "inactive", updatedAt: now })
+        .where(and(eq(subscriptions.userId, user.id), eq(subscriptions.status, "active")));
+    }
+
     await db.insert(subscriptions).values({
       userId: user.id,
       status: body.data.status as MembershipStatus,

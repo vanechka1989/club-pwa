@@ -8,7 +8,7 @@ export type PaymentProductForProdamus = {
   title: string;
   amountRub: number;
   kind: "one_time" | "recurrent";
-  accessDays: number;
+  accessDays: number | null;
   prodamusSubscriptionId: string | null;
 };
 

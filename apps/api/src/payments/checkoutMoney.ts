@@ -38,7 +38,7 @@ export function isLavaCatalogPriceCurrent(
   },
   expected: { currency: PaymentCurrency; amountMinor: number },
   kind: PaymentProductKind = "one_time",
-  accessDays = 30
+  accessDays: number | null = 30
 ) {
   if (catalogItem.isStale) return false;
   const catalogPrice = catalogItem.prices.find((price) =>

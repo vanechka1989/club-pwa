@@ -11,13 +11,13 @@ export function formatPaymentReceivedMessage({
   productTitle: string;
   currency: PaymentCurrency;
   amountMinor: number;
-  expiresAt: Date;
+  expiresAt: Date | null;
 }) {
   return [
     "Оплата получена.",
     `Тариф: ${productTitle}`,
     `Сумма: ${new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(minorToMajor(amountMinor))}`,
-    `Доступ активен до ${expiresAt.toLocaleDateString("ru-RU")}.`
+    expiresAt ? `Доступ активен до ${expiresAt.toLocaleDateString("ru-RU")}.` : "Постоянный доступ активирован."
   ].join("\n");
 }
 
@@ -32,7 +32,7 @@ export async function notifyPaymentReceived({
   productTitle: string;
   currency: PaymentCurrency;
   amountMinor: number;
-  expiresAt: Date;
+  expiresAt: Date | null;
 }) {
   await createAppNotification({
     userId,

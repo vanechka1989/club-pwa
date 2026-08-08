@@ -1,9 +1,10 @@
-import type { CurrentAccess, MembershipStatus, PaymentProductKind } from "@club/shared";
+import type { CurrentAccess, MembershipStatus, PaymentAccessType, PaymentProductKind } from "@club/shared";
 
 type AccessProduct = {
   title: string;
   kind: PaymentProductKind;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
 };
 
 export type CurrentAccessInput = {
@@ -40,6 +41,9 @@ export function resolveCurrentAccess(input: CurrentAccessInput): CurrentAccess |
   }
 
   if (input.product && (input.provider === "prodamus" || input.provider === "lava")) {
+    if (input.product.accessType === "lifetime") {
+      return { source: "lifetime", title: input.product.title, ...common, nextPaymentAt: null };
+    }
     return { source: "one_time", title: input.product.title, ...common, nextPaymentAt: null };
   }
 

@@ -33,7 +33,7 @@ type PreparationInput = {
   existingBindings?: ExistingBinding[];
   amountRub: number | null;
   kind?: PaymentProductKind;
-  accessDays?: number;
+  accessDays?: number | null;
 };
 
 type PreparationResult =
@@ -53,7 +53,7 @@ function validateLavaPrices(
   catalogItem: CatalogItem | undefined,
   existingBindings: ExistingBinding[],
   kind: PaymentProductKind,
-  accessDays: number
+  accessDays: number | null
 ): string | null {
   if (!binding.externalProductId || !binding.externalOfferId) return "Для Lava укажите ID товара и предложения.";
   if (!binding.prices.some((price) => price.isEnabled)) return "Для Lava выберите хотя бы одну валюту.";
@@ -86,7 +86,7 @@ function validateLavaPrices(
 export function prepareProductBindingPrices(input: PreparationInput): PreparationResult {
   const existingBindings = input.existingBindings ?? [];
   const kind = input.kind ?? "one_time";
-  const accessDays = input.accessDays ?? 30;
+  const accessDays = input.accessDays === undefined ? 30 : input.accessDays;
   const providersByCode = new Map(input.providers.map((provider) => [provider.provider, provider]));
   const bindings: ProductBindingInput[] = [];
 

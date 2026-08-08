@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import type { PaymentProductKind } from "@club/shared";
+import type { PaymentAccessType, PaymentProductKind } from "@club/shared";
 import { db } from "../db/client";
 import { paymentOrders, referralRewards, userRecurrentSubscriptions } from "../db/schema";
 import { resolvePaymentOrderSnapshot } from "../payments/paymentOrderSnapshot";
@@ -7,7 +7,8 @@ import { resolvePaymentOrderSnapshot } from "../payments/paymentOrderSnapshot";
 type AccessProduct = {
   title: string;
   kind: PaymentProductKind;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
 };
 
 export type CurrentAccessSourceData = {
@@ -48,7 +49,7 @@ export async function loadCurrentAccessSourceData({
     });
     const source = subscription?.product ?? subscription?.individualOffer ?? null;
     return {
-      product: source ? { title: source.title, kind: source.kind, accessDays: source.accessDays } : null,
+      product: source ? { title: source.title, kind: source.kind, accessType: source.accessType, accessDays: source.accessDays } : null,
       bonusDays: null,
       recurrentPaymentStatus: subscription?.status ?? null
     };
@@ -69,7 +70,7 @@ export async function loadCurrentAccessSourceData({
     }
     const snapshot = resolvePaymentOrderSnapshot(order);
     return {
-      product: { title: snapshot.title, kind: snapshot.kind, accessDays: snapshot.accessDays },
+      product: { title: snapshot.title, kind: snapshot.kind, accessType: snapshot.accessType, accessDays: snapshot.accessDays },
       bonusDays: null,
       recurrentPaymentStatus: null
     };

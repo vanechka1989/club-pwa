@@ -1,11 +1,14 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { subscriptions } from "../db/schema";
 
 export async function getMembership(userId: string) {
   const subscription = await db.query.subscriptions.findFirst({
     where: eq(subscriptions.userId, userId),
-    orderBy: [desc(subscriptions.createdAt)]
+    orderBy: [
+      sql`case when ${subscriptions.status} = 'active' and ${subscriptions.expiresAt} is null then 0 else 1 end`,
+      desc(subscriptions.createdAt)
+    ]
   });
 
   const isActive =

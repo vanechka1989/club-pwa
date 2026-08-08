@@ -3,7 +3,7 @@ import { mapPaymentProduct } from "./productMapping";
 
 const base = {
   id: "product-1", providerId: "lava-provider", kind: "one_time" as const, title: "Club", description: null,
-  badgeLabel: null, amountRub: null, accessDays: 30, prodamusSubscriptionId: null, isPublished: true,
+  badgeLabel: null, amountRub: null, accessType: "limited" as const, accessDays: 30, prodamusSubscriptionId: null, isPublished: true,
   archivedUntil: null, createdAt: new Date("2026-07-27T00:00:00Z"), updatedAt: new Date("2026-07-27T00:00:00Z")
 };
 

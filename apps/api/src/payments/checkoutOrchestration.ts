@@ -15,7 +15,7 @@ export async function runCheckoutPreflight<T>(input: {
   prices: Price[];
   amountRub: number | null;
   kind?: PaymentProductKind;
-  accessDays?: number;
+  accessDays?: number | null;
   catalogItem: CatalogItem;
   createOrder: (money: { currency: PaymentCurrency; amountMinor: number }) => Promise<T>;
 }) {
@@ -25,7 +25,7 @@ export async function runCheckoutPreflight<T>(input: {
     input.catalogItem,
     money,
     input.kind ?? "one_time",
-    input.accessDays ?? 30
+    input.accessDays === undefined ? 30 : input.accessDays
   )) {
     return { kind: "drift" as const };
   }

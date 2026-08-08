@@ -23,7 +23,7 @@ export type ProviderCheckoutInput = {
     amountMinor?: number;
     useCustomAmount?: boolean;
     kind: PaymentProductKind;
-    accessDays: number;
+    accessDays: number | null;
     externalProductId: string | null;
     externalOfferId: string | null;
   };

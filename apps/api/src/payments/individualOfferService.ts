@@ -1,4 +1,4 @@
-import type { AdminIndividualPaymentOfferPayload, PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
+import type { AdminIndividualPaymentOfferPayload, PaymentAccessType, PaymentCurrency, PaymentProductKind, PaymentProviderCode } from "@club/shared";
 import { isLavaCatalogPriceForProduct } from "./lavaPeriodicity";
 
 type OfferProvider = {
@@ -30,7 +30,8 @@ export type IndividualOfferDraft = {
   title: string;
   currency: PaymentCurrency;
   amountMinor: number;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
   externalProductId: string | null;
   externalOfferId: string | null;
   catalogSnapshot: Record<string, unknown> | null;
@@ -57,6 +58,7 @@ export function buildIndividualOfferDraft(
       title: payload.title.trim(),
       currency: "RUB",
       amountMinor: payload.amountRub * 100,
+      accessType: payload.accessType,
       accessDays: payload.accessDays,
       externalProductId: payload.kind === "recurrent" ? payload.externalProductId : null,
       externalOfferId: null,
@@ -67,6 +69,9 @@ export function buildIndividualOfferDraft(
   const item = context.lavaCatalog.find((entry) => entry.id === payload.catalogItemId);
   if (!item || item.isStale || !item.isSelectable || !item.externalOfferId) {
     throw new Error("INDIVIDUAL_OFFER_CATALOG_UNAVAILABLE");
+  }
+  if (payload.accessType === "lifetime" && item.kind === "recurrent") {
+    throw new Error("INDIVIDUAL_OFFER_LIFETIME_RECURRENT");
   }
   const price = item.prices.find((entry) =>
     entry.currency === payload.currency && isLavaCatalogPriceForProduct(entry.periodicity, item.kind, payload.accessDays)
@@ -84,6 +89,7 @@ export function buildIndividualOfferDraft(
     title: item.title,
     currency: payload.currency,
     amountMinor,
+    accessType: payload.accessType,
     accessDays: payload.accessDays,
     externalProductId: item.externalProductId,
     externalOfferId: item.externalOfferId,
@@ -95,6 +101,7 @@ export function buildIndividualOfferDraft(
       kind: item.kind,
       currency: payload.currency,
       amountMinor,
+      accessType: payload.accessType,
       accessDays: payload.accessDays,
       metadata: item.metadata
     }
@@ -115,7 +122,8 @@ export function buildIndividualOfferNotification(input: {
   title: string;
   currency: PaymentCurrency;
   amountMinor: number;
-  accessDays: number;
+  accessType: PaymentAccessType;
+  accessDays: number | null;
   expiresAt: Date;
   appPath: string;
 }) {
@@ -130,11 +138,13 @@ export function buildIndividualOfferNotification(input: {
   const title = escapeHtml(input.title);
   const safePath = escapeHtml(input.appPath);
   const deadline = input.expiresAt.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
-  const body = `${input.title} — ${amount}, доступ на ${input.accessDays} дн. Предложение действует до ${deadline}.`;
+  const accessText = input.accessType === "lifetime" ? "постоянный доступ" : `доступ на ${input.accessDays} дн.`;
+  const accessHtml = input.accessType === "lifetime" ? "Постоянный доступ" : `${input.accessDays} дн.`;
+  const body = `${input.title} — ${amount}, ${accessText}. Предложение действует до ${deadline}.`;
   return {
     title: "Персональное предложение",
     body,
-    bodyHtml: `<strong>${title}</strong><br>${escapeHtml(amount)} · ${input.accessDays} дн.<br>Действует до ${escapeHtml(deadline)}.<br><a href="${safePath}">Перейти к оплате</a>`,
+    bodyHtml: `<strong>${title}</strong><br>${escapeHtml(amount)} · ${accessHtml}<br>Действует до ${escapeHtml(deadline)}.<br><a href="${safePath}">Перейти к оплате</a>`,
     pushUrl: input.appPath
   };
 }
