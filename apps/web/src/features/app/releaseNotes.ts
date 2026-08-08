@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Only your modules",
+  title: "Prices without redundant zeros",
   items: [
-    "The two built-in demonstration modules and their sample lessons have been removed from learning.",
-    "The Modules section now contains only modules created by the club owner or team.",
-    "User-created drafts, published modules, and archived modules remain unchanged."
+    "Whole prices are now shown without redundant zero cents: 500 ₽ instead of 500.00 ₽.",
+    "The compact format is shared by tariffs, personal offers, profiles, and payment history.",
+    "Real minor units remain visible whenever an amount includes them."
   ]
 };
 

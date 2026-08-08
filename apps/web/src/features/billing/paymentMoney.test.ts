@@ -3,13 +3,15 @@ import { formatPaymentMoney } from "./paymentMoney";
 
 describe("payment money formatter", () => {
   it.each([
-    [{ currency: "RUB" as const, amountMinor: 123456 }, "₽"],
-    [{ currency: "USD" as const, amountMinor: 1999 }, "$"],
-    [{ currency: "EUR" as const, amountMinor: 1750 }, "€"]
-  ])("formats %s from minor units without replacing its currency", (money, symbol) => {
-    const value = formatPaymentMoney(money);
+    [{ currency: "RUB" as const, amountMinor: 50000 }, "500 ₽"],
+    [{ currency: "RUB" as const, amountMinor: 50050 }, "500,50 ₽"],
+    [{ currency: "USD" as const, amountMinor: 2000 }, "20 $"],
+    [{ currency: "USD" as const, amountMinor: 1999 }, "19,99 $"],
+    [{ currency: "EUR" as const, amountMinor: 1800 }, "18 €"],
+    [{ currency: "EUR" as const, amountMinor: 1750 }, "17,50 €"]
+  ])("omits zero cents and preserves real minor units for %s", (money, expected) => {
+    const value = formatPaymentMoney(money).replace(/\s/g, " ");
 
-    expect(value).toContain(symbol);
-    expect(value).toContain(money.currency === "RUB" ? "1\u00a0234,56" : money.currency === "USD" ? "19,99" : "17,50");
+    expect(value).toBe(expected);
   });
 });

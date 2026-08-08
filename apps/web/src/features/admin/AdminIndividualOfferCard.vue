@@ -8,6 +8,7 @@ import {
   getAdminIndividualPaymentOfferOptions,
   getAdminIndividualPaymentOffers
 } from "@/api/client";
+import { formatPaymentMoney } from "@/features/billing/paymentMoney";
 import { lavaCatalogPeriodOptions, lavaCatalogPricesForTariff, lavaCatalogAccessDays, normalizePaymentAccess, paymentAccessLabel } from "@/features/billing/paymentProductForm";
 
 const props = defineProps<{ telegramId: string; clientName: string; disabled: boolean }>();
@@ -41,7 +42,7 @@ const canSubmit = computed(() => providerAvailable.value && (provider.value === 
 ));
 
 function money(offer: Pick<IndividualPaymentOffer, "currency" | "amountMinor">) {
-  return new Intl.NumberFormat("ru-RU", { style: "currency", currency: offer.currency, maximumFractionDigits: 2 }).format(offer.amountMinor / 100);
+  return formatPaymentMoney(offer);
 }
 
 function statusLabel(status: IndividualPaymentOffer["status"]) {

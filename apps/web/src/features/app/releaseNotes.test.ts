@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes the default module cleanup as version 6.32", () => {
-    expect(appVersion).toBe("6.32");
-    expect(releaseNotes[0]?.title).toBe("Только ваши модули");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/демонстрацион/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/созданные/i);
+  it("publishes compact payment prices as version 6.33", () => {
+    expect(appVersion).toBe("6.33");
+    expect(releaseNotes[0]?.title).toBe("Цены без лишних нулей");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/без.*00/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/копе/i);
+
+    const defaultModuleCleanup = releaseNotes.find((note) => note.version === "6.32");
+    expect(defaultModuleCleanup?.title).toBe("Только ваши модули");
 
     const lifetimeAccess = releaseNotes.find((note) => note.version === "6.31");
     expect(lifetimeAccess?.title).toBe("Постоянный доступ");
@@ -378,7 +381,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Only your modules");
+    expect(englishNotes[0]?.title).toBe("Prices without redundant zeros");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

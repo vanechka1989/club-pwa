@@ -3482,8 +3482,9 @@ test("opens a personal payment offer without viewport overflow", async ({ page }
   await page.goto(`/payments/offers/${individualOfferToken}`);
   await expect(page.locator(".offer-card")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Персональный доступ к клубу" })).toBeVisible();
+  await expect(page.getByText("1 490 ₽", { exact: true })).toBeVisible();
   await expect(page.getByText("Постоянный доступ после подтверждения оплаты", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Оплатить/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Оплатить 1 490 ₽", exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
   if (["android-compact-320", "desktop-chrome"].includes(testInfo.project.name)) {
     await page.screenshot({ path: testInfo.outputPath("individual-payment-offer.png"), fullPage: false, animations: "disabled" });

@@ -6,6 +6,7 @@ import { createIndividualPaymentOfferCheckout, getIndividualPaymentOffer } from 
 import { openPaymentCheckoutUrl } from "./paymentRedirect";
 import TaskScreen from "@/features/app/TaskScreen.vue";
 import { paymentAccessLabel } from "./paymentProductForm";
+import { formatPaymentMoney } from "./paymentMoney";
 
 const props = defineProps<{ token: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -14,7 +15,7 @@ const paying = ref(false);
 const error = ref("");
 const data = ref<IndividualPaymentOfferDetailResponse | null>(null);
 const offer = computed(() => data.value?.offer ?? null);
-const amount = computed(() => offer.value ? new Intl.NumberFormat("ru-RU", { style: "currency", currency: offer.value.currency, maximumFractionDigits: 2 }).format(offer.value.amountMinor / 100) : "");
+const amount = computed(() => offer.value ? formatPaymentMoney(offer.value) : "");
 const available = computed(() => offer.value?.status === "active" || offer.value?.status === "checkout_pending");
 
 async function load() {

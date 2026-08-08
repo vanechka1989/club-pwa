@@ -216,8 +216,8 @@ describe("PaymentProductBindings", () => {
 
     const amounts = Array.from(view.container.querySelectorAll("output"), (output) => output.textContent);
     expect(amounts).toEqual(expect.arrayContaining([
-      expect.stringMatching(/9\s?000,00.*₽/),
-      expect.stringMatching(/120,00.*\$/)
+      expect.stringMatching(/9\s?000\s*₽/),
+      expect.stringMatching(/120\s*\$/)
     ]));
     expect(amounts).not.toEqual(expect.arrayContaining([expect.stringMatching(/1\s?500,00.*₽/)]));
   });
@@ -253,8 +253,8 @@ describe("PaymentProductBindings", () => {
     await view.rerender({ kind: "recurrent", accessDays: 180, modelValue, lavaCatalog });
     const amounts = Array.from(view.container.querySelectorAll("output"), (output) => output.textContent);
     expect(amounts).toEqual(expect.arrayContaining([
-      expect.stringMatching(/600,00.*₽/),
-      expect.stringMatching(/30,00.*\$/)
+      expect.stringMatching(/600\s*₽/),
+      expect.stringMatching(/30\s*\$/)
     ]));
     expect(amounts).not.toEqual(expect.arrayContaining([expect.stringMatching(/100,00.*₽/)]));
   });

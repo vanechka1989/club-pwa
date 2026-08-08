@@ -103,7 +103,7 @@ describe("LavaCatalogList", () => {
 
     expect(screen.getByText("1 месяц")).toBeTruthy();
     expect(screen.getByText("6 месяцев")).toBeTruthy();
-    expect(screen.getByText(/100,00.*₽.*5,00.*\$/)).toBeTruthy();
-    expect(screen.getByText(/600,00.*₽.*30,00.*\$/)).toBeTruthy();
+    expect(screen.getByText(/100\s*₽.*5\s*\$/)).toBeTruthy();
+    expect(screen.getByText(/600\s*₽.*30\s*\$/)).toBeTruthy();
   });
 });
