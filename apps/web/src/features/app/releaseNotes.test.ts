@@ -13,11 +13,14 @@ describe("release notes", () => {
     expect(historyModule).toContain('version: "5.66"');
     expect(historyModule).toContain('version: "1.38"');
   });
-  it("publishes lifetime payment access as version 6.31", () => {
-    expect(appVersion).toBe("6.31");
-    expect(releaseNotes[0]?.title).toBe("Постоянный доступ");
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/Prodamus и Lava/i);
-    expect(releaseNotes[0]?.items.join(" ")).toMatch(/не сокращает/i);
+  it("publishes the default module cleanup as version 6.32", () => {
+    expect(appVersion).toBe("6.32");
+    expect(releaseNotes[0]?.title).toBe("Только ваши модули");
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/демонстрацион/i);
+    expect(releaseNotes[0]?.items.join(" ")).toMatch(/созданные/i);
+
+    const lifetimeAccess = releaseNotes.find((note) => note.version === "6.31");
+    expect(lifetimeAccess?.title).toBe("Постоянный доступ");
 
     const profileInteractionFixes = releaseNotes.find((note) => note.version === "6.30");
     expect(profileInteractionFixes?.title).toBe("Исправление редактирования профиля");
@@ -375,7 +378,7 @@ describe("release notes", () => {
 
   it("does not expose Russian system copy in the English changelog", () => {
     const englishNotes = getLocalizedReleaseNotes("en");
-    expect(englishNotes[0]?.title).toBe("Lifetime access");
+    expect(englishNotes[0]?.title).toBe("Only your modules");
     expect(englishNotes.flatMap((note) => [note.title, ...note.items]).join(" ")).not.toMatch(/[А-Яа-яЁё]/);
   });
 });

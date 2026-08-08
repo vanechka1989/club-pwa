@@ -24,11 +24,11 @@ export function getReleaseNoteByVersion(version: string) {
 }
 
 const currentEnglishRelease: Pick<ReleaseNote, "title" | "items"> = {
-  title: "Lifetime access",
+  title: "Only your modules",
   items: [
-    "Shared plans and personal offers can now grant lifetime access with no expiration date.",
-    "Lifetime access is available for one-time payments through Prodamus and Lava and is shown clearly before payment and in the profile.",
-    "A later limited-duration purchase never shortens lifetime access, while the owner can still close it manually."
+    "The two built-in demonstration modules and their sample lessons have been removed from learning.",
+    "The Modules section now contains only modules created by the club owner or team.",
+    "User-created drafts, published modules, and archived modules remain unchanged."
   ]
 };
 
