@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
+import { getCompatibleLegacyRubAmount, getExtendedAccessExpiry, getPaidAccessExpiry, isPaymentAmountValid } from "./paymentEventRules";
 
 describe("normalized payment event decisions", () => {
   it("extends a renewal from the current paid expiry", () => {
@@ -16,6 +16,24 @@ describe("normalized payment event decisions", () => {
       new Date("2026-07-01T10:00:00.000Z"),
       30
     ).toISOString()).toBe("2026-08-24T10:00:00.000Z");
+  });
+
+  it("returns no expiry for lifetime access", () => {
+    expect(getPaidAccessExpiry(
+      new Date("2026-08-08T10:00:00.000Z"),
+      new Date("2026-09-08T10:00:00.000Z"),
+      "lifetime",
+      null
+    )).toBeNull();
+  });
+
+  it("rejects limited access without a duration", () => {
+    expect(() => getPaidAccessExpiry(
+      new Date("2026-08-08T10:00:00.000Z"),
+      null,
+      "limited",
+      null
+    )).toThrow("PAYMENT_ACCESS_DAYS_MISSING");
   });
 
   it("requires the Lava webhook amount and currency to match the order", () => {

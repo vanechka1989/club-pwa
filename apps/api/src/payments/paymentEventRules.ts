@@ -1,8 +1,21 @@
+import type { PaymentAccessType } from "@club/shared";
+
 const dayMs = 24 * 60 * 60 * 1000;
 
 export function getExtendedAccessExpiry(now: Date, currentExpiry: Date | null, accessDays: number) {
   const base = currentExpiry && currentExpiry > now ? currentExpiry : now;
   return new Date(base.getTime() + accessDays * dayMs);
+}
+
+export function getPaidAccessExpiry(
+  now: Date,
+  currentExpiry: Date | null,
+  accessType: PaymentAccessType,
+  accessDays: number | null
+) {
+  if (accessType === "lifetime") return null;
+  if (accessDays === null) throw new Error("PAYMENT_ACCESS_DAYS_MISSING");
+  return getExtendedAccessExpiry(now, currentExpiry, accessDays);
 }
 
 export function isPaymentAmountValid(
